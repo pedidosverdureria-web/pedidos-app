@@ -620,7 +620,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                 <IconSymbol name="number" size={20} color={colors.textSecondary} />
                 <View style={styles.infoContent}>
                   <Text style={styles.infoLabel}>Número de Pedido</Text>
-                  <Text style={styles.infoValue}>{order.order_number}</Text>
+                  <Text style={styles.infoValue}>#{order.order_number}</Text>
                 </View>
               </View>
 
@@ -661,8 +661,11 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                 </TouchableOpacity>
               )}
               {canAddProducts && (
-                <TouchableOpacity onPress={() => setAddingProduct(true)}>
-                  <IconSymbol name="plus.circle.fill" size={24} color={colors.success} />
+                <TouchableOpacity 
+                  onPress={() => setAddingProduct(true)}
+                  style={styles.addProductButton}
+                >
+                  <IconSymbol name="plus.circle.fill" size={28} color={colors.success} />
                 </TouchableOpacity>
               )}
             </View>
@@ -885,17 +888,17 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
         {/* Actions Card */}
         <View style={styles.actionsCard}>
           <TouchableOpacity style={styles.actionButton} onPress={handlePrint}>
-            <IconSymbol name="printer.fill" size={24} color={colors.primary} />
+            <IconSymbol name="printer.fill" size={28} color={colors.primary} />
             <Text style={styles.actionButtonText}>Imprimir</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton} onPress={handleWhatsApp}>
-            <IconSymbol name="message.fill" size={24} color={colors.success} />
+            <IconSymbol name="message.fill" size={28} color={colors.success} />
             <Text style={styles.actionButtonText}>WhatsApp</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-            <IconSymbol name="trash.fill" size={24} color={colors.error} />
+            <IconSymbol name="trash.fill" size={28} color={colors.error} />
             <Text style={styles.actionButtonText}>Eliminar</Text>
           </TouchableOpacity>
         </View>
@@ -1022,6 +1025,9 @@ const styles = StyleSheet.create({
   },
   headerActionButton: {
     padding: 4,
+  },
+  addProductButton: {
+    padding: 2,
   },
   label: {
     fontSize: 14,
