@@ -14,8 +14,10 @@ import { Stack } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { usePrinter } from '@/hooks/usePrinter';
-import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const PRINTER_CONFIG_KEY = '@printer_config';
 
 export default function PrinterSettingsScreen() {
   const { user } = useAuth();
@@ -47,34 +49,32 @@ export default function PrinterSettingsScreen() {
   const loadConfig = useCallback(async () => {
     try {
       setLoading(true);
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('printer_config')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading printer config:', error);
-      }
-
-      if (data) {
+      console.log('Loading printer config from AsyncStorage...');
+      
+      const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      
+      if (savedConfig) {
+        const parsedConfig = JSON.parse(savedConfig);
+        console.log('Loaded printer config:', parsedConfig);
         setConfig({
-          auto_print_enabled: data.auto_print_enabled ?? false,
-          auto_cut_enabled: data.auto_cut_enabled ?? true,
-          header_font_size: data.header_font_size ?? 2,
-          separator_lines: data.separator_lines ?? 1,
-          include_logo: data.include_logo ?? true,
-          include_customer_info: data.include_customer_info ?? true,
-          include_totals: data.include_totals ?? true,
+          auto_print_enabled: parsedConfig.auto_print_enabled ?? false,
+          auto_cut_enabled: parsedConfig.auto_cut_enabled ?? true,
+          header_font_size: parsedConfig.header_font_size ?? 2,
+          separator_lines: parsedConfig.separator_lines ?? 1,
+          include_logo: parsedConfig.include_logo ?? true,
+          include_customer_info: parsedConfig.include_customer_info ?? true,
+          include_totals: parsedConfig.include_totals ?? true,
         });
+      } else {
+        console.log('No saved printer config found, using defaults');
       }
     } catch (error) {
       console.error('Error loading printer config:', error);
+      Alert.alert('Error', 'No se pudo cargar la configuración de la impresora');
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
     loadConfig();
@@ -88,7 +88,6 @@ export default function PrinterSettingsScreen() {
 
     try {
       setSaving(true);
-      const supabase = getSupabase();
 
       const dataToSave = {
         user_id: user.id,
@@ -99,34 +98,9 @@ export default function PrinterSettingsScreen() {
         updated_at: new Date().toISOString(),
       };
 
-      console.log('Saving printer config:', dataToSave);
+      console.log('Saving printer config to AsyncStorage:', dataToSave);
 
-      const { data: existing } = await supabase
-        .from('printer_config')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (existing) {
-        const { error } = await supabase
-          .from('printer_config')
-          .update(dataToSave)
-          .eq('user_id', user.id);
-
-        if (error) {
-          console.error('Error updating config:', error);
-          throw error;
-        }
-      } else {
-        const { error } = await supabase
-          .from('printer_config')
-          .insert([dataToSave]);
-
-        if (error) {
-          console.error('Error inserting config:', error);
-          throw error;
-        }
-      }
+      await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(dataToSave));
 
       Alert.alert('Éxito', 'Configuración guardada correctamente');
     } catch (error) {

@@ -26,6 +26,9 @@ import {
 import { createInAppNotification, sendLocalNotification } from '@/utils/pushNotifications';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const PRINTER_CONFIG_KEY = '@printer_config';
 
 const styles = StyleSheet.create({
   container: {
@@ -434,24 +437,20 @@ export default function OrderDetailScreen() {
 
   const loadPrinterConfig = useCallback(async () => {
     try {
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('printer_config')
-        .select('*')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading printer config:', error);
-      }
-
-      if (data) {
-        setPrinterConfig(data);
+      console.log('Loading printer config from AsyncStorage...');
+      const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      
+      if (savedConfig) {
+        const parsedConfig = JSON.parse(savedConfig);
+        console.log('Loaded printer config:', parsedConfig);
+        setPrinterConfig(parsedConfig);
+      } else {
+        console.log('No saved printer config found');
       }
     } catch (error) {
       console.error('Error loading printer config:', error);
     }
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
     loadOrder();
