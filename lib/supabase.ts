@@ -2,35 +2,26 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Supabase client instance
-let supabaseClient: SupabaseClient | null = null;
+// Supabase configuration
+const SUPABASE_URL = 'https://lgiqpypnhnkylzyhhtze.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnaXFweXBuaG5reWx6eWhodHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNzY4NDQsImV4cCI6MjA3Njc1Mjg0NH0.Pn1lAwI7fKllp3D4NjZq9qs18GPRd9sECagwHpu9Fpw';
+
+// Supabase client instance - initialized immediately
+const supabaseClient: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: false, // We're using PIN auth, not Supabase auth
+    detectSessionInUrl: false,
+  },
+});
+
+console.log('[Supabase] Client initialized with URL:', SUPABASE_URL);
 
 /**
- * Initialize the Supabase client with URL and anon key
+ * Get the Supabase client instance
  */
-export const initializeSupabase = (url: string, key: string): SupabaseClient => {
-  console.log('[Supabase] Initializing client with URL:', url);
-  
-  supabaseClient = createClient(url, key, {
-    auth: {
-      storage: AsyncStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-    },
-  });
-  
-  console.log('[Supabase] Client initialized successfully');
-  return supabaseClient;
-};
-
-/**
- * Get the current Supabase client instance
- */
-export const getSupabase = (): SupabaseClient | null => {
-  if (!supabaseClient) {
-    console.warn('[Supabase] Client not initialized');
-  }
+export const getSupabase = (): SupabaseClient => {
   return supabaseClient;
 };
 
@@ -38,13 +29,20 @@ export const getSupabase = (): SupabaseClient | null => {
  * Check if Supabase is initialized
  */
 export const isSupabaseInitialized = (): boolean => {
-  return supabaseClient !== null;
+  return true;
 };
 
 /**
- * Reset the Supabase client (useful for reconfiguration)
+ * Legacy function for compatibility
+ */
+export const initializeSupabase = (url: string, key: string): SupabaseClient => {
+  console.log('[Supabase] initializeSupabase called (using default client)');
+  return supabaseClient;
+};
+
+/**
+ * Reset function (no-op since we use a single instance)
  */
 export const resetSupabase = (): void => {
-  console.log('[Supabase] Resetting client');
-  supabaseClient = null;
+  console.log('[Supabase] resetSupabase called (no-op)');
 };
