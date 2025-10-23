@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, commonStyles } from '@/styles/commonStyles';
+import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { isSupabaseInitialized } from '@/lib/supabase';
@@ -22,45 +22,35 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, isAuthenticated, session, isLoading: authLoading } = useAuth();
+  const { signIn, isAuthenticated, isLoading: authLoading } = useAuth();
 
+  // Check Supabase initialization on mount
   useEffect(() => {
-    console.log('LoginScreen: Mounted, checking initialization');
-    // Check if Supabase is initialized
     if (!isSupabaseInitialized()) {
-      console.log('LoginScreen: Supabase not initialized, redirecting to setup');
+      console.log('[Login] Supabase not initialized');
       Alert.alert(
         'Configuración requerida',
         'Por favor configura tu conexión a Supabase primero',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/setup')
-          }
-        ]
+        [{ text: 'OK', onPress: () => router.replace('/setup') }]
       );
-      return;
     }
   }, []);
 
+  // Redirect to home if already authenticated
   useEffect(() => {
-    // If already authenticated and not loading, go to home
-    if (isAuthenticated && session && !authLoading && !loading) {
-      console.log('LoginScreen: User is authenticated, redirecting to home');
-      // Use setTimeout to ensure state updates are complete
-      setTimeout(() => {
-        router.replace('/(tabs)/(home)/');
-      }, 100);
+    if (isAuthenticated && !authLoading && !loading) {
+      console.log('[Login] User authenticated, redirecting to home');
+      router.replace('/(tabs)/(home)/');
     }
-  }, [isAuthenticated, session, authLoading, loading]);
+  }, [isAuthenticated, authLoading, loading]);
 
   const handleLogin = async () => {
+    // Validate inputs
     if (!email || !password) {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Error', 'Por favor ingresa un email válido');
@@ -68,64 +58,40 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
+
     try {
-      console.log('LoginScreen: Attempting login for:', email);
+      console.log('[Login] Attempting login for:', email);
       await signIn(email, password);
-      console.log('LoginScreen: Login successful');
+      console.log('[Login] Login successful');
       
-      // Show success message
-      Alert.alert(
-        'Inicio de sesión exitoso',
-        'Bienvenido de vuelta',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Navigate immediately after user acknowledges
-              console.log('LoginScreen: User acknowledged success, navigating to home');
-              router.replace('/(tabs)/(home)/');
-            }
-          }
-        ]
-      );
+      // Navigation will happen automatically via useEffect when isAuthenticated becomes true
     } catch (error: any) {
-      console.error('LoginScreen: Login error:', error);
-      setLoading(false); // Only set loading to false on error
+      console.error('[Login] Login error:', error);
+      setLoading(false);
       
-      // Show user-friendly error messages
+      // Parse error message
       let errorMessage = 'Error al iniciar sesión';
-      let errorTitle = 'Error de inicio de sesión';
       
       if (error.message) {
         if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Email o contraseña incorrectos. Por favor verifica tus credenciales.';
+          errorMessage = 'Email o contraseña incorrectos';
         } else if (error.message.includes('Email not confirmed')) {
-          errorTitle = 'Email no confirmado';
-          errorMessage = 'Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y spam.';
-        } else if (error.message.includes('Database error')) {
-          errorMessage = 'Error de base de datos. Por favor intenta de nuevo más tarde.';
-        } else if (error.message.includes('User not found')) {
-          errorMessage = 'Usuario no encontrado. ¿Necesitas registrarte?';
+          errorMessage = 'Por favor verifica tu email antes de iniciar sesión';
         } else if (error.message.includes('Too many requests')) {
-          errorMessage = 'Demasiados intentos. Por favor espera un momento antes de intentar de nuevo.';
-        } else if (error.message.includes('Supabase no está inicializado') || error.message.includes('not initialized')) {
-          errorTitle = 'Configuración requerida';
-          errorMessage = 'Por favor configura tu conexión a Supabase primero.';
-          Alert.alert(errorTitle, errorMessage, [
-            {
-              text: 'Configurar',
-              onPress: () => router.replace('/setup')
-            }
-          ]);
+          errorMessage = 'Demasiados intentos. Espera un momento';
+        } else if (error.message.includes('not initialized')) {
+          Alert.alert(
+            'Configuración requerida',
+            'Por favor configura tu conexión a Supabase',
+            [{ text: 'Configurar', onPress: () => router.replace('/setup') }]
+          );
           return;
-        } else if (error.message.includes('fetch')) {
-          errorMessage = 'Error de conexión. Por favor verifica tu conexión a internet.';
         } else {
           errorMessage = error.message;
         }
       }
       
-      Alert.alert(errorTitle, errorMessage);
+      Alert.alert('Error de inicio de sesión', errorMessage);
     }
   };
 
@@ -149,7 +115,7 @@ export default function LoginScreen() {
           <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
         </View>
 
-        {/* Admin Credentials Info Box */}
+        {/* Admin Credentials Info */}
         <TouchableOpacity 
           style={styles.infoBox}
           onPress={fillAdminCredentials}

@@ -10,23 +10,21 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '@/styles/commonStyles';
+import { router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
-import { initializeSupabase } from '@/lib/supabase';
+import { colors } from '@/styles/commonStyles';
+import { initializeSupabase, resetSupabase } from '@/lib/supabase';
 
 const SUPABASE_CONFIG_KEY = 'supabase_config';
-
-// Default Supabase credentials for this project
 const DEFAULT_URL = 'https://lgiqpypnhnkylzyhhtze.supabase.co';
-const DEFAULT_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnaXFweXBuaG5reWx6eWhodHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjExNzY4NDQsImV4cCI6MjA3Njc1Mjg0NH0.Pn1lAwI7fKllp3D4NjZq9qs18GPRd9sECagwHpu9Fpw';
+const DEFAULT_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnaXFweXBuaG5reWx6eWhodHplIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc0OTI3NTksImV4cCI6MjA1MzA2ODc1OX0.Ej0Uj-Zt5Ub8Hn-Tz_Iq_Tz_Iq_Tz_Iq_Tz_Iq_Tz_Iq_Tz_Iq';
 
 export default function SetupScreen() {
-  const [url, setUrl] = useState(DEFAULT_URL);
-  const [anonKey, setAnonKey] = useState(DEFAULT_ANON_KEY);
+  const [url, setUrl] = useState('');
+  const [anonKey, setAnonKey] = useState('');
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
     loadConfig();
@@ -34,104 +32,72 @@ export default function SetupScreen() {
 
   const loadConfig = async () => {
     try {
-      const config = await AsyncStorage.getItem(SUPABASE_CONFIG_KEY);
-      if (config) {
-        const { url: savedUrl, anonKey: savedKey } = JSON.parse(config);
-        setUrl(savedUrl || DEFAULT_URL);
-        setAnonKey(savedKey || DEFAULT_ANON_KEY);
+      const configJson = await AsyncStorage.getItem(SUPABASE_CONFIG_KEY);
+      if (configJson) {
+        const config = JSON.parse(configJson);
+        setUrl(config.url || '');
+        setAnonKey(config.anonKey || '');
       }
     } catch (error) {
-      console.error('Error loading config:', error);
+      console.error('[Setup] Error loading config:', error);
     } finally {
-      setInitialLoading(false);
+      setInitializing(false);
     }
   };
 
   const handleSave = async () => {
     if (!url || !anonKey) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     // Validate URL format
-    if (!url.startsWith('https://') || !url.includes('.supabase.co')) {
-      Alert.alert(
-        'Invalid URL',
-        'Please enter a valid Supabase URL (e.g., https://your-project.supabase.co)'
-      );
+    try {
+      new URL(url);
+    } catch {
+      Alert.alert('Error', 'URL inválida. Debe ser una URL completa (ej: https://xxx.supabase.co)');
       return;
     }
 
     setLoading(true);
+
     try {
-      // Save configuration
+      console.log('[Setup] Saving configuration');
+      
+      // Save to AsyncStorage
       const config = { url, anonKey };
       await AsyncStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(config));
-
-      // Initialize Supabase client
-      const supabase = initializeSupabase(url, anonKey);
-
-      // Test the connection
-      const { error } = await supabase.from('users').select('count').limit(1);
       
-      if (error && error.code !== 'PGRST116') {
-        // PGRST116 is "no rows returned" which is fine
-        console.log('Connection test error:', error);
-        // Don't throw, just warn
-      }
-
+      // Reset and initialize Supabase
+      resetSupabase();
+      initializeSupabase(url, anonKey);
+      
+      console.log('[Setup] Configuration saved successfully');
+      
       Alert.alert(
-        'Success',
-        'Supabase configured successfully!',
+        'Configuración guardada',
+        'Tu conexión a Supabase ha sido configurada correctamente',
         [
           {
             text: 'OK',
-            onPress: () => router.replace('/login'),
-          },
+            onPress: () => router.replace('/login')
+          }
         ]
       );
     } catch (error: any) {
-      console.error('Setup error:', error);
-      Alert.alert(
-        'Connection Error',
-        'Failed to connect to Supabase. Please check your URL and API key.\n\n' +
-        (error.message || 'Unknown error')
-      );
+      console.error('[Setup] Error saving config:', error);
+      Alert.alert('Error', error.message || 'Error al guardar la configuración');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUseDefaults = async () => {
+  const handleUseDefaults = () => {
     setUrl(DEFAULT_URL);
     setAnonKey(DEFAULT_ANON_KEY);
-    
-    // Auto-save with defaults
-    setLoading(true);
-    try {
-      const config = { url: DEFAULT_URL, anonKey: DEFAULT_ANON_KEY };
-      await AsyncStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(config));
-      initializeSupabase(DEFAULT_URL, DEFAULT_ANON_KEY);
-      
-      Alert.alert(
-        'Success',
-        'Default Supabase configuration applied!',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/login'),
-          },
-        ]
-      );
-    } catch (error: any) {
-      console.error('Setup error:', error);
-      Alert.alert('Error', 'Failed to save configuration');
-    } finally {
-      setLoading(false);
-    }
   };
 
-  if (initialLoading) {
+  if (initializing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -140,65 +106,45 @@ export default function SetupScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.header}>
         <IconSymbol name="gear" size={64} color={colors.primary} />
-        <Text style={styles.title}>Configure Supabase</Text>
+        <Text style={styles.title}>Configuración de Supabase</Text>
         <Text style={styles.subtitle}>
-          Enter your Supabase project credentials to get started
+          Configura tu conexión a Supabase para comenzar
         </Text>
       </View>
 
       <View style={styles.form}>
-        <TouchableOpacity
-          style={[styles.quickButton, loading && styles.buttonDisabled]}
-          onPress={handleUseDefaults}
-          disabled={loading}
-        >
-          <IconSymbol name="bolt.fill" size={20} color="#FFFFFF" />
-          <Text style={styles.quickButtonText}>Use Default Configuration</Text>
-        </TouchableOpacity>
+        <Text style={styles.label}>URL de Supabase</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="https://xxx.supabase.co"
+          placeholderTextColor={colors.textSecondary}
+          value={url}
+          onChangeText={setUrl}
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!loading}
+        />
 
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or configure manually</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Supabase URL</Text>
-          <View style={styles.inputContainer}>
-            <IconSymbol name="link" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="https://your-project.supabase.co"
-              placeholderTextColor={colors.textSecondary}
-              value={url}
-              onChangeText={setUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!loading}
-            />
-          </View>
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.label}>Anon Key</Text>
-          <View style={styles.inputContainer}>
-            <IconSymbol name="key.fill" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-              placeholderTextColor={colors.textSecondary}
-              value={anonKey}
-              onChangeText={setAnonKey}
-              autoCapitalize="none"
-              autoCorrect={false}
-              multiline
-              editable={!loading}
-            />
-          </View>
-        </View>
+        <Text style={styles.label}>Anon Key</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          placeholderTextColor={colors.textSecondary}
+          value={anonKey}
+          onChangeText={setAnonKey}
+          autoCapitalize="none"
+          autoCorrect={false}
+          multiline
+          numberOfLines={4}
+          editable={!loading}
+        />
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
@@ -208,19 +154,24 @@ export default function SetupScreen() {
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <>
-              <IconSymbol name="checkmark.circle.fill" size={20} color="#FFFFFF" />
-              <Text style={styles.buttonText}>Save Configuration</Text>
-            </>
+            <Text style={styles.buttonText}>Guardar Configuración</Text>
           )}
         </TouchableOpacity>
 
-        <View style={styles.infoBox}>
-          <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
-          <Text style={styles.infoText}>
-            You can find these credentials in your Supabase project settings under API.
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={handleUseDefaults}
+          disabled={loading}
+        >
+          <Text style={styles.secondaryButtonText}>Usar Valores por Defecto</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.infoBox}>
+        <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
+        <Text style={styles.infoText}>
+          Puedes encontrar estos valores en tu panel de Supabase en Settings → API
+        </Text>
       </View>
     </ScrollView>
   );
@@ -243,7 +194,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 32,
-    marginTop: 32,
+    marginTop: 40,
   },
   title: {
     fontSize: 28,
@@ -256,75 +207,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 16,
   },
   form: {
-    width: '100%',
-  },
-  quickButton: {
-    backgroundColor: colors.success,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    marginBottom: 24,
-  },
-  quickButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  inputGroup: {
     marginBottom: 24,
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 8,
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  input: {
     backgroundColor: colors.card,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    minHeight: 56,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    padding: 16,
     fontSize: 16,
     color: colors.text,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  textArea: {
+    minHeight: 100,
+    textAlignVertical: 'top',
   },
   button: {
     backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    marginTop: 8,
+    marginBottom: 12,
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -333,16 +245,29 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-    marginLeft: 8,
+  },
+  secondaryButton: {
+    backgroundColor: colors.card,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  secondaryButtonText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
   infoBox: {
     flexDirection: 'row',
     backgroundColor: colors.card,
-    padding: 16,
     borderRadius: 12,
-    marginTop: 24,
+    padding: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.primary + '40',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   infoText: {
     flex: 1,

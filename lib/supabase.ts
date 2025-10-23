@@ -1,19 +1,17 @@
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// These will be set from the app's configuration screen
-let supabaseUrl = '';
-let supabaseAnonKey = '';
+// Supabase client instance
+let supabaseClient: SupabaseClient | null = null;
 
-let supabaseClient: ReturnType<typeof createClient> | null = null;
-
-export const initializeSupabase = (url: string, key: string) => {
-  console.log('Initializing Supabase client with URL:', url);
-  supabaseUrl = url;
-  supabaseAnonKey = key;
+/**
+ * Initialize the Supabase client with URL and anon key
+ */
+export const initializeSupabase = (url: string, key: string): SupabaseClient => {
+  console.log('[Supabase] Initializing client with URL:', url);
   
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+  supabaseClient = createClient(url, key, {
     auth: {
       storage: AsyncStorage,
       autoRefreshToken: true,
@@ -22,19 +20,31 @@ export const initializeSupabase = (url: string, key: string) => {
     },
   });
   
-  console.log('Supabase client initialized successfully');
+  console.log('[Supabase] Client initialized successfully');
   return supabaseClient;
 };
 
-export const getSupabase = () => {
+/**
+ * Get the current Supabase client instance
+ */
+export const getSupabase = (): SupabaseClient | null => {
   if (!supabaseClient) {
-    console.warn('Supabase client not initialized - call initializeSupabase first');
+    console.warn('[Supabase] Client not initialized');
   }
   return supabaseClient;
 };
 
-export const isSupabaseInitialized = () => {
-  const initialized = supabaseClient !== null;
-  console.log('Supabase initialized:', initialized);
-  return initialized;
+/**
+ * Check if Supabase is initialized
+ */
+export const isSupabaseInitialized = (): boolean => {
+  return supabaseClient !== null;
+};
+
+/**
+ * Reset the Supabase client (useful for reconfiguration)
+ */
+export const resetSupabase = (): void => {
+  console.log('[Supabase] Resetting client');
+  supabaseClient = null;
 };

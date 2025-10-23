@@ -1,82 +1,67 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
-import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
+import { useRouter, useRootNavigationState } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/styles/commonStyles';
 import { isSupabaseInitialized, initializeSupabase } from '@/lib/supabase';
 
+const SUPABASE_CONFIG_KEY = 'supabase_config';
+
 export default function Index() {
   const router = useRouter();
-  const segments = useSegments();
   const rootNavigationState = useRootNavigationState();
-  const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('Initializing...');
-  const [navigationReady, setNavigationReady] = useState(false);
 
-  // Wait for navigation to be ready
   useEffect(() => {
-    if (rootNavigationState?.key) {
-      console.log('Root navigation is ready');
-      setNavigationReady(true);
-    }
-  }, [rootNavigationState]);
-
-  const checkConfigurationAndRedirect = useCallback(async () => {
-    // Don't navigate until root navigation is ready
-    if (!navigationReady) {
-      console.log('Waiting for navigation to be ready...');
+    // Wait for navigation to be ready
+    if (!rootNavigationState?.key) {
+      console.log('[Index] Waiting for navigation...');
       return;
     }
 
-    try {
-      console.log('=== Starting configuration check ===');
-      setStatus('Checking configuration...');
-      
-      // Check if Supabase is already initialized
-      if (isSupabaseInitialized()) {
-        console.log('✓ Supabase already initialized');
-        setStatus('Redirecting to login...');
-        router.replace('/login');
-        return;
-      }
+    console.log('[Index] Navigation ready, checking configuration');
 
-      // Try to load config from storage
-      setStatus('Loading saved configuration...');
-      const config = await AsyncStorage.getItem('supabase_config');
-      console.log('Config from storage:', config ? '✓ Found' : '✗ Not found');
-      
-      if (config) {
-        const { url, anonKey } = JSON.parse(config);
-        if (url && anonKey) {
-          console.log('✓ Valid config found, initializing Supabase');
-          setStatus('Initializing Supabase...');
-          initializeSupabase(url, anonKey);
+    const checkAndRedirect = async () => {
+      try {
+        // Check if Supabase is already initialized
+        if (isSupabaseInitialized()) {
+          console.log('[Index] Supabase already initialized → login');
           setStatus('Redirecting to login...');
           router.replace('/login');
-        } else {
-          console.log('✗ Invalid config in storage');
-          setStatus('Redirecting to setup...');
-          router.replace('/setup');
+          return;
         }
-      } else {
-        console.log('✗ No config found, need setup');
+
+        // Try to load saved configuration
+        setStatus('Loading configuration...');
+        const configJson = await AsyncStorage.getItem(SUPABASE_CONFIG_KEY);
+        
+        if (configJson) {
+          const config = JSON.parse(configJson);
+          
+          if (config.url && config.anonKey) {
+            console.log('[Index] Found saved config, initializing Supabase');
+            setStatus('Initializing Supabase...');
+            initializeSupabase(config.url, config.anonKey);
+            setStatus('Redirecting to login...');
+            router.replace('/login');
+            return;
+          }
+        }
+
+        // No valid config found
+        console.log('[Index] No valid config → setup');
         setStatus('Redirecting to setup...');
         router.replace('/setup');
+      } catch (error) {
+        console.error('[Index] Error during initialization:', error);
+        setStatus('Error - redirecting to setup...');
+        router.replace('/setup');
       }
-    } catch (error) {
-      console.error('Error checking configuration:', error);
-      setStatus('Error occurred, redirecting to setup...');
-      router.replace('/setup');
-    } finally {
-      setLoading(false);
-    }
-  }, [router, navigationReady]);
+    };
 
-  useEffect(() => {
-    console.log('Index screen mounted, current segments:', segments);
-    checkConfigurationAndRedirect();
-  }, [checkConfigurationAndRedirect, segments]);
+    checkAndRedirect();
+  }, [rootNavigationState, router]);
 
   return (
     <View style={styles.container}>

@@ -24,15 +24,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadUser = async (authUser: User) => {
+  /**
+   * Load user profile from database
+   */
+  const loadUserProfile = async (authUser: User): Promise<void> => {
     try {
       const supabase = getSupabase();
       if (!supabase) {
-        console.error('Supabase client not initialized');
+        console.error('[Auth] Supabase client not initialized');
         return;
       }
 
-      console.log('Loading user profile for:', authUser.email);
+      console.log('[Auth] Loading profile for user:', authUser.email);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -40,71 +44,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Error loading user profile:', error);
+        console.error('[Auth] Error loading profile:', error);
         return;
       }
 
-      console.log('User profile loaded:', data?.email);
-      setUser(data);
+      if (data) {
+        console.log('[Auth] Profile loaded successfully:', data.email);
+        setUser(data);
 
-      // Register for push notifications (only on native platforms)
-      if (data?.user_id && Platform.OS !== 'web') {
-        registerForPushNotificationsAsync(data.user_id).catch((error) => {
-          console.error('Error registering for push notifications:', error);
-        });
+        // Register for push notifications on native platforms
+        if (Platform.OS !== 'web') {
+          registerForPushNotificationsAsync(data.user_id).catch((err) => {
+            console.error('[Auth] Error registering for push notifications:', err);
+          });
+        }
       }
     } catch (error) {
-      console.error('Error in loadUser:', error);
+      console.error('[Auth] Exception in loadUserProfile:', error);
     }
   };
 
-  const refreshUser = async () => {
+  /**
+   * Refresh user profile from database
+   */
+  const refreshUser = async (): Promise<void> => {
     const supabase = getSupabase();
     if (!supabase) {
-      console.error('Supabase client not initialized');
+      console.error('[Auth] Cannot refresh user - Supabase not initialized');
       return;
     }
 
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (currentSession?.user) {
-      await loadUser(currentSession.user);
+      await loadUserProfile(currentSession.user);
     }
   };
 
+  /**
+   * Initialize auth state and listen for changes
+   */
   useEffect(() => {
     const supabase = getSupabase();
     
-    // If Supabase is not initialized yet, wait
     if (!supabase) {
-      console.log('AuthContext: Waiting for Supabase initialization...');
+      console.log('[Auth] Supabase not initialized, skipping auth setup');
       setIsLoading(false);
       return;
     }
 
-    console.log('AuthContext: Initializing auth state');
+    console.log('[Auth] Setting up authentication');
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      console.log('AuthContext: Initial session loaded:', currentSession ? 'Session exists' : 'No session');
-      setSession(currentSession);
-      if (currentSession?.user) {
-        loadUser(currentSession.user);
-      } else {
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('[Auth] Error getting initial session:', error);
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('[Auth] Initial session:', currentSession ? 'Found' : 'None');
+        
+        if (currentSession) {
+          setSession(currentSession);
+          await loadUserProfile(currentSession.user);
+        }
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error('[Auth] Exception during auth initialization:', error);
         setIsLoading(false);
       }
-    }).catch((error) => {
-      console.error('AuthContext: Error getting initial session:', error);
-      setIsLoading(false);
-    });
+    };
 
-    // Listen for auth changes
+    initializeAuth();
+
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        console.log('AuthContext: Auth state changed:', event);
+        console.log('[Auth] State changed:', event);
+        
         setSession(currentSession);
         
         if (currentSession?.user) {
-          await loadUser(currentSession.user);
+          await loadUserProfile(currentSession.user);
         } else {
           setUser(null);
         }
@@ -114,17 +139,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
+      console.log('[Auth] Cleaning up auth subscription');
       subscription.unsubscribe();
     };
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  /**
+   * Sign in with email and password
+   */
+  const signIn = async (email: string, password: string): Promise<void> => {
     const supabase = getSupabase();
     if (!supabase) {
       throw new Error('Supabase no está inicializado. Por favor configura tu conexión primero.');
     }
 
-    console.log('AuthContext: Attempting sign in for:', email);
+    console.log('[Auth] Signing in:', email);
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -132,19 +161,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) {
-      console.error('AuthContext: Sign in error:', error);
+      console.error('[Auth] Sign in error:', error.message);
       throw error;
     }
 
-    console.log('AuthContext: Sign in successful for:', data.user?.email);
-    // The onAuthStateChange listener will handle updating the session and user
+    console.log('[Auth] Sign in successful');
+    
+    // Session and user will be updated by onAuthStateChange listener
   };
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  /**
+   * Sign up with email, password, and full name
+   */
+  const signUp = async (email: string, password: string, fullName: string): Promise<void> => {
     const supabase = getSupabase();
     if (!supabase) {
       throw new Error('Supabase no está inicializado. Por favor configura tu conexión primero.');
     }
+
+    console.log('[Auth] Signing up:', email);
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -157,10 +192,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Auth] Sign up error:', error.message);
+      throw error;
+    }
 
     // Create profile
     if (data.user) {
+      console.log('[Auth] Creating profile for new user');
       const { error: profileError } = await supabase.from('profiles').insert([
         {
           user_id: data.user.id,
@@ -172,23 +211,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       if (profileError) {
-        console.error('Error creating profile:', profileError);
+        console.error('[Auth] Error creating profile:', profileError);
       }
     }
+
+    console.log('[Auth] Sign up successful');
   };
 
-  const signOut = async () => {
+  /**
+   * Sign out current user
+   */
+  const signOut = async (): Promise<void> => {
     const supabase = getSupabase();
     if (!supabase) {
       throw new Error('Supabase no está inicializado');
     }
 
-    console.log('AuthContext: Signing out');
+    console.log('[Auth] Signing out');
+    
     const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    
+    if (error) {
+      console.error('[Auth] Sign out error:', error.message);
+      throw error;
+    }
     
     setUser(null);
     setSession(null);
+    
+    console.log('[Auth] Sign out successful');
   };
 
   return (
