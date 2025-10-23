@@ -22,7 +22,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, isAuthenticated, session } = useAuth();
+  const { signIn, isAuthenticated, session, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
     console.log('LoginScreen: Mounted, checking initialization');
@@ -44,12 +44,15 @@ export default function LoginScreen() {
   }, []);
 
   useEffect(() => {
-    // If already authenticated, go to home
-    if (isAuthenticated && session) {
+    // If already authenticated and not loading, go to home
+    if (isAuthenticated && session && !authLoading && !loading) {
       console.log('LoginScreen: User is authenticated, redirecting to home');
-      router.replace('/(tabs)/(home)/');
+      // Use setTimeout to ensure state updates are complete
+      setTimeout(() => {
+        router.replace('/(tabs)/(home)/');
+      }, 100);
     }
-  }, [isAuthenticated, session]);
+  }, [isAuthenticated, session, authLoading, loading]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -68,12 +71,26 @@ export default function LoginScreen() {
     try {
       console.log('LoginScreen: Attempting login for:', email);
       await signIn(email, password);
-      console.log('LoginScreen: Login successful, auth state will trigger navigation');
+      console.log('LoginScreen: Login successful');
       
-      // Don't manually navigate here - let the useEffect above handle it
-      // when the auth state changes
+      // Show success message
+      Alert.alert(
+        'Inicio de sesión exitoso',
+        'Bienvenido de vuelta',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate immediately after user acknowledges
+              console.log('LoginScreen: User acknowledged success, navigating to home');
+              router.replace('/(tabs)/(home)/');
+            }
+          }
+        ]
+      );
     } catch (error: any) {
       console.error('LoginScreen: Login error:', error);
+      setLoading(false); // Only set loading to false on error
       
       // Show user-friendly error messages
       let errorMessage = 'Error al iniciar sesión';
@@ -109,8 +126,6 @@ export default function LoginScreen() {
       }
       
       Alert.alert(errorTitle, errorMessage);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -185,7 +200,10 @@ export default function LoginScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#FFFFFF" />
+                <Text style={styles.loadingText}>Iniciando sesión...</Text>
+              </View>
             ) : (
               <Text style={styles.buttonText}>Iniciar Sesión</Text>
             )}
@@ -305,6 +323,16 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
