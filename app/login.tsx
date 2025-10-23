@@ -41,30 +41,41 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
 
     setLoading(true);
     try {
+      console.log('Attempting login for:', email);
       await signIn(email, password);
-      router.replace('/(tabs)/(home)/');
+      console.log('Login successful, navigating to home');
+      
+      // Small delay to ensure auth state is updated
+      setTimeout(() => {
+        router.replace('/(tabs)/(home)/');
+      }, 100);
     } catch (error: any) {
       console.error('Login error:', error);
       
       // Show user-friendly error messages
-      let errorMessage = 'Failed to login';
+      let errorMessage = 'Error al iniciar sesión';
+      
       if (error.message) {
         if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Invalid email or password';
+          errorMessage = 'Email o contraseña incorrectos';
         } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Please verify your email before logging in';
+          errorMessage = 'Por favor verifica tu email antes de iniciar sesión';
+        } else if (error.message.includes('Database error')) {
+          errorMessage = 'Error de base de datos. Por favor intenta de nuevo.';
+        } else if (error.message.includes('User not found')) {
+          errorMessage = 'Usuario no encontrado';
         } else {
           errorMessage = error.message;
         }
       }
       
-      Alert.alert('Login Error', errorMessage);
+      Alert.alert('Error de inicio de sesión', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -87,7 +98,7 @@ export default function LoginScreen() {
         <View style={styles.header}>
           <IconSymbol name="cart.fill" size={64} color={colors.primary} />
           <Text style={styles.title}>Order Manager</Text>
-          <Text style={styles.subtitle}>Sign in to continue</Text>
+          <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
         </View>
 
         {/* Admin Credentials Info Box */}
@@ -98,11 +109,11 @@ export default function LoginScreen() {
         >
           <View style={styles.infoHeader}>
             <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
-            <Text style={styles.infoTitle}>Admin Credentials</Text>
+            <Text style={styles.infoTitle}>Credenciales de Admin</Text>
           </View>
           <Text style={styles.infoText}>Email: rhenriquez@admin.local</Text>
           <Text style={styles.infoText}>Password: rhb9032</Text>
-          <Text style={styles.infoHint}>Tap to auto-fill</Text>
+          <Text style={styles.infoHint}>Toca para auto-completar</Text>
         </TouchableOpacity>
 
         <View style={styles.form}>
@@ -124,7 +135,7 @@ export default function LoginScreen() {
             <IconSymbol name="lock.fill" size={20} color={colors.textSecondary} />
             <TextInput
               style={styles.input}
-              placeholder="Password"
+              placeholder="Contraseña"
               placeholderTextColor={colors.textSecondary}
               value={password}
               onChangeText={setPassword}
@@ -141,7 +152,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Sign In</Text>
+              <Text style={styles.buttonText}>Iniciar Sesión</Text>
             )}
           </TouchableOpacity>
 
@@ -151,7 +162,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text style={styles.linkText}>
-              Don&apos;t have an account? <Text style={styles.linkTextBold}>Sign Up</Text>
+              ¿No tienes cuenta? <Text style={styles.linkTextBold}>Regístrate</Text>
             </Text>
           </TouchableOpacity>
 
@@ -161,7 +172,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text style={styles.linkText}>
-              <Text style={styles.linkTextBold}>Reconfigure Supabase</Text>
+              <Text style={styles.linkTextBold}>Reconfigurar Supabase</Text>
             </Text>
           </TouchableOpacity>
         </View>

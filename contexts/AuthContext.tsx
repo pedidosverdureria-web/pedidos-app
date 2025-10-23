@@ -60,7 +60,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('AuthProvider: Error getting session:', error);
+        setLoading(false);
+        return;
+      }
+      
       console.log('AuthProvider: Current session:', session ? 'Found' : 'Not found');
       setSession(session);
       
@@ -81,37 +88,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!supabase) return;
 
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (error) {
         console.error('AuthProvider: Error fetching user profile:', error);
-        // If profile doesn't exist, create a basic user object
-        setUser({
-          id: userId,
-          email: '',
-          full_name: '',
-          role: 'worker',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
+        
+        // If profile doesn't exist, try to get basic info from auth.users
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user) {
+          setUser({
+            id: userId,
+            email: authData.user.email || '',
+            full_name: authData.user.user_metadata?.full_name || '',
+            role: 'worker',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        }
         return;
       }
       
       console.log('AuthProvider: User profile fetched successfully');
-      setUser(data);
+      
+      // Map profiles table to User type
+      setUser({
+        id: data.id,
+        email: data.email,
+        full_name: data.full_name || '',
+        role: data.role,
+        is_active: data.is_active,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      });
     } catch (error) {
       console.error('AuthProvider: Error fetching user profile:', error);
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('AuthProvider: Signing in user');
+    console.log('AuthProvider: Signing in user:', email);
     const supabase = getSupabase();
-    if (!supabase) throw new Error('Supabase not initialized');
+    if (!supabase) {
+      throw new Error('Supabase no está inicializado');
+    }
 
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -125,14 +148,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     console.log('AuthProvider: Sign in successful');
     if (data.user) {
+      setSession(data.session);
       await fetchUserProfile(data.user.id);
     }
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    console.log('AuthProvider: Signing up new user');
+    console.log('AuthProvider: Signing up new user:', email);
     const supabase = getSupabase();
-    if (!supabase) throw new Error('Supabase not initialized');
+    if (!supabase) {
+      throw new Error('Supabase no está inicializado');
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
