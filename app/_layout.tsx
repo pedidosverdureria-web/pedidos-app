@@ -2,7 +2,7 @@
 import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { Stack, router } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -17,14 +17,8 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { initializeSupabase } from "@/lib/supabase";
 
 SplashScreen.preventAutoHideAsync();
-
-export const unstable_settings = {
-  initialRouteName: "login",
-};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -32,22 +26,6 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-
-  useEffect(() => {
-    initializeApp();
-  }, []);
-
-  const initializeApp = async () => {
-    try {
-      const config = await AsyncStorage.getItem('supabase_config');
-      if (config) {
-        const { url, anonKey } = JSON.parse(config);
-        initializeSupabase(url, anonKey);
-      }
-    } catch (error) {
-      console.error('Error initializing app:', error);
-    }
-  };
 
   useEffect(() => {
     if (loaded) {
@@ -104,11 +82,13 @@ export default function RootLayout() {
       >
         <WidgetProvider>
           <AuthProvider>
-            <GestureHandlerRootView>
+            <GestureHandlerRootView style={{ flex: 1 }}>
               <Stack screenOptions={{ headerShown: true }}>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="setup" options={{ title: "Setup Supabase" }} />
                 <Stack.Screen name="login" options={{ headerShown: false }} />
                 <Stack.Screen name="register" options={{ headerShown: false }} />
-                <Stack.Screen name="setup" options={{ title: "Setup" }} />
+                <Stack.Screen name="welcome" options={{ headerShown: false }} />
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="order/[orderId]" options={{ title: "Order Details" }} />
                 <Stack.Screen name="order/new" options={{ title: "New Order" }} />

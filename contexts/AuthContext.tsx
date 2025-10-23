@@ -48,11 +48,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const supabase = getSupabase();
       if (!supabase) {
+        console.log('Supabase not initialized in checkUser');
         setLoading(false);
         return;
       }
 
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('Current session:', session ? 'Found' : 'Not found');
       setSession(session);
       
       if (session?.user) {
@@ -76,7 +78,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        // If profile doesn't exist, create a basic user object
+        setUser({
+          id: userId,
+          email: '',
+          full_name: '',
+          role: 'worker',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        return;
+      }
+      
+      console.log('User profile fetched:', data);
       setUser(data);
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -107,6 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       password,
       options: {
+        emailRedirectTo: 'https://natively.dev/email-confirmed',
         data: {
           full_name: fullName,
         },

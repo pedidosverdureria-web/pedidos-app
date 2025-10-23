@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { isSupabaseInitialized } from '@/lib/supabase';
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
@@ -24,6 +25,14 @@ export default function RegisterScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
+
+  useEffect(() => {
+    // Check if Supabase is initialized
+    if (!isSupabaseInitialized()) {
+      console.log('Supabase not initialized, redirecting to setup');
+      router.replace('/setup');
+    }
+  }, []);
 
   const handleRegister = async () => {
     if (!fullName || !email || !password || !confirmPassword) {
@@ -44,14 +53,30 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       await signUp(email, password, fullName);
+      
       Alert.alert(
-        'Success',
-        'Account created! Please check your email to verify your account.',
-        [{ text: 'OK', onPress: () => router.replace('/login') }]
+        'Registration Successful',
+        'Please check your email to verify your account before logging in.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/login'),
+          },
+        ]
       );
     } catch (error: any) {
       console.error('Registration error:', error);
-      Alert.alert('Error', error.message || 'Failed to create account');
+      
+      let errorMessage = 'Failed to register';
+      if (error.message) {
+        if (error.message.includes('already registered')) {
+          errorMessage = 'This email is already registered';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert('Registration Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -69,7 +94,7 @@ export default function RegisterScreen() {
         <View style={styles.header}>
           <IconSymbol name="person.crop.circle.badge.plus" size={64} color={colors.primary} />
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join Order Manager</Text>
+          <Text style={styles.subtitle}>Sign up to get started</Text>
         </View>
 
         <View style={styles.form}>
@@ -133,7 +158,7 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.buttonText}>Create Account</Text>
+              <Text style={styles.buttonText}>Sign Up</Text>
             )}
           </TouchableOpacity>
 

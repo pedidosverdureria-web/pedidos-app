@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,12 +16,28 @@ import { router } from 'expo-router';
 import { colors, commonStyles } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { isSupabaseInitialized } from '@/lib/supabase';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    // Check if Supabase is initialized
+    if (!isSupabaseInitialized()) {
+      console.log('Supabase not initialized, redirecting to setup');
+      router.replace('/setup');
+      return;
+    }
+
+    // If already authenticated, go to home
+    if (isAuthenticated) {
+      console.log('Already authenticated, redirecting to home');
+      router.replace('/(tabs)/(home)/');
+    }
+  }, [isAuthenticated]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -35,7 +51,20 @@ export default function LoginScreen() {
       router.replace('/(tabs)/(home)/');
     } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Error', error.message || 'Failed to login');
+      
+      // Show user-friendly error messages
+      let errorMessage = 'Failed to login';
+      if (error.message) {
+        if (error.message.includes('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password';
+        } else if (error.message.includes('Email not confirmed')) {
+          errorMessage = 'Please verify your email before logging in';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      Alert.alert('Login Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -112,7 +141,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             <Text style={styles.linkText}>
-              <Text style={styles.linkTextBold}>Configure Supabase</Text>
+              <Text style={styles.linkTextBold}>Reconfigure Supabase</Text>
             </Text>
           </TouchableOpacity>
         </View>
