@@ -14,14 +14,15 @@ const formatCLP = (amount: number): string => {
 };
 
 /**
- * Formats items list for messages
+ * Formats items list for messages (without enumeration)
  */
-function formatItemsList(items: OrderItem[]): string {
-  return items.map((item, index) => {
+function formatItemsList(items: OrderItem[], showPrices: boolean = false): string {
+  return items.map((item) => {
     const unit = item.notes?.includes('Unidad:') 
       ? item.notes.replace('Unidad:', '').trim() 
       : 'unidades';
-    return `${index + 1}. ${item.quantity} ${unit} de ${item.product_name} - ${formatCLP(item.unit_price)}`;
+    const priceText = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
+    return `• ${item.quantity} ${unit} de ${item.product_name}${priceText}`;
   }).join('\n');
 }
 
@@ -35,7 +36,9 @@ function createStatusUpdateMessage(
   items: OrderItem[],
   totalAmount?: number
 ): string {
-  const itemsList = formatItemsList(items);
+  // Show prices only from "ready" status onwards
+  const showPrices = status === 'ready' || status === 'delivered';
+  const itemsList = formatItemsList(items, showPrices);
 
   let statusEmoji = '📦';
   let statusText = '';
@@ -46,16 +49,13 @@ function createStatusUpdateMessage(
       statusEmoji = '👨‍🍳';
       statusText = 'En Preparación';
       additionalInfo = '\n\n💰 Estamos preparando tu pedido y confirmando los precios.';
-      if (totalAmount && totalAmount > 0) {
-        additionalInfo += `\n\n💵 *Total:* ${formatCLP(totalAmount)} CLP`;
-      }
       break;
     case 'ready':
       statusEmoji = '✅';
       statusText = 'Listo para Entrega';
       additionalInfo = '\n\n🚚 Tu pedido está listo. ¡Puedes pasar a recogerlo!';
       if (totalAmount && totalAmount > 0) {
-        additionalInfo += `\n\n💵 *Total a pagar:* ${formatCLP(totalAmount)} CLP`;
+        additionalInfo += `\n\n💵 *Total a pagar:* ${formatCLP(totalAmount)}`;
       }
       break;
     case 'delivered':
@@ -63,7 +63,7 @@ function createStatusUpdateMessage(
       statusText = 'Entregado';
       additionalInfo = '\n\n¡Esperamos que disfrutes tus productos! Gracias por tu compra.';
       if (totalAmount && totalAmount > 0) {
-        additionalInfo += `\n\n💵 *Total pagado:* ${formatCLP(totalAmount)} CLP`;
+        additionalInfo += `\n\n💵 *Total pagado:* ${formatCLP(totalAmount)}`;
       }
       break;
     case 'cancelled':
@@ -98,7 +98,8 @@ function createProductAddedMessage(
   addedProduct: OrderItem,
   allItems: OrderItem[]
 ): string {
-  const itemsList = formatItemsList(allItems);
+  // Don't show prices in product added messages
+  const itemsList = formatItemsList(allItems, false);
   const unit = addedProduct.notes?.includes('Unidad:')
     ? addedProduct.notes.replace('Unidad:', '').trim()
     : 'unidades';
@@ -110,7 +111,7 @@ Hola ${customerName}, se ha agregado un producto a tu pedido.
 📋 *Número de pedido:* ${orderNumber}
 
 ✨ *Producto agregado:*
-${addedProduct.quantity} ${unit} de ${addedProduct.product_name} - ${formatCLP(addedProduct.unit_price)} CLP
+• ${addedProduct.quantity} ${unit} de ${addedProduct.product_name}
 
 📦 *Lista completa de productos:*
 ${itemsList}

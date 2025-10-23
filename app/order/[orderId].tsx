@@ -672,7 +672,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
             <View style={styles.infoBox}>
               <IconSymbol name="info.circle.fill" size={20} color={colors.info} />
               <Text style={styles.infoBoxText}>
-                Los productos solo se pueden agregar cuando el pedido está en estado "Preparando"
+                Los productos solo se pueden agregar cuando el pedido está en estado &quot;Preparando&quot;
               </Text>
             </View>
           )}
