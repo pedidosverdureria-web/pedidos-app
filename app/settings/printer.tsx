@@ -1,0 +1,570 @@
+
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Switch,
+} from 'react-native';
+import { Stack } from 'expo-router';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
+import { usePrinter } from '@/hooks/usePrinter';
+import { getSupabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+
+export default function PrinterSettingsScreen() {
+  const { user } = useAuth();
+  const {
+    isScanning,
+    isConnected,
+    connectedDevice,
+    devices,
+    startScan,
+    stopScan,
+    connectToDevice,
+    disconnect,
+    testPrint,
+  } = usePrinter();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [config, setConfig] = useState({
+    auto_print_enabled: false,
+    header_font_size: 2,
+    separator_lines: 1,
+    include_logo: true,
+    include_customer_info: true,
+    include_totals: true,
+  });
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    try {
+      setLoading(true);
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('printer_config')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setConfig({
+          auto_print_enabled: data.auto_print_enabled,
+          header_font_size: data.header_font_size,
+          separator_lines: data.separator_lines,
+          include_logo: data.include_logo,
+          include_customer_info: data.include_customer_info,
+          include_totals: data.include_totals,
+        });
+      }
+    } catch (error) {
+      console.error('Error loading printer config:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveConfig = async () => {
+    try {
+      setSaving(true);
+      const supabase = getSupabase();
+
+      const dataToSave = {
+        user_id: user?.id,
+        printer_name: connectedDevice?.name || null,
+        printer_address: connectedDevice?.id || null,
+        is_default: true,
+        ...config,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: existing } = await supabase
+        .from('printer_config')
+        .select('id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('printer_config')
+          .update(dataToSave)
+          .eq('user_id', user?.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('printer_config')
+          .insert([dataToSave]);
+
+        if (error) throw error;
+      }
+
+      Alert.alert('Éxito', 'Configuración guardada correctamente');
+    } catch (error) {
+      console.error('Error saving printer config:', error);
+      Alert.alert('Error', 'No se pudo guardar la configuración');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestPrint = async () => {
+    if (!isConnected) {
+      Alert.alert('Error', 'No hay impresora conectada');
+      return;
+    }
+
+    try {
+      await testPrint();
+      Alert.alert('Éxito', 'Impresión de prueba enviada');
+    } catch (error) {
+      console.error('Error testing print:', error);
+      Alert.alert('Error', 'No se pudo imprimir');
+    }
+  };
+
+  const handleScan = () => {
+    if (isScanning) {
+      stopScan();
+    } else {
+      startScan();
+    }
+  };
+
+  const handleConnect = async (deviceId: string) => {
+    try {
+      await connectToDevice(deviceId);
+      Alert.alert('Éxito', 'Conectado a la impresora');
+    } catch (error) {
+      console.error('Error connecting to printer:', error);
+      Alert.alert('Error', 'No se pudo conectar a la impresora');
+    }
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnect();
+      Alert.alert('Éxito', 'Desconectado de la impresora');
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      Alert.alert('Error', 'No se pudo desconectar');
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: 'Printer Settings',
+          headerBackTitle: 'Back',
+        }}
+      />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.infoCard}>
+          <IconSymbol name="info.circle.fill" size={24} color={colors.info} />
+          <Text style={styles.infoText}>
+            Configura tu impresora térmica Bluetooth para imprimir tickets de pedidos automáticamente.
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Estado de Conexión</Text>
+          <View style={styles.card}>
+            <View style={styles.statusRow}>
+              <View style={styles.statusLeft}>
+                <IconSymbol
+                  name={isConnected ? 'checkmark.circle.fill' : 'xmark.circle.fill'}
+                  size={24}
+                  color={isConnected ? colors.success : colors.error}
+                />
+                <View style={styles.statusTextContainer}>
+                  <Text style={styles.statusLabel}>
+                    {isConnected ? 'Conectado' : 'Desconectado'}
+                  </Text>
+                  {connectedDevice && (
+                    <Text style={styles.statusSubtext}>{connectedDevice.name}</Text>
+                  )}
+                </View>
+              </View>
+              {isConnected && (
+                <TouchableOpacity style={styles.disconnectButton} onPress={handleDisconnect}>
+                  <Text style={styles.disconnectButtonText}>Desconectar</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Dispositivos Disponibles</Text>
+            <TouchableOpacity
+              style={[styles.scanButton, isScanning && styles.scanButtonActive]}
+              onPress={handleScan}
+            >
+              <IconSymbol
+                name={isScanning ? 'stop.circle.fill' : 'magnifyingglass'}
+                size={16}
+                color="#FFFFFF"
+              />
+              <Text style={styles.scanButtonText}>
+                {isScanning ? 'Detener' : 'Buscar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {devices.length > 0 ? (
+            <View style={styles.card}>
+              {devices.map((device, index) => (
+                <TouchableOpacity
+                  key={device.id}
+                  style={[
+                    styles.deviceItem,
+                    index < devices.length - 1 && styles.deviceItemBorder,
+                  ]}
+                  onPress={() => handleConnect(device.id)}
+                  disabled={isConnected && connectedDevice?.id === device.id}
+                >
+                  <View style={styles.deviceLeft}>
+                    <IconSymbol name="printer.fill" size={24} color={colors.primary} />
+                    <View style={styles.deviceTextContainer}>
+                      <Text style={styles.deviceName}>{device.name || 'Dispositivo sin nombre'}</Text>
+                      <Text style={styles.deviceId}>{device.id}</Text>
+                    </View>
+                  </View>
+                  {connectedDevice?.id === device.id && (
+                    <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyCard}>
+              <IconSymbol name="printer.fill" size={48} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>
+                {isScanning ? 'Buscando dispositivos...' : 'No se encontraron dispositivos'}
+              </Text>
+              <Text style={styles.emptySubtext}>
+                Presiona "Buscar" para escanear impresoras Bluetooth
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Configuración de Impresión</Text>
+          <View style={styles.card}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLeft}>
+                <IconSymbol name="bolt.fill" size={24} color={colors.warning} />
+                <Text style={styles.switchLabel}>Impresión Automática</Text>
+              </View>
+              <Switch
+                value={config.auto_print_enabled}
+                onValueChange={(value) =>
+                  setConfig({ ...config, auto_print_enabled: value })
+                }
+                trackColor={{ false: colors.border, true: colors.success }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLeft}>
+                <IconSymbol name="photo.fill" size={24} color={colors.primary} />
+                <Text style={styles.switchLabel}>Incluir Logo</Text>
+              </View>
+              <Switch
+                value={config.include_logo}
+                onValueChange={(value) => setConfig({ ...config, include_logo: value })}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLeft}>
+                <IconSymbol name="person.fill" size={24} color={colors.accent} />
+                <Text style={styles.switchLabel}>Info del Cliente</Text>
+              </View>
+              <Switch
+                value={config.include_customer_info}
+                onValueChange={(value) =>
+                  setConfig({ ...config, include_customer_info: value })
+                }
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLeft}>
+                <IconSymbol name="dollarsign.circle.fill" size={24} color={colors.success} />
+                <Text style={styles.switchLabel}>Incluir Totales</Text>
+              </View>
+              <Switch
+                value={config.include_totals}
+                onValueChange={(value) => setConfig({ ...config, include_totals: value })}
+                trackColor={{ false: colors.border, true: colors.success }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.testButton, !isConnected && styles.buttonDisabled]}
+          onPress={handleTestPrint}
+          disabled={!isConnected}
+        >
+          <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
+          <Text style={styles.testButtonText}>Imprimir Prueba</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.buttonDisabled]}
+          onPress={handleSaveConfig}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <IconSymbol name="checkmark.circle.fill" size={20} color="#FFFFFF" />
+              <Text style={styles.saveButtonText}>Guardar Configuración</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.info,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 24,
+  },
+  infoText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginLeft: 4,
+    textTransform: 'uppercase',
+  },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  scanButtonActive: {
+    backgroundColor: colors.error,
+  },
+  scanButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 4,
+  },
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  statusTextContainer: {
+    marginLeft: 12,
+  },
+  statusLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  statusSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  disconnectButton: {
+    backgroundColor: colors.error,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  disconnectButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  deviceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  deviceItemBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  deviceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  deviceTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  deviceName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  deviceId: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  emptyCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  switchLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  switchLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+    marginLeft: 12,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.warning,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  testButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 8,
+  },
+  saveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.success,
+    borderRadius: 12,
+    padding: 16,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginLeft: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+});

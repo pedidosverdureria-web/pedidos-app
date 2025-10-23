@@ -18,7 +18,7 @@ export default function ProfileScreen() {
 
   const profileSections = [
     {
-      title: 'Quick Actions',
+      title: 'Acciones Rápidas',
       items: [
         {
           icon: 'plus.circle.fill',
@@ -28,37 +28,74 @@ export default function ProfileScreen() {
           description: 'Crear un nuevo pedido manualmente',
         },
         {
-          icon: 'gear',
-          label: 'Settings',
-          route: '/settings',
-          color: colors.primary,
-          description: 'Configuración de la aplicación',
-        },
-        {
-          icon: 'bell.fill',
-          label: 'Notifications',
-          route: '/settings/notifications',
-          color: colors.warning,
-          description: 'Gestionar notificaciones',
-        },
-      ],
-    },
-    {
-      title: 'Statistics',
-      items: [
-        {
           icon: 'chart.bar.fill',
-          label: 'Order Statistics',
+          label: 'Estadísticas',
           route: '/stats',
           color: colors.info,
           description: 'Ver estadísticas de pedidos',
         },
         {
           icon: 'clock.fill',
-          label: 'Activity Log',
+          label: 'Registro de Actividad',
           route: '/activity',
           color: colors.accent,
           description: 'Historial de actividad',
+        },
+      ],
+    },
+    {
+      title: 'Configuración',
+      items: [
+        {
+          icon: 'message.fill',
+          label: 'Integración WhatsApp',
+          route: '/settings/whatsapp',
+          color: colors.success,
+          description: 'Configurar webhook de WhatsApp',
+        },
+        {
+          icon: 'printer.fill',
+          label: 'Configuración de Impresora',
+          route: '/settings/printer',
+          color: colors.primary,
+          description: 'Gestionar impresora Bluetooth',
+        },
+        {
+          icon: 'bell.fill',
+          label: 'Notificaciones',
+          route: '/settings/notifications',
+          color: colors.warning,
+          description: 'Gestionar notificaciones',
+        },
+        ...(user?.role === 'admin'
+          ? [
+              {
+                icon: 'person.2.fill',
+                label: 'Gestión de Usuarios',
+                route: '/settings/users',
+                color: colors.secondary,
+                description: 'Administrar usuarios y roles',
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      title: 'Información',
+      items: [
+        {
+          icon: 'gear',
+          label: 'Configuración General',
+          route: '/settings',
+          color: colors.primary,
+          description: 'Configuración de la aplicación',
+        },
+        {
+          icon: 'info.circle.fill',
+          label: 'Acerca de',
+          route: '/settings/about',
+          color: colors.info,
+          description: 'Información de la aplicación',
         },
       ],
     },
@@ -78,7 +115,7 @@ export default function ProfileScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen
           options={{
-            title: 'Profile',
+            title: 'Perfil',
             headerRight: renderHeaderRight,
           }}
         />
@@ -91,7 +128,7 @@ export default function ProfileScreen() {
                 <IconSymbol name="person.fill" size={48} color="#FFFFFF" />
               </View>
             </View>
-            <Text style={styles.name}>{user.full_name || 'User'}</Text>
+            <Text style={styles.name}>{user.full_name || 'Usuario'}</Text>
             <Text style={styles.email}>{user.email}</Text>
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>{user.role.toUpperCase()}</Text>
@@ -99,7 +136,6 @@ export default function ProfileScreen() {
           </View>
         )}
 
-        {/* Featured Action - Create Manual Order */}
         <TouchableOpacity
           style={styles.featuredAction}
           onPress={() => router.push('/order/new')}
