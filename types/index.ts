@@ -98,12 +98,12 @@ export interface CreateOrderInput {
   customer_phone?: string;
   customer_address?: string;
   notes?: string;
-  items: Array<{
+  items: {
     product_name: string;
     quantity: number;
     unit_price: number;
     notes?: string;
-  }>;
+  }[];
 }
 
 // Helper type for updating orders
