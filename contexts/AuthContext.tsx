@@ -20,6 +20,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [fetchingProfile, setFetchingProfile] = useState(false);
 
   useEffect(() => {
     console.log('AuthProvider: Initializing');
@@ -82,6 +83,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const fetchUserProfile = async (userId: string) => {
+    // Prevent concurrent profile fetches
+    if (fetchingProfile) {
+      console.log('AuthProvider: Profile fetch already in progress, skipping');
+      return;
+    }
+
+    setFetchingProfile(true);
+    
     try {
       console.log('AuthProvider: Fetching user profile for:', userId);
       const supabase = getSupabase();
@@ -90,14 +99,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      const { data, error } = await supabase
+      // Set a timeout to prevent infinite waiting
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+
+      const fetchPromise = supabase
         .from('profiles')
         .select('*')
         .eq('user_id', userId)
         .single();
 
+      const { data, error } = await Promise.race([
+        fetchPromise,
+        timeoutPromise
+      ]) as any;
+
       if (error) {
         console.error('AuthProvider: Error fetching user profile:', error);
+        
+        // Check if it's an RLS policy error
+        if (error.code === '42P17' || error.message?.includes('infinite recursion')) {
+          console.error('AuthProvider: RLS policy recursion detected. Please check database policies.');
+        }
         
         // If profile doesn't exist, try to get basic info from auth.users
         const { data: authData } = await supabase.auth.getUser();
@@ -128,8 +152,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         created_at: data.created_at,
         updated_at: data.updated_at,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('AuthProvider: Error fetching user profile:', error);
+      
+      // If timeout or recursion error, create a fallback user
+      if (error.message?.includes('timeout') || error.message?.includes('recursion')) {
+        console.log('AuthProvider: Creating fallback user due to error');
+        const supabase = getSupabase();
+        if (supabase) {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user) {
+            setUser({
+              id: userId,
+              email: authData.user.email || '',
+              full_name: authData.user.user_metadata?.full_name || '',
+              role: 'worker',
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }
+      }
+    } finally {
+      setFetchingProfile(false);
     }
   };
 
