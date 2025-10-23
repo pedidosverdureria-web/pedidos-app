@@ -672,8 +672,8 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <View style={styles.cardTitleWithIcon}>
+              <IconSymbol name="cart.fill" size={22} color={colors.primary} />
               <Text style={styles.cardTitle}>Productos</Text>
-              <IconSymbol name="cart.fill" size={20} color={colors.primary} />
             </View>
             <View style={styles.headerActions}>
               {order.items && order.items.length > 0 && (
@@ -688,16 +688,19 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                   />
                 </TouchableOpacity>
               )}
-              {canAddProducts && (
-                <TouchableOpacity 
-                  onPress={() => setAddingProduct(true)}
-                  style={styles.addProductButton}
-                >
-                  <IconSymbol name="plus.circle.fill" size={28} color={colors.success} />
-                </TouchableOpacity>
-              )}
             </View>
           </View>
+
+          {/* Add Product Button - Prominent Display */}
+          {canAddProducts && (
+            <TouchableOpacity 
+              style={styles.addProductButtonLarge}
+              onPress={() => setAddingProduct(true)}
+            >
+              <IconSymbol name="plus.circle.fill" size={24} color="#FFFFFF" />
+              <Text style={styles.addProductButtonText}>Agregar Producto</Text>
+            </TouchableOpacity>
+          )}
 
           {!canAddProducts && order.status !== 'delivered' && order.status !== 'cancelled' && (
             <View style={styles.infoBox}>
@@ -917,17 +920,23 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
         {/* Actions Card */}
         <View style={styles.actionsCard}>
           <TouchableOpacity style={styles.actionButton} onPress={handlePrint}>
-            <IconSymbol name="printer.fill" size={28} color={colors.primary} />
+            <View style={styles.actionIconContainer}>
+              <IconSymbol name="printer.fill" size={32} color={colors.primary} />
+            </View>
             <Text style={styles.actionButtonText}>Imprimir</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton} onPress={handleWhatsApp}>
-            <IconSymbol name="message.fill" size={28} color={colors.success} />
+            <View style={styles.actionIconContainer}>
+              <IconSymbol name="message.fill" size={32} color={colors.success} />
+            </View>
             <Text style={styles.actionButtonText}>WhatsApp</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
-            <IconSymbol name="trash.fill" size={28} color={colors.error} />
+            <View style={styles.actionIconContainer}>
+              <IconSymbol name="trash.fill" size={32} color={colors.error} />
+            </View>
             <Text style={styles.actionButtonText}>Eliminar</Text>
           </TouchableOpacity>
         </View>
@@ -1074,8 +1083,23 @@ const styles = StyleSheet.create({
   headerActionButton: {
     padding: 4,
   },
-  addProductButton: {
-    padding: 2,
+  addProductButtonLarge: {
+    backgroundColor: colors.success,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    marginBottom: 16,
+    gap: 10,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.15)',
+    elevation: 3,
+  },
+  addProductButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   label: {
     fontSize: 14,
@@ -1381,19 +1405,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     backgroundColor: colors.card,
     borderRadius: 12,
-    padding: 16,
+    padding: 20,
     borderWidth: 1,
     borderColor: colors.border,
+    boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.1)',
+    elevation: 3,
   },
   actionButton: {
     alignItems: 'center',
     padding: 8,
+    minWidth: 80,
+  },
+  actionIconContainer: {
+    backgroundColor: colors.background,
+    borderRadius: 50,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
   },
   actionButtonText: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.text,
-    marginTop: 8,
-    fontWeight: '600',
+    marginTop: 4,
+    fontWeight: '700',
   },
   errorText: {
     fontSize: 16,
