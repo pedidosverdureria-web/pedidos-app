@@ -21,16 +21,25 @@ export default function ProfileScreen() {
       title: 'Quick Actions',
       items: [
         {
+          icon: 'plus.circle.fill',
+          label: 'Crear Pedido Manual',
+          route: '/order/new',
+          color: colors.success,
+          description: 'Crear un nuevo pedido manualmente',
+        },
+        {
           icon: 'gear',
           label: 'Settings',
           route: '/settings',
           color: colors.primary,
+          description: 'Configuración de la aplicación',
         },
         {
           icon: 'bell.fill',
           label: 'Notifications',
           route: '/settings/notifications',
           color: colors.warning,
+          description: 'Gestionar notificaciones',
         },
       ],
     },
@@ -42,12 +51,14 @@ export default function ProfileScreen() {
           label: 'Order Statistics',
           route: '/stats',
           color: colors.info,
+          description: 'Ver estadísticas de pedidos',
         },
         {
           icon: 'clock.fill',
           label: 'Activity Log',
           route: '/activity',
           color: colors.accent,
+          description: 'Historial de actividad',
         },
       ],
     },
@@ -88,6 +99,23 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Featured Action - Create Manual Order */}
+        <TouchableOpacity
+          style={styles.featuredAction}
+          onPress={() => router.push('/order/new')}
+        >
+          <View style={styles.featuredIconContainer}>
+            <IconSymbol name="plus.circle.fill" size={32} color="#FFFFFF" />
+          </View>
+          <View style={styles.featuredContent}>
+            <Text style={styles.featuredTitle}>Crear Pedido Manual</Text>
+            <Text style={styles.featuredDescription}>
+              Crea un nuevo pedido ingresando los datos del cliente y productos
+            </Text>
+          </View>
+          <IconSymbol name="chevron.right" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+
         {profileSections.map((section, sectionIndex) => (
           <View key={sectionIndex} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
@@ -105,7 +133,12 @@ export default function ProfileScreen() {
                     <View style={[styles.actionIcon, { backgroundColor: item.color }]}>
                       <IconSymbol name={item.icon as any} size={20} color="#FFFFFF" />
                     </View>
-                    <Text style={styles.actionLabel}>{item.label}</Text>
+                    <View style={styles.actionTextContainer}>
+                      <Text style={styles.actionLabel}>{item.label}</Text>
+                      {item.description && (
+                        <Text style={styles.actionDescription}>{item.description}</Text>
+                      )}
+                    </View>
                   </View>
                   <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
@@ -117,7 +150,7 @@ export default function ProfileScreen() {
         <View style={styles.infoCard}>
           <IconSymbol name="info.circle.fill" size={24} color={colors.info} />
           <Text style={styles.infoText}>
-            Manage your profile, view statistics, and configure app settings from here.
+            Gestiona tu perfil, crea pedidos manuales, visualiza estadísticas y configura la aplicación desde aquí.
           </Text>
         </View>
       </ScrollView>
@@ -179,6 +212,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  featuredAction: {
+    backgroundColor: colors.success,
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  featuredIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  featuredContent: {
+    flex: 1,
+  },
+  featuredTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  featuredDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 18,
+  },
   section: {
     marginBottom: 24,
   },
@@ -220,10 +295,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
+  actionTextContainer: {
+    flex: 1,
+  },
   actionLabel: {
     fontSize: 16,
     fontWeight: '500',
     color: colors.text,
+    marginBottom: 2,
+  },
+  actionDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
   infoCard: {
     flexDirection: 'row',
