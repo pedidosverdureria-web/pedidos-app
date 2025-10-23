@@ -23,11 +23,11 @@ export default function LoginScreen() {
 
   // Redirect to home if already authenticated
   useEffect(() => {
-    if (isAuthenticated && !authLoading && !loading) {
+    if (isAuthenticated && !authLoading) {
       console.log('[Login] User authenticated, redirecting to home');
       router.replace('/(tabs)/(home)/');
     }
-  }, [isAuthenticated, authLoading, loading]);
+  }, [isAuthenticated, authLoading]);
 
   const handleLogin = async () => {
     // Validate PIN
@@ -49,6 +49,10 @@ export default function LoginScreen() {
       console.log('[Login] Login successful');
       
       // Navigation will happen automatically via useEffect when isAuthenticated becomes true
+      // Set loading to false after a short delay to allow state to update
+      setTimeout(() => {
+        setLoading(false);
+      }, 100);
     } catch (error: any) {
       console.error('[Login] Login error:', error);
       setLoading(false);
