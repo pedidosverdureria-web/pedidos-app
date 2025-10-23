@@ -270,6 +270,14 @@ export default function WhatsAppSettingsScreen() {
         </View>
 
         <TouchableOpacity
+          style={styles.parserTestButton}
+          onPress={() => router.push('/settings/whatsapp-test')}
+        >
+          <IconSymbol name="text.bubble.fill" size={20} color={colors.primary} />
+          <Text style={styles.parserTestButtonText}>Probar Parser de Mensajes</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.testButton, testing && styles.buttonDisabled]}
           onPress={handleTestConnection}
           disabled={testing}
@@ -392,6 +400,23 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  parserTestButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  parserTestButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
   },
   testButton: {
     flexDirection: 'row',
