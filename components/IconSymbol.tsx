@@ -1,3 +1,4 @@
+
 // This file is a fallback for using MaterialIcons on Android and web.
 
 import React from "react";
@@ -45,8 +46,10 @@ const MAPPING = {
 
   // Actions & Controls
   "plus": "add",
+  "plus.circle.fill": "add-circle",
   "minus": "remove",
   "xmark": "close",
+  "xmark.circle.fill": "cancel",
   "checkmark": "check",
   "checkmark.circle.fill": "check-circle",
   "checkmark.circle": "check-circle-outline",
@@ -55,9 +58,11 @@ const MAPPING = {
   "multiply": "clear",
   "trash.fill": "delete",
   "trash": "delete-outline",
+  "stop.circle.fill": "cancel",
 
   // Editing & Creation
   "pencil": "edit",
+  "pencil.circle.fill": "edit",
   "pencil.and.list.clipboard": "edit-note",
   "square.and.pencil": "edit",
   "doc.text.fill": "description",
@@ -101,6 +106,7 @@ const MAPPING = {
   "star": "star-border",
   "bookmark.fill": "bookmark",
   "bookmark": "bookmark-border",
+  "number": "tag",
 
   // Technology & Code
   "chevron.left.forwardslash.chevron.right": "code",
@@ -161,6 +167,14 @@ const MAPPING = {
   "lightbulb.fill": "lightbulb",
   "moon.fill": "dark-mode",
   "sun.max.fill": "light-mode",
+
+  // Printer & Office
+  "printer.fill": "print",
+  "printer": "print",
+
+  // Bolt & Power
+  "bolt.fill": "bolt",
+  "bolt": "bolt",
 } as Partial<
   Record<
     import("expo-symbols").SymbolViewProps["name"],

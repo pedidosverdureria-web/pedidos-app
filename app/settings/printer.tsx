@@ -136,17 +136,25 @@ export default function PrinterSettingsScreen() {
     }
   };
 
-  const handleScan = () => {
+  const handleScan = async () => {
+    console.log('handleScan called, isScanning:', isScanning);
     if (isScanning) {
+      console.log('Stopping scan...');
       stopScan();
     } else {
-      startScan();
+      console.log('Starting scan...');
+      await startScan();
     }
   };
 
   const handleConnect = async (deviceId: string) => {
     try {
-      await connectToDevice(deviceId);
+      const device = devices.find(d => d.id === deviceId);
+      if (!device) {
+        Alert.alert('Error', 'Dispositivo no encontrado');
+        return;
+      }
+      await connectToDevice(device);
       Alert.alert('Éxito', 'Conectado a la impresora');
     } catch (error) {
       console.error('Error connecting to printer:', error);
@@ -176,8 +184,8 @@ export default function PrinterSettingsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Printer Settings',
-          headerBackTitle: 'Back',
+          title: 'Configuración de Impresora',
+          headerBackTitle: 'Atrás',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -222,15 +230,23 @@ export default function PrinterSettingsScreen() {
             <TouchableOpacity
               style={[styles.scanButton, isScanning && styles.scanButtonActive]}
               onPress={handleScan}
+              disabled={isScanning}
             >
-              <IconSymbol
-                name={isScanning ? 'stop.circle.fill' : 'magnifyingglass'}
-                size={16}
-                color="#FFFFFF"
-              />
-              <Text style={styles.scanButtonText}>
-                {isScanning ? 'Detener' : 'Buscar'}
-              </Text>
+              {isScanning ? (
+                <>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                  <Text style={styles.scanButtonText}>Buscando...</Text>
+                </>
+              ) : (
+                <>
+                  <IconSymbol
+                    name="magnifyingglass"
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.scanButtonText}>Buscar</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -266,7 +282,7 @@ export default function PrinterSettingsScreen() {
                 {isScanning ? 'Buscando dispositivos...' : 'No se encontraron dispositivos'}
               </Text>
               <Text style={styles.emptySubtext}>
-                Presiona "Buscar" para escanear impresoras Bluetooth
+                Presiona &quot;Buscar&quot; para escanear impresoras Bluetooth
               </Text>
             </View>
           )}
@@ -417,15 +433,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
+    gap: 6,
   },
   scanButtonActive: {
-    backgroundColor: colors.error,
+    backgroundColor: colors.warning,
   },
   scanButtonText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginLeft: 4,
   },
   card: {
     backgroundColor: colors.card,

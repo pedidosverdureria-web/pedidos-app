@@ -63,7 +63,7 @@ export const usePrinter = () => {
     try {
       const hasPermission = await requestPermissions();
       if (!hasPermission) {
-        Alert.alert('Permission Required', 'Bluetooth permissions are required to scan for printers');
+        Alert.alert('Permiso Requerido', 'Se requieren permisos de Bluetooth para buscar impresoras');
         return;
       }
 
@@ -76,6 +76,7 @@ export const usePrinter = () => {
         if (error) {
           console.error('usePrinter: Scan error:', error);
           setScanning(false);
+          Alert.alert('Error', 'Error al escanear dispositivos Bluetooth');
           return;
         }
 
@@ -92,13 +93,14 @@ export const usePrinter = () => {
       });
 
       setTimeout(() => {
-        console.log('usePrinter: Stopping device scan');
+        console.log('usePrinter: Stopping device scan after timeout');
         manager.stopDeviceScan();
         setScanning(false);
       }, 10000);
     } catch (error) {
       console.error('usePrinter: Error in scanForDevices:', error);
       setScanning(false);
+      Alert.alert('Error', 'Error al buscar dispositivos');
     }
   };
 
@@ -109,10 +111,9 @@ export const usePrinter = () => {
       await connected.discoverAllServicesAndCharacteristics();
       setConnectedDevice(connected);
       console.log('usePrinter: Connected successfully');
-      Alert.alert('Success', `Connected to ${device.name}`);
     } catch (error) {
       console.error('usePrinter: Connection error:', error);
-      Alert.alert('Error', 'Failed to connect to printer');
+      throw error;
     }
   };
 
@@ -124,13 +125,14 @@ export const usePrinter = () => {
         setConnectedDevice(null);
       } catch (error) {
         console.error('usePrinter: Error disconnecting:', error);
+        throw error;
       }
     }
   };
 
   const printReceipt = async (content: string) => {
     if (!connectedDevice) {
-      Alert.alert('Error', 'No printer connected');
+      Alert.alert('Error', 'No hay impresora conectada');
       return;
     }
 
@@ -141,12 +143,20 @@ export const usePrinter = () => {
       // 3. Send the data in chunks if needed
       
       console.log('usePrinter: Printing:', content);
-      Alert.alert('Print', 'Print command sent (demo mode)');
+      Alert.alert('Impresión', 'Comando de impresión enviado (modo demo)');
     } catch (error) {
       console.error('usePrinter: Print error:', error);
-      Alert.alert('Error', 'Failed to print');
+      Alert.alert('Error', 'Error al imprimir');
+      throw error;
     }
   };
+
+  const stopScanFunc = useCallback(() => {
+    console.log('usePrinter: Stopping scan manually');
+    const manager = getBleManager();
+    manager.stopDeviceScan();
+    setScanning(false);
+  }, []);
 
   return {
     devices,
@@ -159,12 +169,8 @@ export const usePrinter = () => {
     isScanning: scanning,
     isConnected: !!connectedDevice,
     startScan: scanForDevices,
-    stopScan: () => {
-      const manager = getBleManager();
-      manager.stopDeviceScan();
-      setScanning(false);
-    },
+    stopScan: stopScanFunc,
     disconnect: disconnectDevice,
-    testPrint: () => printReceipt('Test Print'),
+    testPrint: () => printReceipt('=== IMPRESIÓN DE PRUEBA ===\nEsta es una prueba de impresión.\nSi puedes leer esto, tu impresora funciona correctamente.\n========================'),
   };
 };
