@@ -54,12 +54,22 @@ export default function OrderDetailScreen() {
 
       const { data, error } = await supabase
         .from('orders')
-        .select('*, items:order_items(*)')
+        .select(`
+          *,
+          items:order_items(*)
+        `)
         .eq('id', orderId)
         .single();
 
       if (error) throw error;
-      setOrder(data);
+      
+      // Transform data to match Order interface
+      const transformedOrder = {
+        ...data,
+        items: data.items || [],
+      };
+      
+      setOrder(transformedOrder);
     } catch (error) {
       console.error('Error fetching order:', error);
       Alert.alert('Error', 'Failed to load order');
@@ -95,10 +105,10 @@ export default function OrderDetailScreen() {
       if (error) throw error;
 
       setOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
-      Alert.alert('Success', 'Order status updated');
+      Alert.alert('Éxito', 'Estado del pedido actualizado');
     } catch (error) {
       console.error('Error updating status:', error);
-      Alert.alert('Error', 'Failed to update status');
+      Alert.alert('Error', 'No se pudo actualizar el estado');
     }
   };
 
@@ -106,29 +116,32 @@ export default function OrderDetailScreen() {
     if (!order) return;
 
     const receipt = `
-ORDER #${order.order_number}
+PEDIDO #${order.order_number}
 ${'-'.repeat(32)}
-Customer: ${order.customer_name}
-Phone: ${order.customer_phone}
-${order.customer_address ? `Address: ${order.customer_address}` : ''}
+Cliente: ${order.customer_name}
+Teléfono: ${order.customer_phone || 'N/A'}
+${order.customer_address ? `Dirección: ${order.customer_address}` : ''}
 ${'-'.repeat(32)}
-Items:
-${order.items?.map((item) => `${item.quantity}x ${item.product_name} - $${item.price.toFixed(2)}`).join('\n')}
+Productos:
+${order.items?.map((item) => `${item.quantity}x ${item.product_name} - $${item.unit_price.toFixed(2)}`).join('\n')}
 ${'-'.repeat(32)}
-Total: $${order.total.toFixed(2)}
-Paid: $${order.paid.toFixed(2)}
-Pending: $${order.pending.toFixed(2)}
+Total: $${order.total_amount.toFixed(2)}
+Pagado: $${order.paid_amount.toFixed(2)}
+Pendiente: $${(order.total_amount - order.paid_amount).toFixed(2)}
 ${'-'.repeat(32)}
-Status: ${order.status.toUpperCase()}
+Estado: ${order.status.toUpperCase()}
     `.trim();
 
     printReceipt(receipt);
   };
 
   const handleWhatsApp = () => {
-    if (!order) return;
+    if (!order || !order.customer_phone) {
+      Alert.alert('Error', 'No hay número de teléfono disponible');
+      return;
+    }
 
-    const message = `Hello ${order.customer_name}, your order #${order.order_number} is ${order.status}. Total: $${order.total.toFixed(2)}`;
+    const message = `Hola ${order.customer_name}, tu pedido #${order.order_number} está ${order.status}. Total: $${order.total_amount.toFixed(2)}`;
     const url = `whatsapp://send?phone=${order.customer_phone}&text=${encodeURIComponent(message)}`;
     
     Linking.canOpenURL(url)
@@ -136,7 +149,7 @@ Status: ${order.status.toUpperCase()}
         if (supported) {
           return Linking.openURL(url);
         } else {
-          Alert.alert('Error', 'WhatsApp is not installed');
+          Alert.alert('Error', 'WhatsApp no está instalado');
         }
       })
       .catch((err) => console.error('Error opening WhatsApp:', err));
@@ -144,12 +157,12 @@ Status: ${order.status.toUpperCase()}
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Order',
-      'Are you sure you want to delete this order? This action cannot be undone.',
+      'Eliminar Pedido',
+      '¿Estás seguro de que quieres eliminar este pedido? Esta acción no se puede deshacer.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -163,12 +176,12 @@ Status: ${order.status.toUpperCase()}
 
               if (error) throw error;
 
-              Alert.alert('Success', 'Order deleted', [
+              Alert.alert('Éxito', 'Pedido eliminado', [
                 { text: 'OK', onPress: () => router.back() },
               ]);
             } catch (error) {
               console.error('Error deleting order:', error);
-              Alert.alert('Error', 'Failed to delete order');
+              Alert.alert('Error', 'No se pudo eliminar el pedido');
             }
           },
         },
@@ -187,23 +200,25 @@ Status: ${order.status.toUpperCase()}
   if (!order) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.errorText}>Order not found</Text>
+        <Text style={styles.errorText}>Pedido no encontrado</Text>
       </View>
     );
   }
+
+  const pendingAmount = order.total_amount - order.paid_amount;
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: `Order #${order.order_number}`,
-          headerBackTitle: 'Orders',
+          title: `Pedido #${order.order_number}`,
+          headerBackTitle: 'Pedidos',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Order Information</Text>
+            <Text style={styles.cardTitle}>Información del Pedido</Text>
             <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
               <Text style={styles.statusText}>{order.status.toUpperCase()}</Text>
             </View>
@@ -212,7 +227,7 @@ Status: ${order.status.toUpperCase()}
           <View style={styles.infoRow}>
             <IconSymbol name="number" size={20} color={colors.textSecondary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Order Number</Text>
+              <Text style={styles.infoLabel}>Número de Pedido</Text>
               <Text style={styles.infoValue}>{order.order_number}</Text>
             </View>
           </View>
@@ -220,32 +235,44 @@ Status: ${order.status.toUpperCase()}
           <View style={styles.infoRow}>
             <IconSymbol name="person.fill" size={20} color={colors.textSecondary} />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Customer</Text>
+              <Text style={styles.infoLabel}>Cliente</Text>
               <Text style={styles.infoValue}>{order.customer_name}</Text>
             </View>
           </View>
 
-          <View style={styles.infoRow}>
-            <IconSymbol name="phone.fill" size={20} color={colors.textSecondary} />
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Phone</Text>
-              <Text style={styles.infoValue}>{order.customer_phone}</Text>
+          {order.customer_phone && (
+            <View style={styles.infoRow}>
+              <IconSymbol name="phone.fill" size={20} color={colors.textSecondary} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Teléfono</Text>
+                <Text style={styles.infoValue}>{order.customer_phone}</Text>
+              </View>
             </View>
-          </View>
+          )}
 
           {order.customer_address && (
             <View style={styles.infoRow}>
               <IconSymbol name="location.fill" size={20} color={colors.textSecondary} />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Address</Text>
+                <Text style={styles.infoLabel}>Dirección</Text>
                 <Text style={styles.infoValue}>{order.customer_address}</Text>
+              </View>
+            </View>
+          )}
+
+          {order.source === 'whatsapp' && (
+            <View style={styles.infoRow}>
+              <IconSymbol name="message.fill" size={20} color={colors.success} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Origen</Text>
+                <Text style={styles.infoValue}>WhatsApp</Text>
               </View>
             </View>
           )}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Items</Text>
+          <Text style={styles.cardTitle}>Productos</Text>
           {order.items && order.items.length > 0 ? (
             order.items.map((item) => (
               <View key={item.id} style={styles.itemRow}>
@@ -255,37 +282,37 @@ Status: ${order.status.toUpperCase()}
                 </View>
                 <View style={styles.itemRight}>
                   <Text style={styles.itemQuantity}>x{item.quantity}</Text>
-                  <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>${item.total_price.toFixed(2)}</Text>
                 </View>
               </View>
             ))
           ) : (
-            <Text style={styles.emptyText}>No items</Text>
+            <Text style={styles.emptyText}>Sin productos</Text>
           )}
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Payment</Text>
+          <Text style={styles.cardTitle}>Pago</Text>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Total</Text>
-            <Text style={styles.paymentValue}>${order.total.toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>${order.total_amount.toFixed(2)}</Text>
           </View>
           <View style={styles.paymentRow}>
-            <Text style={styles.paymentLabel}>Paid</Text>
+            <Text style={styles.paymentLabel}>Pagado</Text>
             <Text style={[styles.paymentValue, { color: colors.success }]}>
-              ${order.paid.toFixed(2)}
+              ${order.paid_amount.toFixed(2)}
             </Text>
           </View>
           <View style={[styles.paymentRow, styles.paymentRowTotal]}>
-            <Text style={styles.paymentLabelTotal}>Pending</Text>
-            <Text style={[styles.paymentValueTotal, { color: colors.error }]}>
-              ${order.pending.toFixed(2)}
+            <Text style={styles.paymentLabelTotal}>Pendiente</Text>
+            <Text style={[styles.paymentValueTotal, { color: pendingAmount > 0 ? colors.error : colors.success }]}>
+              ${pendingAmount.toFixed(2)}
             </Text>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Change Status</Text>
+          <Text style={styles.cardTitle}>Cambiar Estado</Text>
           <View style={styles.statusGrid}>
             {STATUS_OPTIONS.map((status) => (
               <TouchableOpacity
@@ -315,7 +342,7 @@ Status: ${order.status.toUpperCase()}
         <View style={styles.actionsCard}>
           <TouchableOpacity style={styles.actionButton} onPress={handlePrint}>
             <IconSymbol name="printer.fill" size={24} color={colors.primary} />
-            <Text style={styles.actionButtonText}>Print</Text>
+            <Text style={styles.actionButtonText}>Imprimir</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionButton} onPress={handleWhatsApp}>
@@ -325,7 +352,7 @@ Status: ${order.status.toUpperCase()}
 
           <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
             <IconSymbol name="trash.fill" size={24} color={colors.error} />
-            <Text style={styles.actionButtonText}>Delete</Text>
+            <Text style={styles.actionButtonText}>Eliminar</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

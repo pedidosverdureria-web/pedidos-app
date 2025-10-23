@@ -18,12 +18,12 @@ import { Order, OrderStatus } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
 const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Preparing', value: 'preparing' },
-  { label: 'Ready', value: 'ready' },
-  { label: 'Delivered', value: 'delivered' },
-  { label: 'Cancelled', value: 'cancelled' },
+  { label: 'Todos', value: 'all' },
+  { label: 'Pendiente', value: 'pending' },
+  { label: 'Preparando', value: 'preparing' },
+  { label: 'Listo', value: 'ready' },
+  { label: 'Entregado', value: 'delivered' },
+  { label: 'Cancelado', value: 'cancelled' },
 ];
 
 const getStatusColor = (status: OrderStatus) => {
@@ -44,7 +44,14 @@ const getStatusColor = (status: OrderStatus) => {
 };
 
 const getStatusLabel = (status: OrderStatus) => {
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  const labels: Record<OrderStatus, string> = {
+    pending: 'Pendiente',
+    preparing: 'Preparando',
+    ready: 'Listo',
+    delivered: 'Entregado',
+    cancelled: 'Cancelado',
+  };
+  return labels[status] || status;
 };
 
 export default function HomeScreen() {
@@ -67,7 +74,7 @@ export default function HomeScreen() {
     return (
       order.order_number.toLowerCase().includes(query) ||
       order.customer_name.toLowerCase().includes(query) ||
-      order.customer_phone.includes(query)
+      (order.customer_phone && order.customer_phone.includes(query))
     );
   });
 
@@ -93,10 +100,12 @@ export default function HomeScreen() {
           <IconSymbol name="person.fill" size={16} color={colors.textSecondary} />
           <Text style={styles.infoText}>{item.customer_name}</Text>
         </View>
-        <View style={styles.infoRow}>
-          <IconSymbol name="phone.fill" size={16} color={colors.textSecondary} />
-          <Text style={styles.infoText}>{item.customer_phone}</Text>
-        </View>
+        {item.customer_phone && (
+          <View style={styles.infoRow}>
+            <IconSymbol name="phone.fill" size={16} color={colors.textSecondary} />
+            <Text style={styles.infoText}>{item.customer_phone}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.orderFooter}>
@@ -104,11 +113,16 @@ export default function HomeScreen() {
           <IconSymbol
             name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'}
             size={14}
-            color={colors.textSecondary}
+            color={item.source === 'whatsapp' ? colors.success : colors.textSecondary}
           />
-          <Text style={styles.sourceText}>{item.source}</Text>
+          <Text style={[
+            styles.sourceText,
+            item.source === 'whatsapp' && { color: colors.success }
+          ]}>
+            {item.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}
+          </Text>
         </View>
-        <Text style={styles.totalText}>${item.total.toFixed(2)}</Text>
+        <Text style={styles.totalText}>${item.total_amount.toFixed(2)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -119,7 +133,7 @@ export default function HomeScreen() {
         <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search orders..."
+          placeholder="Buscar pedidos..."
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -177,7 +191,7 @@ export default function HomeScreen() {
       {Platform.OS === 'ios' && (
         <Stack.Screen
           options={{
-            title: 'Orders',
+            title: 'Pedidos',
             headerRight: renderHeaderRight,
             headerLeft: renderHeaderLeft,
           }}
@@ -199,11 +213,11 @@ export default function HomeScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <IconSymbol name="tray.fill" size={64} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>No orders found</Text>
+              <Text style={styles.emptyText}>No hay pedidos</Text>
               <Text style={styles.emptySubtext}>
                 {searchQuery
-                  ? 'Try adjusting your search'
-                  : 'New orders will appear here'}
+                  ? 'Intenta ajustar tu búsqueda'
+                  : 'Los nuevos pedidos aparecerán aquí'}
               </Text>
             </View>
           }
@@ -213,7 +227,7 @@ export default function HomeScreen() {
           <View style={styles.unreadBanner}>
             <IconSymbol name="bell.badge.fill" size={20} color="#FFFFFF" />
             <Text style={styles.unreadBannerText}>
-              {unreadCount} new order{unreadCount > 1 ? 's' : ''}
+              {unreadCount} pedido{unreadCount > 1 ? 's' : ''} nuevo{unreadCount > 1 ? 's' : ''}
             </Text>
           </View>
         )}
@@ -361,7 +375,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginLeft: 4,
-    textTransform: 'capitalize',
+    fontWeight: '500',
   },
   totalText: {
     fontSize: 18,

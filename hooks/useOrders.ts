@@ -19,7 +19,10 @@ export const useOrders = (statusFilter?: OrderStatus) => {
 
       let query = supabase
         .from('orders')
-        .select('*, items:order_items(*)')
+        .select(`
+          *,
+          items:order_items(*)
+        `)
         .order('created_at', { ascending: false });
 
       if (statusFilter) {
@@ -29,7 +32,14 @@ export const useOrders = (statusFilter?: OrderStatus) => {
       const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
-      setOrders(data || []);
+
+      // Transform data to match Order interface
+      const transformedOrders = (data || []).map((order: any) => ({
+        ...order,
+        items: order.items || [],
+      }));
+
+      setOrders(transformedOrders);
       setError(null);
     } catch (err: any) {
       console.error('Error fetching orders:', err);
@@ -51,6 +61,14 @@ export const useOrders = (statusFilter?: OrderStatus) => {
           { event: '*', schema: 'public', table: 'orders' },
           (payload) => {
             console.log('Order change detected:', payload);
+            fetchOrders();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'order_items' },
+          (payload) => {
+            console.log('Order items change detected:', payload);
             fetchOrders();
           }
         )
