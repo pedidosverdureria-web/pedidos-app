@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('AuthProvider: Setting up auth listener');
       const { data: authListener } = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          console.log('AuthProvider: Auth state changed:', event);
+          console.log('AuthProvider: Auth state changed:', event, 'Session:', session ? 'exists' : 'null');
           setSession(session);
           if (session?.user) {
             await fetchUserProfile(session.user.id);
@@ -85,7 +85,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('AuthProvider: Fetching user profile for:', userId);
       const supabase = getSupabase();
-      if (!supabase) return;
+      if (!supabase) {
+        console.error('AuthProvider: Supabase not initialized in fetchUserProfile');
+        return;
+      }
 
       const { data, error } = await supabase
         .from('profiles')
@@ -99,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // If profile doesn't exist, try to get basic info from auth.users
         const { data: authData } = await supabase.auth.getUser();
         if (authData?.user) {
+          console.log('AuthProvider: Creating fallback user object');
           setUser({
             id: userId,
             email: authData.user.email || '',
@@ -112,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      console.log('AuthProvider: User profile fetched successfully');
+      console.log('AuthProvider: User profile fetched successfully:', data.email, 'Role:', data.role);
       
       // Map profiles table to User type
       setUser({
@@ -130,26 +134,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (email: string, password: string) => {
-    console.log('AuthProvider: Signing in user:', email);
+    console.log('AuthProvider: Attempting sign in for:', email);
     const supabase = getSupabase();
     if (!supabase) {
-      throw new Error('Supabase no está inicializado');
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      console.error('AuthProvider: Sign in error:', error);
+      const error = new Error('Supabase no está inicializado. Por favor configura Supabase primero.');
+      console.error('AuthProvider:', error.message);
       throw error;
     }
-    
-    console.log('AuthProvider: Sign in successful');
-    if (data.user) {
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('AuthProvider: Sign in error:', error.message, 'Status:', error.status);
+        throw error;
+      }
+      
+      if (!data.session) {
+        console.error('AuthProvider: No session returned after sign in');
+        throw new Error('No se pudo crear la sesión. Por favor intenta de nuevo.');
+      }
+
+      console.log('AuthProvider: Sign in successful, session created');
       setSession(data.session);
-      await fetchUserProfile(data.user.id);
+      
+      if (data.user) {
+        console.log('AuthProvider: Fetching user profile after sign in');
+        await fetchUserProfile(data.user.id);
+      }
+    } catch (error: any) {
+      console.error('AuthProvider: Sign in failed:', error);
+      throw error;
     }
   };
 

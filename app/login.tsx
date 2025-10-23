@@ -22,22 +22,25 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, isAuthenticated } = useAuth();
+  const { signIn, isAuthenticated, session } = useAuth();
 
   useEffect(() => {
+    console.log('LoginScreen: Mounted, checking initialization');
     // Check if Supabase is initialized
     if (!isSupabaseInitialized()) {
-      console.log('Supabase not initialized, redirecting to setup');
+      console.log('LoginScreen: Supabase not initialized, redirecting to setup');
       router.replace('/setup');
       return;
     }
+  }, []);
 
+  useEffect(() => {
     // If already authenticated, go to home
-    if (isAuthenticated) {
-      console.log('Already authenticated, redirecting to home');
+    if (isAuthenticated && session) {
+      console.log('LoginScreen: User is authenticated, redirecting to home');
       router.replace('/(tabs)/(home)/');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, session]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -47,16 +50,22 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      console.log('Attempting login for:', email);
+      console.log('LoginScreen: Attempting login for:', email);
       await signIn(email, password);
-      console.log('Login successful, navigating to home');
+      console.log('LoginScreen: Login successful');
       
-      // Small delay to ensure auth state is updated
-      setTimeout(() => {
-        router.replace('/(tabs)/(home)/');
-      }, 100);
+      // Show success message
+      Alert.alert('Éxito', 'Inicio de sesión exitoso', [
+        {
+          text: 'OK',
+          onPress: () => {
+            console.log('LoginScreen: Navigating to home after successful login');
+            router.replace('/(tabs)/(home)/');
+          }
+        }
+      ]);
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('LoginScreen: Login error:', error);
       
       // Show user-friendly error messages
       let errorMessage = 'Error al iniciar sesión';
@@ -70,6 +79,12 @@ export default function LoginScreen() {
           errorMessage = 'Error de base de datos. Por favor intenta de nuevo.';
         } else if (error.message.includes('User not found')) {
           errorMessage = 'Usuario no encontrado';
+        } else if (error.message.includes('Too many requests')) {
+          errorMessage = 'Demasiados intentos. Por favor espera un momento.';
+        } else if (error.message.includes('Supabase no está inicializado')) {
+          errorMessage = error.message;
+          // Redirect to setup
+          setTimeout(() => router.replace('/setup'), 2000);
         } else {
           errorMessage = error.message;
         }
