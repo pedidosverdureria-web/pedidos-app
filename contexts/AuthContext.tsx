@@ -26,6 +26,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadUser = async (authUser: User) => {
     try {
       const supabase = getSupabase();
+      if (!supabase) {
+        console.error('Supabase client not initialized');
+        return;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -52,6 +57,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     const supabase = getSupabase();
+    if (!supabase) {
+      console.error('Supabase client not initialized');
+      return;
+    }
+
     const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (currentSession?.user) {
       await loadUser(currentSession.user);
@@ -60,6 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const supabase = getSupabase();
+    
+    // If Supabase is not initialized yet, wait
+    if (!supabase) {
+      console.log('Waiting for Supabase initialization...');
+      setIsLoading(false);
+      return;
+    }
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
@@ -91,6 +108,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -101,6 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -134,6 +159,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     const supabase = getSupabase();
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
+
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     setUser(null);

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, useRootNavigationState } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '@/styles/commonStyles';
 import { isSupabaseInitialized, initializeSupabase } from '@/lib/supabase';
@@ -9,10 +9,26 @@ import { isSupabaseInitialized, initializeSupabase } from '@/lib/supabase';
 export default function Index() {
   const router = useRouter();
   const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('Initializing...');
+  const [navigationReady, setNavigationReady] = useState(false);
+
+  // Wait for navigation to be ready
+  useEffect(() => {
+    if (rootNavigationState?.key) {
+      console.log('Root navigation is ready');
+      setNavigationReady(true);
+    }
+  }, [rootNavigationState]);
 
   const checkConfigurationAndRedirect = useCallback(async () => {
+    // Don't navigate until root navigation is ready
+    if (!navigationReady) {
+      console.log('Waiting for navigation to be ready...');
+      return;
+    }
+
     try {
       console.log('=== Starting configuration check ===');
       setStatus('Checking configuration...');
@@ -21,9 +37,7 @@ export default function Index() {
       if (isSupabaseInitialized()) {
         console.log('✓ Supabase already initialized');
         setStatus('Redirecting to login...');
-        setTimeout(() => {
-          router.replace('/login');
-        }, 100);
+        router.replace('/login');
         return;
       }
 
@@ -39,35 +53,25 @@ export default function Index() {
           setStatus('Initializing Supabase...');
           initializeSupabase(url, anonKey);
           setStatus('Redirecting to login...');
-          setTimeout(() => {
-            router.replace('/login');
-          }, 100);
+          router.replace('/login');
         } else {
           console.log('✗ Invalid config in storage');
           setStatus('Redirecting to setup...');
-          setTimeout(() => {
-            router.replace('/setup');
-          }, 100);
+          router.replace('/setup');
         }
       } else {
         console.log('✗ No config found, need setup');
         setStatus('Redirecting to setup...');
-        setTimeout(() => {
-          router.replace('/setup');
-        }, 100);
+        router.replace('/setup');
       }
     } catch (error) {
       console.error('Error checking configuration:', error);
       setStatus('Error occurred, redirecting to setup...');
-      setTimeout(() => {
-        router.replace('/setup');
-      }, 100);
+      router.replace('/setup');
     } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 500);
+      setLoading(false);
     }
-  }, [router]);
+  }, [router, navigationReady]);
 
   useEffect(() => {
     console.log('Index screen mounted, current segments:', segments);
