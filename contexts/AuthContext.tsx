@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log('Loading user profile for:', authUser.email);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log('User profile loaded:', data?.email);
       setUser(data);
 
       // Register for push notifications (only on native platforms)
@@ -74,34 +76,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // If Supabase is not initialized yet, wait
     if (!supabase) {
-      console.log('Waiting for Supabase initialization...');
+      console.log('AuthContext: Waiting for Supabase initialization...');
       setIsLoading(false);
       return;
     }
 
+    console.log('AuthContext: Initializing auth state');
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      console.log('Initial session loaded:', currentSession ? 'Session exists' : 'No session');
+      console.log('AuthContext: Initial session loaded:', currentSession ? 'Session exists' : 'No session');
       setSession(currentSession);
       if (currentSession?.user) {
         loadUser(currentSession.user);
+      } else {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }).catch((error) => {
-      console.error('Error getting initial session:', error);
+      console.error('AuthContext: Error getting initial session:', error);
       setIsLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, currentSession) => {
-        console.log('Auth state changed:', _event);
+      async (event, currentSession) => {
+        console.log('AuthContext: Auth state changed:', event);
         setSession(currentSession);
+        
         if (currentSession?.user) {
           await loadUser(currentSession.user);
         } else {
           setUser(null);
         }
+        
         setIsLoading(false);
       }
     );
@@ -117,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Supabase no está inicializado. Por favor configura tu conexión primero.');
     }
 
-    console.log('Attempting sign in for:', email);
+    console.log('AuthContext: Attempting sign in for:', email);
     
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -125,11 +132,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) {
-      console.error('Sign in error:', error);
+      console.error('AuthContext: Sign in error:', error);
       throw error;
     }
 
-    console.log('Sign in successful:', data.user?.email);
+    console.log('AuthContext: Sign in successful for:', data.user?.email);
+    // The onAuthStateChange listener will handle updating the session and user
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
@@ -175,8 +183,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error('Supabase no está inicializado');
     }
 
+    console.log('AuthContext: Signing out');
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    
     setUser(null);
     setSession(null);
   };
@@ -187,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         isLoading,
-        isAuthenticated: !!session,
+        isAuthenticated: !!session && !!user,
         signIn,
         signUp,
         signOut,

@@ -45,12 +45,11 @@ export default function LoginScreen() {
 
   useEffect(() => {
     // If already authenticated, go to home
-    // Only redirect if not currently loading (to avoid conflicts with manual navigation)
-    if (isAuthenticated && session && !loading) {
+    if (isAuthenticated && session) {
       console.log('LoginScreen: User is authenticated, redirecting to home');
       router.replace('/(tabs)/(home)/');
     }
-  }, [isAuthenticated, session, loading]);
+  }, [isAuthenticated, session]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -69,12 +68,10 @@ export default function LoginScreen() {
     try {
       console.log('LoginScreen: Attempting login for:', email);
       await signIn(email, password);
-      console.log('LoginScreen: Login successful');
+      console.log('LoginScreen: Login successful, auth state will trigger navigation');
       
-      // Don't show alert, just navigate directly
-      // The auth state change will trigger the useEffect above
-      console.log('LoginScreen: Navigating to home after successful login');
-      router.replace('/(tabs)/(home)/');
+      // Don't manually navigate here - let the useEffect above handle it
+      // when the auth state changes
     } catch (error: any) {
       console.error('LoginScreen: Login error:', error);
       

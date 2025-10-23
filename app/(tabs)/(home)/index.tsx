@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TextInput,
   RefreshControl,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
@@ -60,18 +61,42 @@ const formatCLP = (amount: number): string => {
 };
 
 export default function HomeScreen() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { orders, loading, refetch } = useOrders(
     statusFilter === 'all' ? undefined : statusFilter
   );
 
-  React.useEffect(() => {
-    if (!isAuthenticated) {
+  useEffect(() => {
+    console.log('HomeScreen: Auth state -', { isAuthenticated, authLoading });
+    
+    // Only redirect if auth is not loading and user is not authenticated
+    if (!authLoading && !isAuthenticated) {
+      console.log('HomeScreen: User not authenticated, redirecting to login');
       router.replace('/login');
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, authLoading]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </View>
+    );
+  }
+
+  // Don't render the main content if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Redirigiendo...</Text>
+      </View>
+    );
+  }
 
   const filteredOrders = orders.filter((order) => {
     if (!searchQuery) return true;
@@ -245,6 +270,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.textSecondary,
   },
   headerButton: {
     padding: 8,
