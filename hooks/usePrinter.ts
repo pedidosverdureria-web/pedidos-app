@@ -3,7 +3,15 @@ import { useState, useEffect } from 'react';
 import { BleManager, Device } from 'react-native-ble-plx';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 
-const bleManager = new BleManager();
+// Initialize BleManager only when needed to avoid initialization errors
+let bleManager: BleManager | null = null;
+
+const getBleManager = () => {
+  if (!bleManager) {
+    bleManager = new BleManager();
+  }
+  return bleManager;
+};
 
 export const usePrinter = () => {
   const [devices, setDevices] = useState<Device[]>([]);
@@ -63,7 +71,8 @@ export const usePrinter = () => {
       setScanning(true);
       setDevices([]);
 
-      bleManager.startDeviceScan(null, null, (error, device) => {
+      const manager = getBleManager();
+      manager.startDeviceScan(null, null, (error, device) => {
         if (error) {
           console.error('usePrinter: Scan error:', error);
           setScanning(false);
@@ -84,7 +93,7 @@ export const usePrinter = () => {
 
       setTimeout(() => {
         console.log('usePrinter: Stopping device scan');
-        bleManager.stopDeviceScan();
+        manager.stopDeviceScan();
         setScanning(false);
       }, 10000);
     } catch (error) {
