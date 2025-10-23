@@ -19,8 +19,6 @@ import { getSupabase } from '@/lib/supabase';
 import { Order, OrderStatus, OrderItem } from '@/types';
 import { usePrinter } from '@/hooks/usePrinter';
 
-const STATUS_OPTIONS: OrderStatus[] = ['pending', 'preparing', 'ready', 'delivered', 'cancelled'];
-
 const getStatusColor = (status: OrderStatus) => {
   switch (status) {
     case 'pending':
@@ -47,6 +45,23 @@ const getStatusLabel = (status: OrderStatus) => {
     cancelled: 'Cancelado',
   };
   return labels[status] || status;
+};
+
+// Get available status transitions based on current status
+const getAvailableStatusTransitions = (currentStatus: OrderStatus): OrderStatus[] => {
+  switch (currentStatus) {
+    case 'pending':
+      return ['preparing', 'cancelled'];
+    case 'preparing':
+      return ['ready', 'cancelled'];
+    case 'ready':
+      return ['delivered', 'cancelled'];
+    case 'delivered':
+    case 'cancelled':
+      return []; // Final states - no transitions allowed
+    default:
+      return [];
+  }
 };
 
 export default function OrderDetailScreen() {
@@ -399,6 +414,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
   }
 
   const pendingAmount = order.total_amount - order.paid_amount;
+  const availableStatusTransitions = getAvailableStatusTransitions(order.status);
 
   return (
     <>
@@ -646,34 +662,48 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
           </View>
         </View>
 
-        {/* Status Change Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Cambiar Estado</Text>
-          <View style={styles.statusGrid}>
-            {STATUS_OPTIONS.map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.statusButton,
-                  { borderColor: getStatusColor(status) },
-                  order.status === status && {
-                    backgroundColor: getStatusColor(status),
-                  },
-                ]}
-                onPress={() => updateStatus(status)}
-              >
-                <Text
+        {/* Status Change Card - Only show if there are available transitions */}
+        {availableStatusTransitions.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Cambiar Estado</Text>
+            <View style={styles.statusGrid}>
+              {availableStatusTransitions.map((status) => (
+                <TouchableOpacity
+                  key={status}
                   style={[
-                    styles.statusButtonText,
-                    order.status === status && styles.statusButtonTextActive,
+                    styles.statusButton,
+                    { backgroundColor: getStatusColor(status) },
                   ]}
+                  onPress={() => updateStatus(status)}
                 >
-                  {getStatusLabel(status)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text style={styles.statusButtonTextActive}>
+                    {getStatusLabel(status)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
+
+        {/* Show message if order is in final state */}
+        {availableStatusTransitions.length === 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Estado del Pedido</Text>
+            <View style={styles.finalStateContainer}>
+              <IconSymbol 
+                name={order.status === 'delivered' ? "checkmark.circle.fill" : "xmark.circle.fill"} 
+                size={48} 
+                color={getStatusColor(order.status)} 
+              />
+              <Text style={styles.finalStateText}>
+                Este pedido está {getStatusLabel(order.status).toLowerCase()}
+              </Text>
+              <Text style={styles.finalStateSubtext}>
+                No se pueden realizar más cambios de estado
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Actions Card */}
         <View style={styles.actionsCard}>
@@ -981,24 +1011,38 @@ const styles = StyleSheet.create({
   statusGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
   },
   statusButton: {
     flex: 1,
     minWidth: '45%',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 8,
-    borderWidth: 2,
     alignItems: 'center',
-  },
-  statusButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+    justifyContent: 'center',
   },
   statusButtonTextActive: {
+    fontSize: 15,
+    fontWeight: '700',
     color: '#FFFFFF',
+  },
+  finalStateContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  finalStateText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  finalStateSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 8,
+    textAlign: 'center',
   },
   actionsCard: {
     flexDirection: 'row',
