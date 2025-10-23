@@ -223,6 +223,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '90%',
     maxWidth: 400,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -282,6 +283,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  priceModalScrollView: {
+    maxHeight: 400,
+  },
+  priceModalItem: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  priceModalItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  priceModalItemQuantity: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  priceModalInput: {
+    backgroundColor: colors.card,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 });
 
@@ -364,6 +396,8 @@ export default function OrderDetailScreen() {
   const [editItemQuantity, setEditItemQuantity] = useState('');
   const [editItemPrice, setEditItemPrice] = useState('');
   const [editItemNotes, setEditItemNotes] = useState('');
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [bulkPrices, setBulkPrices] = useState<{ [key: string]: string }>({});
 
   const { printReceipt, isConnected } = usePrinter();
 
@@ -664,71 +698,79 @@ export default function OrderDetailScreen() {
     setEditItemNotes(item.notes || '');
   };
 
+  const openPriceModal = () => {
+    if (!order || !order.items || order.items.length === 0) {
+      Alert.alert('Error', 'No hay productos en este pedido');
+      return;
+    }
+
+    // Initialize bulk prices with current prices
+    const initialPrices: { [key: string]: string } = {};
+    order.items.forEach((item) => {
+      initialPrices[item.id] = item.unit_price.toString();
+    });
+    setBulkPrices(initialPrices);
+    setShowPriceModal(true);
+  };
+
   const applyPriceToAll = async () => {
     if (!order || !order.items || order.items.length === 0) {
       Alert.alert('Error', 'No hay productos en este pedido');
       return;
     }
 
-    const firstItem = order.items[0];
-    const priceToApply = firstItem.unit_price;
+    // Validate all prices
+    const hasEmptyPrice = Object.values(bulkPrices).some((price) => !price || price.trim() === '');
+    if (hasEmptyPrice) {
+      Alert.alert('Error', 'Por favor ingresa un precio para todos los productos');
+      return;
+    }
 
-    Alert.alert(
-      'Confirmar acción',
-      `¿Deseas aplicar el precio ${formatCLP(priceToApply)} a todos los productos de la lista?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Aplicar',
-          onPress: async () => {
-            try {
-              setSaving(true);
-              const supabase = getSupabase();
+    try {
+      setSaving(true);
+      const supabase = getSupabase();
 
-              // Update all items with the first item's price
-              const updates = order.items!.map((item) => ({
-                id: item.id,
-                unit_price: priceToApply,
-                total_price: item.quantity * priceToApply,
-                updated_at: new Date().toISOString(),
-              }));
+      // Update each item with its new price
+      for (const item of order.items) {
+        const newUnitPrice = parseFloat(bulkPrices[item.id]) || 0;
+        const newTotalPrice = item.quantity * newUnitPrice;
 
-              // Update each item
-              for (const update of updates) {
-                const { error } = await supabase
-                  .from('order_items')
-                  .update({
-                    unit_price: update.unit_price,
-                    total_price: update.total_price,
-                    updated_at: update.updated_at,
-                  })
-                  .eq('id', update.id);
+        const { error } = await supabase
+          .from('order_items')
+          .update({
+            unit_price: newUnitPrice,
+            total_price: newTotalPrice,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', item.id);
 
-                if (error) throw error;
-              }
+        if (error) throw error;
+      }
 
-              // Recalculate order total
-              const newTotal = updates.reduce((sum, item) => sum + item.total_price, 0);
-              await supabase
-                .from('orders')
-                .update({
-                  total_amount: newTotal,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', order.id);
+      // Recalculate order total
+      const { data: items } = await supabase
+        .from('order_items')
+        .select('total_price')
+        .eq('order_id', order.id);
 
-              await loadOrder();
-              Alert.alert('Éxito', 'Precio aplicado a todos los productos');
-            } catch (error) {
-              console.error('Error applying price to all:', error);
-              Alert.alert('Error', 'No se pudo aplicar el precio a todos los productos');
-            } finally {
-              setSaving(false);
-            }
-          },
-        },
-      ]
-    );
+      const newTotal = items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0;
+      await supabase
+        .from('orders')
+        .update({
+          total_amount: newTotal,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', order.id);
+
+      setShowPriceModal(false);
+      await loadOrder();
+      Alert.alert('Éxito', 'Precios aplicados a todos los productos');
+    } catch (error) {
+      console.error('Error applying prices:', error);
+      Alert.alert('Error', 'No se pudieron aplicar los precios');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePrint = async () => {
@@ -1128,17 +1170,17 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
                 ))}
 
                 {/* Apply Price to All Button */}
-                {canEditProducts && order.items.length > 1 && (
+                {canEditProducts && order.items.length > 0 && (
                   <TouchableOpacity
                     style={[styles.actionButton, styles.applyPriceButton, { marginTop: 12 }]}
-                    onPress={applyPriceToAll}
+                    onPress={openPriceModal}
                     disabled={saving}
                   >
                     {saving ? (
                       <ActivityIndicator color="#FFFFFF" />
                     ) : (
                       <>
-                        <IconSymbol name="arrow.down.circle.fill" size={20} color="#FFFFFF" />
+                        <IconSymbol name="dollarsign.circle.fill" size={20} color="#FFFFFF" />
                         <Text style={styles.actionButtonText}>Aplicar Precio a Todos</Text>
                       </>
                     )}
@@ -1242,6 +1284,65 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Agregar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Bulk Price Edit Modal */}
+      <Modal
+        visible={showPriceModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPriceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Aplicar Precio a Todos</Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 16, fontSize: 14 }}>
+              Ingresa el precio unitario para cada producto:
+            </Text>
+            <ScrollView style={styles.priceModalScrollView}>
+              {order?.items?.map((item) => (
+                <View key={item.id} style={styles.priceModalItem}>
+                  <Text style={styles.priceModalItemName}>{item.product_name}</Text>
+                  <Text style={styles.priceModalItemQuantity}>
+                    Cantidad: {item.quantity}
+                  </Text>
+                  <TextInput
+                    style={styles.priceModalInput}
+                    value={bulkPrices[item.id] || ''}
+                    onChangeText={(text) => {
+                      setBulkPrices((prev) => ({
+                        ...prev,
+                        [item.id]: text,
+                      }));
+                    }}
+                    placeholder="Precio unitario"
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                  />
+                </View>
+              ))}
+            </ScrollView>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowPriceModal(false)}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={applyPriceToAll}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Aplicar</Text>
                 )}
               </TouchableOpacity>
             </View>
