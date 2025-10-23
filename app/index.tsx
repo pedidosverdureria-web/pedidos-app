@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
 import { useRouter, useSegments } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,12 +12,7 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('Initializing...');
 
-  useEffect(() => {
-    console.log('Index screen mounted, current segments:', segments);
-    checkConfigurationAndRedirect();
-  }, []);
-
-  const checkConfigurationAndRedirect = async () => {
+  const checkConfigurationAndRedirect = useCallback(async () => {
     try {
       console.log('=== Starting configuration check ===');
       setStatus('Checking configuration...');
@@ -72,7 +67,12 @@ export default function Index() {
         setLoading(false);
       }, 500);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    console.log('Index screen mounted, current segments:', segments);
+    checkConfigurationAndRedirect();
+  }, [checkConfigurationAndRedirect, segments]);
 
   return (
     <View style={styles.container}>

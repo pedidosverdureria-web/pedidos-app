@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { User } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,67 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [fetchingProfile, setFetchingProfile] = useState(false);
 
-  useEffect(() => {
-    console.log('AuthProvider: Initializing');
-    checkUser();
-    
-    const supabase = getSupabase();
-    if (supabase) {
-      console.log('AuthProvider: Setting up auth listener');
-      const { data: authListener } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          console.log('AuthProvider: Auth state changed:', event, 'Session:', session ? 'exists' : 'null');
-          setSession(session);
-          if (session?.user) {
-            await fetchUserProfile(session.user.id);
-          } else {
-            setUser(null);
-          }
-        }
-      );
-
-      return () => {
-        console.log('AuthProvider: Cleaning up auth listener');
-        authListener?.subscription.unsubscribe();
-      };
-    } else {
-      console.log('AuthProvider: Supabase not initialized yet');
-      setLoading(false);
-    }
-  }, []);
-
-  const checkUser = async () => {
-    try {
-      console.log('AuthProvider: Checking current user');
-      const supabase = getSupabase();
-      if (!supabase) {
-        console.log('AuthProvider: Supabase not initialized in checkUser');
-        setLoading(false);
-        return;
-      }
-
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('AuthProvider: Error getting session:', error);
-        setLoading(false);
-        return;
-      }
-      
-      console.log('AuthProvider: Current session:', session ? 'Found' : 'Not found');
-      setSession(session);
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      }
-    } catch (error) {
-      console.error('AuthProvider: Error checking user:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = useCallback(async (userId: string) => {
     // Prevent concurrent profile fetches
     if (fetchingProfile) {
       console.log('AuthProvider: Profile fetch already in progress, skipping');
@@ -177,7 +117,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setFetchingProfile(false);
     }
-  };
+  }, [fetchingProfile]);
+
+  const checkUser = useCallback(async () => {
+    try {
+      console.log('AuthProvider: Checking current user');
+      const supabase = getSupabase();
+      if (!supabase) {
+        console.log('AuthProvider: Supabase not initialized in checkUser');
+        setLoading(false);
+        return;
+      }
+
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('AuthProvider: Error getting session:', error);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('AuthProvider: Current session:', session ? 'Found' : 'Not found');
+      setSession(session);
+      
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
+      }
+    } catch (error) {
+      console.error('AuthProvider: Error checking user:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUserProfile]);
+
+  useEffect(() => {
+    console.log('AuthProvider: Initializing');
+    checkUser();
+    
+    const supabase = getSupabase();
+    if (supabase) {
+      console.log('AuthProvider: Setting up auth listener');
+      const { data: authListener } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('AuthProvider: Auth state changed:', event, 'Session:', session ? 'exists' : 'null');
+          setSession(session);
+          if (session?.user) {
+            await fetchUserProfile(session.user.id);
+          } else {
+            setUser(null);
+          }
+        }
+      );
+
+      return () => {
+        console.log('AuthProvider: Cleaning up auth listener');
+        authListener?.subscription.unsubscribe();
+      };
+    } else {
+      console.log('AuthProvider: Supabase not initialized yet');
+      setLoading(false);
+    }
+  }, [checkUser, fetchUserProfile]);
 
   const signIn = async (email: string, password: string) => {
     console.log('AuthProvider: Attempting sign in for:', email);

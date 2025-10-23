@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BleManager, Device } from 'react-native-ble-plx';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 
@@ -18,21 +18,7 @@ export const usePrinter = () => {
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
   const [scanning, setScanning] = useState(false);
 
-  useEffect(() => {
-    console.log('usePrinter: Initializing');
-    requestPermissions();
-    
-    return () => {
-      console.log('usePrinter: Cleaning up');
-      if (connectedDevice) {
-        connectedDevice.cancelConnection().catch((err) => {
-          console.error('usePrinter: Error disconnecting:', err);
-        });
-      }
-    };
-  }, []);
-
-  const requestPermissions = async () => {
+  const requestPermissions = useCallback(async () => {
     if (Platform.OS === 'android') {
       try {
         if (Platform.Version >= 31) {
@@ -57,7 +43,21 @@ export const usePrinter = () => {
       }
     }
     return true;
-  };
+  }, []);
+
+  useEffect(() => {
+    console.log('usePrinter: Initializing');
+    requestPermissions();
+    
+    return () => {
+      console.log('usePrinter: Cleaning up');
+      if (connectedDevice) {
+        connectedDevice.cancelConnection().catch((err) => {
+          console.error('usePrinter: Error disconnecting:', err);
+        });
+      }
+    };
+  }, [connectedDevice, requestPermissions]);
 
   const scanForDevices = async () => {
     try {
@@ -156,5 +156,15 @@ export const usePrinter = () => {
     connectToDevice,
     disconnectDevice,
     printReceipt,
+    isScanning: scanning,
+    isConnected: !!connectedDevice,
+    startScan: scanForDevices,
+    stopScan: () => {
+      const manager = getBleManager();
+      manager.stopDeviceScan();
+      setScanning(false);
+    },
+    disconnect: disconnectDevice,
+    testPrint: () => printReceipt('Test Print'),
   };
 };

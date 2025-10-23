@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getSupabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
 
@@ -8,7 +8,7 @@ export const useOrders = (statusFilter?: OrderStatus) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       const supabase = getSupabase();
@@ -47,7 +47,7 @@ export const useOrders = (statusFilter?: OrderStatus) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     fetchOrders();
@@ -78,7 +78,7 @@ export const useOrders = (statusFilter?: OrderStatus) => {
         supabase.removeChannel(channel);
       };
     }
-  }, [statusFilter]);
+  }, [fetchOrders]);
 
   return { orders, loading, error, refetch: fetchOrders };
 };

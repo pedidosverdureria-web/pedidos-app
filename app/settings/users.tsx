@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,16 +27,7 @@ export default function UserManagementScreen() {
   const [editRole, setEditRole] = useState<UserRole>('worker');
   const [editActive, setEditActive] = useState(true);
 
-  useEffect(() => {
-    if (user?.role !== 'admin') {
-      Alert.alert('Acceso Denegado', 'Solo los administradores pueden acceder a esta pantalla');
-      router.back();
-      return;
-    }
-    loadUsers();
-  }, []);
-
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       const supabase = getSupabase();
@@ -54,7 +45,16 @@ export default function UserManagementScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      Alert.alert('Acceso Denegado', 'Solo los administradores pueden acceder a esta pantalla');
+      router.back();
+      return;
+    }
+    loadUsers();
+  }, [user?.role, loadUsers]);
 
   const handleEditUser = (userToEdit: Profile) => {
     setSelectedUser(userToEdit);

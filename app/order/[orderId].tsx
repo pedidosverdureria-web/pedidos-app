@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -85,12 +85,7 @@ export default function OrderDetailScreen() {
   const [productPrice, setProductPrice] = useState('0');
   const [productNotes, setProductNotes] = useState('');
 
-  useEffect(() => {
-    fetchOrder();
-    markAsRead();
-  }, [orderId]);
-
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     try {
       const supabase = getSupabase();
       if (!supabase) return;
@@ -121,9 +116,9 @@ export default function OrderDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
 
-  const markAsRead = async () => {
+  const markAsRead = useCallback(async () => {
     try {
       const supabase = getSupabase();
       if (!supabase) return;
@@ -135,7 +130,12 @@ export default function OrderDetailScreen() {
     } catch (error) {
       console.error('Error marking as read:', error);
     }
-  };
+  }, [orderId]);
+
+  useEffect(() => {
+    fetchOrder();
+    markAsRead();
+  }, [fetchOrder, markAsRead]);
 
   const updateCustomerInfo = async () => {
     if (!customerName.trim()) {
