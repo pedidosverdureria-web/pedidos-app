@@ -719,9 +719,105 @@ serve(async (req) => {
         
         // Extract customer name from contact info
         const contact = contacts?.find((c: any) => c.wa_id === customerPhone);
-        const customerName = extractCustomerName(contact, customerPhone);
+        let customerName = extractCustomerName(contact, customerPhone);
 
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
+
+        // Check for fx6100 special order format
+        const fx6100Match = messageText.match(/^fx6100\s+(\S+)\s+(.+)$/is);
+        if (fx6100Match) {
+          console.log('Detected fx6100 special order format');
+          
+          // Extract custom customer name and order text
+          const customCustomerName = fx6100Match[1].trim();
+          const orderText = fx6100Match[2].trim();
+          
+          console.log('Custom customer name:', customCustomerName);
+          console.log('Order text:', orderText);
+          
+          // Parse the order items
+          const parsedItems = parseWhatsAppMessage(orderText);
+          
+          if (parsedItems.length === 0) {
+            console.log('No items could be parsed from fx6100 order');
+            
+            if (config.access_token && config.phone_number_id) {
+              try {
+                const helpMsg = createHelpMessage(customCustomerName);
+                await sendWhatsAppMessage(
+                  config.phone_number_id,
+                  config.access_token,
+                  customerPhone,
+                  helpMsg
+                );
+                console.log('Sent help message to:', customerPhone);
+              } catch (error) {
+                console.error('Error sending help message:', error);
+              }
+            }
+            
+            continue;
+          }
+          
+          // Create manual order with custom customer name
+          const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+              customer_name: customCustomerName,
+              customer_phone: customerPhone,
+              status: 'pending',
+              source: 'manual',
+              whatsapp_message_id: messageId,
+            })
+            .select()
+            .single();
+
+          if (orderError) {
+            console.error('Error creating fx6100 manual order:', orderError);
+            continue;
+          }
+
+          console.log('Created fx6100 manual order:', order.id, 'with number:', order.order_number);
+
+          // Create order items
+          const orderItems = parsedItems.map((item) => ({
+            order_id: order.id,
+            product_name: `${item.product}`,
+            quantity: item.quantity,
+            unit_price: 0,
+            notes: `Unidad: ${item.unit}`,
+          }));
+
+          const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItems);
+
+          if (itemsError) {
+            console.error('Error creating order items for fx6100 order:', itemsError);
+          }
+
+          // Send confirmation message with custom name
+          if (config.access_token && config.phone_number_id) {
+            try {
+              const confirmationMsg = createConfirmationMessage(
+                customCustomerName,
+                order.order_number,
+                parsedItems
+              );
+              await sendWhatsAppMessage(
+                config.phone_number_id,
+                config.access_token,
+                customerPhone,
+                confirmationMsg
+              );
+              console.log('Sent fx6100 confirmation message to:', customerPhone);
+            } catch (error) {
+              console.error('Error sending fx6100 confirmation message:', error);
+            }
+          }
+          
+          continue;
+        }
 
         // Check if message is a greeting or question
         if (isGreeting(messageText)) {
