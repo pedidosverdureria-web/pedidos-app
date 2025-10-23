@@ -18,6 +18,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { Order, OrderStatus, OrderItem } from '@/types';
 import { usePrinter } from '@/hooks/usePrinter';
+import { sendOrderStatusUpdate, sendProductAddedNotification } from '@/utils/whatsappNotifications';
 
 const getStatusColor = (status: OrderStatus) => {
   switch (status) {
@@ -186,6 +187,10 @@ export default function OrderDetailScreen() {
       if (error) throw error;
 
       setOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      
+      // Send WhatsApp notification to customer
+      await sendOrderStatusUpdate(orderId as string, newStatus);
+      
       Alert.alert('Éxito', 'Estado del pedido actualizado');
     } catch (error) {
       console.error('Error updating status:', error);
@@ -232,6 +237,10 @@ export default function OrderDetailScreen() {
       setProductNotes('');
       
       await fetchOrder();
+      
+      // Send WhatsApp notification to customer about the added product
+      await sendProductAddedNotification(orderId as string, data.id);
+      
       Alert.alert('Éxito', 'Producto agregado');
     } catch (error) {
       console.error('Error adding product:', error);
