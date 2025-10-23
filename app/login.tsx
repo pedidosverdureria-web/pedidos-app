@@ -70,6 +70,11 @@ export default function LoginScreen() {
     }
   };
 
+  const fillAdminCredentials = () => {
+    setEmail('rhenriquez@admin.local');
+    setPassword('rhb9032');
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -84,6 +89,21 @@ export default function LoginScreen() {
           <Text style={styles.title}>Order Manager</Text>
           <Text style={styles.subtitle}>Sign in to continue</Text>
         </View>
+
+        {/* Admin Credentials Info Box */}
+        <TouchableOpacity 
+          style={styles.infoBox}
+          onPress={fillAdminCredentials}
+          activeOpacity={0.7}
+        >
+          <View style={styles.infoHeader}>
+            <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
+            <Text style={styles.infoTitle}>Admin Credentials</Text>
+          </View>
+          <Text style={styles.infoText}>Email: rhenriquez@admin.local</Text>
+          <Text style={styles.infoText}>Password: rhb9032</Text>
+          <Text style={styles.infoHint}>Tap to auto-fill</Text>
+        </TouchableOpacity>
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
@@ -162,7 +182,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 24,
   },
   title: {
     fontSize: 32,
@@ -174,6 +194,39 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+  },
+  infoBox: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: colors.primary + '40',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginLeft: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 4,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  infoHint: {
+    fontSize: 12,
+    color: colors.primary,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   form: {
     width: '100%',
