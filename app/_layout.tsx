@@ -29,6 +29,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (loaded) {
+      console.log('Fonts loaded, hiding splash screen');
       SplashScreen.hideAsync();
     }
   }, [loaded]);
@@ -80,9 +81,9 @@ export default function RootLayout() {
       <ThemeProvider
         value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
       >
-        <WidgetProvider>
-          <AuthProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <WidgetProvider>
+            <AuthProvider>
               <Stack screenOptions={{ headerShown: true }}>
                 <Stack.Screen name="index" options={{ headerShown: false }} />
                 <Stack.Screen name="setup" options={{ title: "Setup Supabase" }} />
@@ -119,9 +120,9 @@ export default function RootLayout() {
                 />
               </Stack>
               <SystemBars style={"auto"} />
-            </GestureHandlerRootView>
-          </AuthProvider>
-        </WidgetProvider>
+            </AuthProvider>
+          </WidgetProvider>
+        </GestureHandlerRootView>
       </ThemeProvider>
     </>
   );

@@ -9,7 +9,7 @@ let supabaseAnonKey = '';
 let supabaseClient: ReturnType<typeof createClient> | null = null;
 
 export const initializeSupabase = (url: string, key: string) => {
-  console.log('Initializing Supabase client');
+  console.log('Initializing Supabase client with URL:', url);
   supabaseUrl = url;
   supabaseAnonKey = key;
   
@@ -22,16 +22,19 @@ export const initializeSupabase = (url: string, key: string) => {
     },
   });
   
+  console.log('Supabase client initialized successfully');
   return supabaseClient;
 };
 
 export const getSupabase = () => {
   if (!supabaseClient) {
-    console.log('Supabase client not initialized');
+    console.warn('Supabase client not initialized - call initializeSupabase first');
   }
   return supabaseClient;
 };
 
 export const isSupabaseInitialized = () => {
-  return supabaseClient !== null;
+  const initialized = supabaseClient !== null;
+  console.log('Supabase initialized:', initialized);
+  return initialized;
 };

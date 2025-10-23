@@ -22,13 +22,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('AuthProvider: Initializing');
     checkUser();
     
     const supabase = getSupabase();
     if (supabase) {
+      console.log('AuthProvider: Setting up auth listener');
       const { data: authListener } = supabase.auth.onAuthStateChange(
         async (event, session) => {
-          console.log('Auth state changed:', event);
+          console.log('AuthProvider: Auth state changed:', event);
           setSession(session);
           if (session?.user) {
             await fetchUserProfile(session.user.id);
@@ -39,29 +41,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       );
 
       return () => {
+        console.log('AuthProvider: Cleaning up auth listener');
         authListener?.subscription.unsubscribe();
       };
+    } else {
+      console.log('AuthProvider: Supabase not initialized yet');
+      setLoading(false);
     }
   }, []);
 
   const checkUser = async () => {
     try {
+      console.log('AuthProvider: Checking current user');
       const supabase = getSupabase();
       if (!supabase) {
-        console.log('Supabase not initialized in checkUser');
+        console.log('AuthProvider: Supabase not initialized in checkUser');
         setLoading(false);
         return;
       }
 
       const { data: { session } } = await supabase.auth.getSession();
-      console.log('Current session:', session ? 'Found' : 'Not found');
+      console.log('AuthProvider: Current session:', session ? 'Found' : 'Not found');
       setSession(session);
       
       if (session?.user) {
         await fetchUserProfile(session.user.id);
       }
     } catch (error) {
-      console.error('Error checking user:', error);
+      console.error('AuthProvider: Error checking user:', error);
     } finally {
       setLoading(false);
     }
@@ -69,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log('AuthProvider: Fetching user profile for:', userId);
       const supabase = getSupabase();
       if (!supabase) return;
 
@@ -79,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('AuthProvider: Error fetching user profile:', error);
         // If profile doesn't exist, create a basic user object
         setUser({
           id: userId,
@@ -93,14 +101,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
-      console.log('User profile fetched:', data);
+      console.log('AuthProvider: User profile fetched successfully');
       setUser(data);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('AuthProvider: Error fetching user profile:', error);
     }
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('AuthProvider: Signing in user');
     const supabase = getSupabase();
     if (!supabase) throw new Error('Supabase not initialized');
 
@@ -109,14 +118,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('AuthProvider: Sign in error:', error);
+      throw error;
+    }
     
+    console.log('AuthProvider: Sign in successful');
     if (data.user) {
       await fetchUserProfile(data.user.id);
     }
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    console.log('AuthProvider: Signing up new user');
     const supabase = getSupabase();
     if (!supabase) throw new Error('Supabase not initialized');
 
@@ -131,16 +145,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('AuthProvider: Sign up error:', error);
+      throw error;
+    }
+    
+    console.log('AuthProvider: Sign up successful');
   };
 
   const signOut = async () => {
+    console.log('AuthProvider: Signing out user');
     const supabase = getSupabase();
     if (!supabase) return;
 
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    console.log('AuthProvider: Sign out successful');
   };
 
   return (
