@@ -724,18 +724,18 @@ serve(async (req) => {
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
         console.log('Message text:', messageText);
 
-        // Check for fx6100 special order format
-        // Improved regex: Match fx6100 followed by space, then capture everything up to first digit or newline as name
-        // Then capture the rest as order text
-        const fx6100Pattern = /^fx6100\s+([^\d\n]+?)[\s\n]+(.+)$/is;
-        const fx6100Match = messageText.match(fx6100Pattern);
+        // Check for Manual #customer name# special order format
+        // Pattern: Manual #customer name# followed by order details
+        // The regex captures everything between # symbols as the customer name
+        const manualPattern = /^Manual\s+#([^#]+)#\s*(.+)$/is;
+        const manualMatch = messageText.match(manualPattern);
         
-        if (fx6100Match) {
-          console.log('Detected fx6100 special order format');
+        if (manualMatch) {
+          console.log('Detected Manual #name# special order format');
           
           // Extract custom customer name and order text
-          const customCustomerName = fx6100Match[1].trim();
-          const orderText = fx6100Match[2].trim();
+          const customCustomerName = manualMatch[1].trim();
+          const orderText = manualMatch[2].trim();
           
           console.log('Custom customer name:', customCustomerName);
           console.log('Order text:', orderText);
@@ -744,7 +744,7 @@ serve(async (req) => {
           const parsedItems = parseWhatsAppMessage(orderText);
           
           if (parsedItems.length === 0) {
-            console.log('No items could be parsed from fx6100 order');
+            console.log('No items could be parsed from Manual order');
             
             if (config.access_token && config.phone_number_id) {
               try {
@@ -778,11 +778,11 @@ serve(async (req) => {
             .single();
 
           if (orderError) {
-            console.error('Error creating fx6100 manual order:', orderError);
+            console.error('Error creating Manual order:', orderError);
             continue;
           }
 
-          console.log('Created fx6100 manual order:', order.id, 'with number:', order.order_number);
+          console.log('Created Manual order:', order.id, 'with number:', order.order_number);
 
           // Create order items
           const orderItems = parsedItems.map((item) => ({
@@ -798,7 +798,7 @@ serve(async (req) => {
             .insert(orderItems);
 
           if (itemsError) {
-            console.error('Error creating order items for fx6100 order:', itemsError);
+            console.error('Error creating order items for Manual order:', itemsError);
           }
 
           // Send confirmation message with custom name
@@ -815,9 +815,9 @@ serve(async (req) => {
                 customerPhone,
                 confirmationMsg
               );
-              console.log('Sent fx6100 confirmation message to:', customerPhone);
+              console.log('Sent Manual confirmation message to:', customerPhone);
             } catch (error) {
-              console.error('Error sending fx6100 confirmation message:', error);
+              console.error('Error sending Manual confirmation message:', error);
             }
           }
           
