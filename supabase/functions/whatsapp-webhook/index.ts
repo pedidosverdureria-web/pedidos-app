@@ -725,8 +725,9 @@ serve(async (req) => {
         console.log('Message text:', messageText);
 
         // Check for fx6100 special order format
-        // Updated regex to capture names with spaces by looking for the first line break or comma
-        const fx6100Pattern = /^fx6100\s+(.+?)[\n,]\s*(.+)$/is;
+        // Improved regex: Match fx6100 followed by space, then capture everything up to first digit or newline as name
+        // Then capture the rest as order text
+        const fx6100Pattern = /^fx6100\s+([^\d\n]+?)[\s\n]+(.+)$/is;
         const fx6100Match = messageText.match(fx6100Pattern);
         
         if (fx6100Match) {
