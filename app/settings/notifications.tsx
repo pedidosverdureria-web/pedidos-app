@@ -16,6 +16,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Notification } from '@/types';
+import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
 
 export default function NotificationsScreen() {
   const { user } = useAuth();
@@ -26,7 +27,9 @@ export default function NotificationsScreen() {
     statusChangeNotifications: true,
     soundEnabled: true,
     vibrationEnabled: true,
+    pushNotificationsEnabled: false,
   });
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -53,6 +56,28 @@ export default function NotificationsScreen() {
   useEffect(() => {
     loadNotifications();
   }, [loadNotifications]);
+
+  const handlePushNotificationToggle = async (value: boolean) => {
+    if (value && user?.user_id) {
+      try {
+        setSavingSettings(true);
+        const token = await registerForPushNotificationsAsync(user.user_id);
+        if (token) {
+          setSettings({ ...settings, pushNotificationsEnabled: true });
+          Alert.alert('Éxito', 'Notificaciones push activadas');
+        } else {
+          Alert.alert('Error', 'No se pudieron activar las notificaciones push');
+        }
+      } catch (error) {
+        console.error('Error enabling push notifications:', error);
+        Alert.alert('Error', 'No se pudieron activar las notificaciones push');
+      } finally {
+        setSavingSettings(false);
+      }
+    } else {
+      setSettings({ ...settings, pushNotificationsEnabled: false });
+    }
+  };
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -198,14 +223,28 @@ export default function NotificationsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Notifications',
-          headerBackTitle: 'Back',
+          title: 'Notificaciones',
+          headerBackTitle: 'Atrás',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configuración</Text>
           <View style={styles.card}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLeft}>
+                <IconSymbol name="bell.badge.fill" size={24} color={colors.primary} />
+                <Text style={styles.switchLabel}>Notificaciones Push</Text>
+              </View>
+              <Switch
+                value={settings.pushNotificationsEnabled}
+                onValueChange={handlePushNotificationToggle}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor="#FFFFFF"
+                disabled={savingSettings}
+              />
+            </View>
+
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
                 <IconSymbol name="bell.fill" size={24} color={colors.primary} />

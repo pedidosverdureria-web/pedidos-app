@@ -12,6 +12,7 @@ export interface Profile {
   full_name?: string;
   role: UserRole;
   is_active: boolean;
+  push_token?: string;
   created_at: string;
   updated_at: string;
 }
