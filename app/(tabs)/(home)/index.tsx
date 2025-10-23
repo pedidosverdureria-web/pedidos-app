@@ -54,6 +54,11 @@ const getStatusLabel = (status: OrderStatus) => {
   return labels[status] || status;
 };
 
+// Format currency as Chilean Pesos
+const formatCLP = (amount: number): string => {
+  return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
+
 export default function HomeScreen() {
   const { isAuthenticated } = useAuth();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -122,7 +127,7 @@ export default function HomeScreen() {
             {item.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}
           </Text>
         </View>
-        <Text style={styles.totalText}>${item.total_amount.toFixed(2)}</Text>
+        <Text style={styles.totalText}>{formatCLP(item.total_amount)}</Text>
       </View>
     </TouchableOpacity>
   );

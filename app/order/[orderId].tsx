@@ -537,6 +537,13 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* Status Badge at Top */}
+        <View style={styles.topStatusContainer}>
+          <View style={[styles.statusBadgeLarge, { backgroundColor: getStatusColor(order.status) }]}>
+            <Text style={styles.statusTextLarge}>{getStatusLabel(order.status).toUpperCase()}</Text>
+          </View>
+        </View>
+
         {/* Customer Information Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
@@ -633,12 +640,6 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                   </View>
                 </View>
               )}
-
-              <View style={styles.infoRow}>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-                  <Text style={styles.statusText}>{getStatusLabel(order.status).toUpperCase()}</Text>
-                </View>
-              </View>
             </View>
           )}
         </View>
@@ -646,7 +647,10 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
         {/* Products Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Productos</Text>
+            <View style={styles.cardTitleWithIcon}>
+              <Text style={styles.cardTitle}>Productos</Text>
+              <IconSymbol name="dollarsign.circle.fill" size={20} color={colors.warning} />
+            </View>
             <View style={styles.headerActions}>
               {order.items && order.items.length > 0 && (
                 <TouchableOpacity 
@@ -762,7 +766,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                     <View style={styles.itemHeader}>
                       <View style={styles.itemInfo}>
                         <Text style={styles.itemName}>{item.product_name}</Text>
-                        <Text style={styles.itemQuantityText}>Cantidad: {item.quantity}</Text>
+                        <Text style={styles.itemQuantityText}>Unidad: {item.quantity}</Text>
                         {item.notes && <Text style={styles.itemNotes}>{item.notes}</Text>}
                       </View>
                     </View>
@@ -789,6 +793,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                     <View style={styles.itemHeader}>
                       <View style={styles.itemInfo}>
                         <Text style={styles.itemName}>{item.product_name}</Text>
+                        <Text style={styles.itemUnit}>Unidad: {item.quantity}</Text>
                         {item.notes && <Text style={styles.itemNotes}>{item.notes}</Text>}
                       </View>
                       <View style={styles.itemActions}>
@@ -999,6 +1004,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  topStatusContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statusBadgeLarge: {
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  statusTextLarge: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   card: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -1017,6 +1036,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+  },
+  cardTitleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerActions: {
     flexDirection: 'row',
@@ -1160,6 +1184,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 4,
+  },
+  itemUnit: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
     marginBottom: 4,
   },
   itemQuantityText: {
