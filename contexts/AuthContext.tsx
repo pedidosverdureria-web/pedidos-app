@@ -4,6 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { getSupabase } from '@/lib/supabase';
 import { Profile } from '@/types';
 import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
+import { Platform } from 'react-native';
 
 interface AuthContextType {
   user: Profile | null;
@@ -44,8 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(data);
 
-      // Register for push notifications
-      if (data?.user_id) {
+      // Register for push notifications (only on native platforms)
+      if (data?.user_id && Platform.OS !== 'web') {
         registerForPushNotificationsAsync(data.user_id).catch((error) => {
           console.error('Error registering for push notifications:', error);
         });
@@ -80,10 +81,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log('Initial session loaded:', currentSession ? 'Session exists' : 'No session');
       setSession(currentSession);
       if (currentSession?.user) {
         loadUser(currentSession.user);
       }
+      setIsLoading(false);
+    }).catch((error) => {
+      console.error('Error getting initial session:', error);
       setIsLoading(false);
     });
 
@@ -109,21 +114,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     const supabase = getSupabase();
     if (!supabase) {
-      throw new Error('Supabase client not initialized');
+      throw new Error('Supabase no está inicializado. Por favor configura tu conexión primero.');
     }
 
-    const { error } = await supabase.auth.signInWithPassword({
+    console.log('Attempting sign in for:', email);
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
+
+    console.log('Sign in successful:', data.user?.email);
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const supabase = getSupabase();
     if (!supabase) {
-      throw new Error('Supabase client not initialized');
+      throw new Error('Supabase no está inicializado. Por favor configura tu conexión primero.');
     }
 
     const { data, error } = await supabase.auth.signUp({
@@ -160,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     const supabase = getSupabase();
     if (!supabase) {
-      throw new Error('Supabase client not initialized');
+      throw new Error('Supabase no está inicializado');
     }
 
     const { error } = await supabase.auth.signOut();

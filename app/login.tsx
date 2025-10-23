@@ -29,7 +29,16 @@ export default function LoginScreen() {
     // Check if Supabase is initialized
     if (!isSupabaseInitialized()) {
       console.log('LoginScreen: Supabase not initialized, redirecting to setup');
-      router.replace('/setup');
+      Alert.alert(
+        'Configuración requerida',
+        'Por favor configura tu conexión a Supabase primero',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/setup')
+          }
+        ]
+      );
       return;
     }
   }, []);
@@ -45,6 +54,13 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Por favor completa todos los campos');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Error', 'Por favor ingresa un email válido');
       return;
     }
 
@@ -69,28 +85,38 @@ export default function LoginScreen() {
       
       // Show user-friendly error messages
       let errorMessage = 'Error al iniciar sesión';
+      let errorTitle = 'Error de inicio de sesión';
       
       if (error.message) {
         if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Email o contraseña incorrectos';
+          errorMessage = 'Email o contraseña incorrectos. Por favor verifica tus credenciales.';
         } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Por favor verifica tu email antes de iniciar sesión';
+          errorTitle = 'Email no confirmado';
+          errorMessage = 'Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y spam.';
         } else if (error.message.includes('Database error')) {
-          errorMessage = 'Error de base de datos. Por favor intenta de nuevo.';
+          errorMessage = 'Error de base de datos. Por favor intenta de nuevo más tarde.';
         } else if (error.message.includes('User not found')) {
-          errorMessage = 'Usuario no encontrado';
+          errorMessage = 'Usuario no encontrado. ¿Necesitas registrarte?';
         } else if (error.message.includes('Too many requests')) {
-          errorMessage = 'Demasiados intentos. Por favor espera un momento.';
-        } else if (error.message.includes('Supabase no está inicializado')) {
-          errorMessage = error.message;
-          // Redirect to setup
-          setTimeout(() => router.replace('/setup'), 2000);
+          errorMessage = 'Demasiados intentos. Por favor espera un momento antes de intentar de nuevo.';
+        } else if (error.message.includes('Supabase no está inicializado') || error.message.includes('not initialized')) {
+          errorTitle = 'Configuración requerida';
+          errorMessage = 'Por favor configura tu conexión a Supabase primero.';
+          Alert.alert(errorTitle, errorMessage, [
+            {
+              text: 'Configurar',
+              onPress: () => router.replace('/setup')
+            }
+          ]);
+          return;
+        } else if (error.message.includes('fetch')) {
+          errorMessage = 'Error de conexión. Por favor verifica tu conexión a internet.';
         } else {
           errorMessage = error.message;
         }
       }
       
-      Alert.alert('Error de inicio de sesión', errorMessage);
+      Alert.alert(errorTitle, errorMessage);
     } finally {
       setLoading(false);
     }
@@ -143,6 +169,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               editable={!loading}
+              autoCorrect={false}
             />
           </View>
 
@@ -156,6 +183,7 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               secureTextEntry
               editable={!loading}
+              autoCorrect={false}
             />
           </View>
 

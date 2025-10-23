@@ -5,7 +5,7 @@ import { Stack, router } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, Platform } from 'react-native';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { WidgetProvider } from '@/contexts/WidgetContext';
 import * as Notifications from 'expo-notifications';
@@ -28,6 +28,12 @@ export default function RootLayout() {
 
   // Setup notification handlers
   useEffect(() => {
+    // Only setup notifications on native platforms
+    if (Platform.OS === 'web') {
+      console.log('Notifications not supported on web');
+      return;
+    }
+
     // Handle notification taps
     const responseSubscription = setupNotificationResponseHandler((response) => {
       console.log('Notification tapped:', response);
@@ -38,14 +44,21 @@ export default function RootLayout() {
     });
 
     // Get last notification response (if app was opened from notification)
-    Notifications.getLastNotificationResponseAsync().then((response) => {
-      if (response) {
-        const orderId = response.notification.request.content.data?.orderId;
-        if (orderId) {
-          router.push(`/order/${orderId}` as any);
-        }
-      }
-    });
+    // Only available on native platforms
+    if (Notifications.getLastNotificationResponseAsync) {
+      Notifications.getLastNotificationResponseAsync()
+        .then((response) => {
+          if (response) {
+            const orderId = response.notification.request.content.data?.orderId;
+            if (orderId) {
+              router.push(`/order/${orderId}` as any);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error('Error getting last notification response:', error);
+        });
+    }
 
     return () => {
       responseSubscription.remove();

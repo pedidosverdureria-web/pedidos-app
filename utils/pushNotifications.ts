@@ -4,19 +4,27 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { getSupabase } from '@/lib/supabase';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Configure notification handler (only on native platforms)
+if (Platform.OS !== 'web') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 /**
  * Register for push notifications and save the token to the database
  */
 export async function registerForPushNotificationsAsync(userId: string): Promise<string | null> {
+  // Push notifications are not supported on web
+  if (Platform.OS === 'web') {
+    console.log('Push notifications not supported on web');
+    return null;
+  }
+
   let token: string | null = null;
 
   if (Platform.OS === 'android') {
@@ -60,10 +68,12 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
 
       // Save token to database
       const supabase = getSupabase();
-      await supabase
-        .from('profiles')
-        .update({ push_token: token })
-        .eq('user_id', userId);
+      if (supabase) {
+        await supabase
+          .from('profiles')
+          .update({ push_token: token })
+          .eq('user_id', userId);
+      }
     } catch (e) {
       console.error('Error getting push token:', e);
     }
@@ -86,6 +96,11 @@ export async function createInAppNotification(
 ) {
   try {
     const supabase = getSupabase();
+    if (!supabase) {
+      console.error('Supabase not initialized');
+      return;
+    }
+
     const { error } = await supabase.from('notifications').insert([
       {
         user_id: userId,
@@ -113,6 +128,12 @@ export async function sendLocalNotification(
   body: string,
   data?: Record<string, any>
 ) {
+  // Local notifications not supported on web
+  if (Platform.OS === 'web') {
+    console.log('Local notifications not supported on web');
+    return;
+  }
+
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -139,6 +160,10 @@ export async function notifyAdmins(
 ) {
   try {
     const supabase = getSupabase();
+    if (!supabase) {
+      console.error('Supabase not initialized');
+      return;
+    }
     
     // Get all admin users
     const { data: admins, error } = await supabase
@@ -157,8 +182,10 @@ export async function notifyAdmins(
       await createInAppNotification(admin.user_id, title, message, type, relatedOrderId);
     }
 
-    // Send local notification
-    await sendLocalNotification(title, message, { orderId: relatedOrderId });
+    // Send local notification (only on native platforms)
+    if (Platform.OS !== 'web') {
+      await sendLocalNotification(title, message, { orderId: relatedOrderId });
+    }
   } catch (error) {
     console.error('Error notifying admins:', error);
   }
@@ -170,6 +197,16 @@ export async function notifyAdmins(
 export function setupNotificationResponseHandler(
   onNotificationResponse: (response: Notifications.NotificationResponse) => void
 ) {
+  // Only setup on native platforms
+  if (Platform.OS === 'web') {
+    console.log('Notification response handler not supported on web');
+    return {
+      remove: () => {
+        console.log('No subscription to remove on web');
+      }
+    };
+  }
+
   const subscription = Notifications.addNotificationResponseReceivedListener(onNotificationResponse);
   return subscription;
 }
@@ -180,6 +217,16 @@ export function setupNotificationResponseHandler(
 export function setupNotificationReceivedHandler(
   onNotificationReceived: (notification: Notifications.Notification) => void
 ) {
+  // Only setup on native platforms
+  if (Platform.OS === 'web') {
+    console.log('Notification received handler not supported on web');
+    return {
+      remove: () => {
+        console.log('No subscription to remove on web');
+      }
+    };
+  }
+
   const subscription = Notifications.addNotificationReceivedListener(onNotificationReceived);
   return subscription;
 }
