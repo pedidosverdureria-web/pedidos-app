@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -16,25 +15,11 @@ import { router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
-import { isSupabaseInitialized } from '@/lib/supabase';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn, isAuthenticated, isLoading: authLoading } = useAuth();
-
-  // Check Supabase initialization on mount
-  useEffect(() => {
-    if (!isSupabaseInitialized()) {
-      console.log('[Login] Supabase not initialized');
-      Alert.alert(
-        'Configuración requerida',
-        'Por favor configura tu conexión a Supabase primero',
-        [{ text: 'OK', onPress: () => router.replace('/setup') }]
-      );
-    }
-  }, []);
+  const { signInWithPin, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Redirect to home if already authenticated
   useEffect(() => {
@@ -45,23 +30,22 @@ export default function LoginScreen() {
   }, [isAuthenticated, authLoading, loading]);
 
   const handleLogin = async () => {
-    // Validate inputs
-    if (!email || !password) {
-      Alert.alert('Error', 'Por favor completa todos los campos');
+    // Validate PIN
+    if (!pin) {
+      Alert.alert('Error', 'Por favor ingresa tu PIN');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert('Error', 'Por favor ingresa un email válido');
+    if (pin.length !== 4) {
+      Alert.alert('Error', 'El PIN debe tener 4 dígitos');
       return;
     }
 
     setLoading(true);
 
     try {
-      console.log('[Login] Attempting login for:', email);
-      await signIn(email, password);
+      console.log('[Login] Attempting PIN login');
+      await signInWithPin(pin);
       console.log('[Login] Login successful');
       
       // Navigation will happen automatically via useEffect when isAuthenticated becomes true
@@ -70,34 +54,24 @@ export default function LoginScreen() {
       setLoading(false);
       
       // Parse error message
-      let errorMessage = 'Error al iniciar sesión';
+      let errorMessage = 'PIN incorrecto';
       
       if (error.message) {
-        if (error.message.includes('Invalid login credentials')) {
-          errorMessage = 'Email o contraseña incorrectos';
-        } else if (error.message.includes('Email not confirmed')) {
-          errorMessage = 'Por favor verifica tu email antes de iniciar sesión';
-        } else if (error.message.includes('Too many requests')) {
-          errorMessage = 'Demasiados intentos. Espera un momento';
-        } else if (error.message.includes('not initialized')) {
-          Alert.alert(
-            'Configuración requerida',
-            'Por favor configura tu conexión a Supabase',
-            [{ text: 'Configurar', onPress: () => router.replace('/setup') }]
-          );
-          return;
-        } else {
-          errorMessage = error.message;
-        }
+        errorMessage = error.message;
       }
       
       Alert.alert('Error de inicio de sesión', errorMessage);
+      setPin(''); // Clear PIN on error
     }
   };
 
-  const fillAdminCredentials = () => {
-    setEmail('rhenriquez@admin.local');
-    setPassword('rhb9032');
+  const handlePinChange = (text: string) => {
+    // Only allow numbers
+    const numericText = text.replace(/[^0-9]/g, '');
+    // Limit to 4 digits
+    if (numericText.length <= 4) {
+      setPin(numericText);
+    }
   };
 
   return (
@@ -105,97 +79,95 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
+      <View style={styles.content}>
         <View style={styles.header}>
-          <IconSymbol name="cart.fill" size={64} color={colors.primary} />
+          <IconSymbol name="lock.shield.fill" size={80} color={colors.primary} />
           <Text style={styles.title}>Order Manager</Text>
-          <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
+          <Text style={styles.subtitle}>Ingresa tu PIN para continuar</Text>
         </View>
 
-        {/* Admin Credentials Info */}
-        <TouchableOpacity 
-          style={styles.infoBox}
-          onPress={fillAdminCredentials}
-          activeOpacity={0.7}
-        >
+        {/* PIN Info Box */}
+        <View style={styles.infoBox}>
           <View style={styles.infoHeader}>
             <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
-            <Text style={styles.infoTitle}>Credenciales de Admin</Text>
+            <Text style={styles.infoTitle}>Información de Acceso</Text>
           </View>
-          <Text style={styles.infoText}>Email: rhenriquez@admin.local</Text>
-          <Text style={styles.infoText}>Password: rhb9032</Text>
-          <Text style={styles.infoHint}>Toca para auto-completar</Text>
-        </TouchableOpacity>
+          <View style={styles.infoRow}>
+            <IconSymbol name="person.badge.shield.checkmark.fill" size={18} color={colors.success} />
+            <Text style={styles.infoText}>Admin: PIN 5050</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <IconSymbol name="person.fill" size={18} color={colors.info} />
+            <Text style={styles.infoText}>Trabajador: PIN 5030</Text>
+          </View>
+        </View>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <IconSymbol name="envelope.fill" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor={colors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              editable={!loading}
-              autoCorrect={false}
-            />
+          {/* PIN Display */}
+          <View style={styles.pinDisplay}>
+            {[0, 1, 2, 3].map((index) => (
+              <View
+                key={index}
+                style={[
+                  styles.pinDot,
+                  pin.length > index && styles.pinDotFilled,
+                ]}
+              >
+                {pin.length > index && (
+                  <Text style={styles.pinDotText}>{pin[index]}</Text>
+                )}
+              </View>
+            ))}
           </View>
 
-          <View style={styles.inputContainer}>
-            <IconSymbol name="lock.fill" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="Contraseña"
-              placeholderTextColor={colors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              editable={!loading}
-              autoCorrect={false}
-            />
-          </View>
+          {/* PIN Input */}
+          <TextInput
+            style={styles.hiddenInput}
+            value={pin}
+            onChangeText={handlePinChange}
+            keyboardType="number-pad"
+            maxLength={4}
+            secureTextEntry={false}
+            autoFocus
+            editable={!loading}
+            placeholder="Ingresa PIN"
+            placeholderTextColor={colors.textSecondary}
+          />
 
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}
-            disabled={loading}
+            disabled={loading || pin.length !== 4}
           >
             {loading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator color="#FFFFFF" />
-                <Text style={styles.loadingText}>Iniciando sesión...</Text>
+                <Text style={styles.loadingText}>Verificando...</Text>
               </View>
             ) : (
-              <Text style={styles.buttonText}>Iniciar Sesión</Text>
+              <>
+                <IconSymbol name="arrow.right.circle.fill" size={24} color="#FFFFFF" />
+                <Text style={styles.buttonText}>Ingresar</Text>
+              </>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => router.push('/register')}
-            disabled={loading}
-          >
-            <Text style={styles.linkText}>
-              ¿No tienes cuenta? <Text style={styles.linkTextBold}>Regístrate</Text>
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => router.push('/setup')}
-            disabled={loading}
-          >
-            <Text style={styles.linkText}>
-              <Text style={styles.linkTextBold}>Reconfigurar Supabase</Text>
-            </Text>
-          </TouchableOpacity>
+          {pin.length > 0 && (
+            <TouchableOpacity
+              style={styles.clearButton}
+              onPress={() => setPin('')}
+              disabled={loading}
+            >
+              <Text style={styles.clearButtonText}>Limpiar PIN</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      </ScrollView>
+
+        <View style={styles.footer}>
+          <IconSymbol name="lock.fill" size={16} color={colors.textSecondary} />
+          <Text style={styles.footerText}>Aplicación de uso privado</Text>
+        </View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -205,14 +177,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollContent: {
-    flexGrow: 1,
+  content: {
+    flex: 1,
     justifyContent: 'center',
     padding: 24,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
   title: {
     fontSize: 32,
@@ -224,21 +196,25 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: colors.textSecondary,
+    textAlign: 'center',
   },
   infoBox: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 32,
     borderWidth: 1,
-    borderColor: colors.primary + '40',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   infoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   infoTitle: {
     fontSize: 16,
@@ -246,51 +222,83 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginLeft: 8,
   },
-  infoText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 4,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  infoHint: {
-    fontSize: 12,
-    color: colors.primary,
-    marginTop: 8,
-    fontStyle: 'italic',
+  infoText: {
+    fontSize: 15,
+    color: colors.text,
+    marginLeft: 12,
+    fontWeight: '500',
   },
   form: {
     width: '100%',
-  },
-  inputContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
+  },
+  pinDisplay: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 32,
+  },
+  pinDot: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 2,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pinDotFilled: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '20',
+  },
+  pinDotText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  hiddenInput: {
+    width: '100%',
+    height: 56,
     backgroundColor: colors.card,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    fontSize: 16,
+    paddingHorizontal: 20,
+    fontSize: 18,
     color: colors.text,
+    borderWidth: 2,
+    borderColor: colors.border,
+    textAlign: 'center',
+    letterSpacing: 8,
+    fontWeight: '600',
+    marginBottom: 24,
   },
   button: {
     backgroundColor: colors.primary,
     paddingVertical: 16,
+    paddingHorizontal: 32,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   loadingContainer: {
@@ -303,16 +311,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  linkButton: {
+  clearButton: {
     marginTop: 16,
-    alignItems: 'center',
+    paddingVertical: 12,
   },
-  linkText: {
-    fontSize: 14,
+  clearButtonText: {
+    fontSize: 15,
     color: colors.textSecondary,
+    fontWeight: '500',
   },
-  linkTextBold: {
-    color: colors.primary,
-    fontWeight: '600',
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 32,
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
 });

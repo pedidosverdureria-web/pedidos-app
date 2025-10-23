@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,346 +7,114 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
-  Modal,
-  TextInput,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
-import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { Profile, UserRole } from '@/types';
 
 export default function UserManagementScreen() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editRole, setEditRole] = useState<UserRole>('worker');
-  const [editActive, setEditActive] = useState(true);
-
-  const loadUsers = useCallback(async () => {
-    try {
-      setLoading(true);
-      const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error loading users:', error);
-      Alert.alert('Error', 'No se pudieron cargar los usuarios');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     if (user?.role !== 'admin') {
       Alert.alert('Acceso Denegado', 'Solo los administradores pueden acceder a esta pantalla');
       router.back();
-      return;
     }
-    loadUsers();
-  }, [user?.role, loadUsers]);
-
-  const handleEditUser = (userToEdit: Profile) => {
-    setSelectedUser(userToEdit);
-    setEditRole(userToEdit.role);
-    setEditActive(userToEdit.is_active);
-    setShowEditModal(true);
-  };
-
-  const handleSaveUser = async () => {
-    if (!selectedUser) return;
-
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          role: editRole,
-          is_active: editActive,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', selectedUser.id);
-
-      if (error) throw error;
-
-      Alert.alert('Éxito', 'Usuario actualizado correctamente');
-      setShowEditModal(false);
-      loadUsers();
-    } catch (error) {
-      console.error('Error updating user:', error);
-      Alert.alert('Error', 'No se pudo actualizar el usuario');
-    }
-  };
-
-  const handleDeleteUser = (userToDelete: Profile) => {
-    if (userToDelete.id === user?.id) {
-      Alert.alert('Error', 'No puedes eliminar tu propio usuario');
-      return;
-    }
-
-    Alert.alert(
-      'Confirmar Eliminación',
-      `¿Estás seguro de que quieres eliminar a ${userToDelete.full_name || userToDelete.email}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const supabase = getSupabase();
-              const { error } = await supabase
-                .from('profiles')
-                .delete()
-                .eq('id', userToDelete.id);
-
-              if (error) throw error;
-
-              Alert.alert('Éxito', 'Usuario eliminado correctamente');
-              loadUsers();
-            } catch (error) {
-              console.error('Error deleting user:', error);
-              Alert.alert('Error', 'No se pudo eliminar el usuario');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
+  }, [user?.role]);
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'User Management',
-          headerBackTitle: 'Back',
+          title: 'Gestión de Usuarios',
+          headerBackTitle: 'Atrás',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.infoCard}>
-          <IconSymbol name="info.circle.fill" size={24} color={colors.info} />
+          <IconSymbol name="info.circle.fill" size={48} color={colors.info} />
+          <Text style={styles.infoTitle}>Sistema de Autenticación Simplificado</Text>
           <Text style={styles.infoText}>
-            Gestiona los usuarios de la aplicación, sus roles y permisos.
+            La aplicación ahora utiliza un sistema de autenticación basado en PIN para facilitar el acceso.
           </Text>
         </View>
 
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{users.length}</Text>
-            <Text style={styles.statLabel}>Total Usuarios</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <IconSymbol name="person.badge.shield.checkmark.fill" size={32} color={colors.success} />
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Administrador</Text>
+              <Text style={styles.cardSubtitle}>Acceso completo al sistema</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {users.filter((u) => u.role === 'admin').length}
-            </Text>
-            <Text style={styles.statLabel}>Admins</Text>
+          <View style={styles.pinContainer}>
+            <Text style={styles.pinLabel}>PIN de Acceso:</Text>
+            <View style={styles.pinBadge}>
+              <Text style={styles.pinText}>5050</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>
-              {users.filter((u) => u.is_active).length}
-            </Text>
-            <Text style={styles.statLabel}>Activos</Text>
+          <View style={styles.permissionsList}>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Gestión completa de pedidos</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Configuración de WhatsApp</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Configuración de impresora</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Acceso a estadísticas</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Usuarios</Text>
-          <View style={styles.card}>
-            {users.map((userItem, index) => (
-              <View
-                key={userItem.id}
-                style={[
-                  styles.userItem,
-                  index < users.length - 1 && styles.userItemBorder,
-                ]}
-              >
-                <View style={styles.userLeft}>
-                  <View
-                    style={[
-                      styles.userAvatar,
-                      { backgroundColor: userItem.role === 'admin' ? colors.primary : colors.accent },
-                    ]}
-                  >
-                    <IconSymbol name="person.fill" size={20} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>
-                      {userItem.full_name || userItem.email}
-                    </Text>
-                    <Text style={styles.userEmail}>{userItem.email}</Text>
-                    <View style={styles.userBadges}>
-                      <View
-                        style={[
-                          styles.roleBadge,
-                          {
-                            backgroundColor:
-                              userItem.role === 'admin' ? colors.primary : colors.accent,
-                          },
-                        ]}
-                      >
-                        <Text style={styles.roleBadgeText}>
-                          {userItem.role.toUpperCase()}
-                        </Text>
-                      </View>
-                      {!userItem.is_active && (
-                        <View style={[styles.statusBadge, { backgroundColor: colors.error }]}>
-                          <Text style={styles.statusBadgeText}>INACTIVO</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.userActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleEditUser(userItem)}
-                  >
-                    <IconSymbol name="pencil" size={20} color={colors.primary} />
-                  </TouchableOpacity>
-                  {userItem.id !== user?.id && (
-                    <TouchableOpacity
-                      style={styles.actionButton}
-                      onPress={() => handleDeleteUser(userItem)}
-                    >
-                      <IconSymbol name="trash" size={20} color={colors.error} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            ))}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <IconSymbol name="person.fill" size={32} color={colors.info} />
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Trabajador</Text>
+              <Text style={styles.cardSubtitle}>Gestión de pedidos</Text>
+            </View>
           </View>
+          <View style={styles.pinContainer}>
+            <Text style={styles.pinLabel}>PIN de Acceso:</Text>
+            <View style={styles.pinBadge}>
+              <Text style={styles.pinText}>5030</Text>
+            </View>
+          </View>
+          <View style={styles.permissionsList}>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Ver y gestionar pedidos</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Crear nuevos pedidos</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Imprimir tickets</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Actualizar estados</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.noteCard}>
+          <IconSymbol name="lock.shield.fill" size={24} color={colors.textSecondary} />
+          <Text style={styles.noteText}>
+            Esta es una aplicación de uso privado. Los PINs proporcionan acceso rápido sin necesidad de gestión de usuarios en base de datos.
+          </Text>
         </View>
       </ScrollView>
-
-      <Modal
-        visible={showEditModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowEditModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Editar Usuario</Text>
-              <TouchableOpacity onPress={() => setShowEditModal(false)}>
-                <IconSymbol name="xmark.circle.fill" size={28} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {selectedUser && (
-              <>
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Usuario</Text>
-                  <Text style={styles.modalValue}>
-                    {selectedUser.full_name || selectedUser.email}
-                  </Text>
-                  <Text style={styles.modalSubvalue}>{selectedUser.email}</Text>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Rol</Text>
-                  <View style={styles.roleButtons}>
-                    <TouchableOpacity
-                      style={[
-                        styles.roleButton,
-                        editRole === 'admin' && styles.roleButtonActive,
-                      ]}
-                      onPress={() => setEditRole('admin')}
-                    >
-                      <IconSymbol
-                        name="star.fill"
-                        size={20}
-                        color={editRole === 'admin' ? '#FFFFFF' : colors.primary}
-                      />
-                      <Text
-                        style={[
-                          styles.roleButtonText,
-                          editRole === 'admin' && styles.roleButtonTextActive,
-                        ]}
-                      >
-                        Admin
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.roleButton,
-                        editRole === 'worker' && styles.roleButtonActive,
-                      ]}
-                      onPress={() => setEditRole('worker')}
-                    >
-                      <IconSymbol
-                        name="person.fill"
-                        size={20}
-                        color={editRole === 'worker' ? '#FFFFFF' : colors.accent}
-                      />
-                      <Text
-                        style={[
-                          styles.roleButtonText,
-                          editRole === 'worker' && styles.roleButtonTextActive,
-                        ]}
-                      >
-                        Worker
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.modalSection}>
-                  <View style={styles.switchRow}>
-                    <View style={styles.switchLeft}>
-                      <IconSymbol
-                        name={editActive ? 'checkmark.circle.fill' : 'xmark.circle.fill'}
-                        size={24}
-                        color={editActive ? colors.success : colors.error}
-                      />
-                      <Text style={styles.switchLabel}>Usuario Activo</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.toggleButton,
-                        editActive && styles.toggleButtonActive,
-                      ]}
-                      onPress={() => setEditActive(!editActive)}
-                    >
-                      <View
-                        style={[
-                          styles.toggleThumb,
-                          editActive && styles.toggleThumbActive,
-                        ]}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <TouchableOpacity style={styles.saveButton} onPress={handleSaveUser}>
-                  <IconSymbol name="checkmark.circle.fill" size={20} color="#FFFFFF" />
-                  <Text style={styles.saveButtonText}>Guardar Cambios</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -360,271 +128,122 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
   infoCard: {
-    flexDirection: 'row',
     backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.info,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 16,
-  },
-  infoText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  statsCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statItem: {
-    flex: 1,
+    padding: 24,
+    borderRadius: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  statValue: {
-    fontSize: 28,
+  infoTitle: {
+    fontSize: 20,
     fontWeight: '700',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
     textAlign: 'center',
   },
-  statDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: 16,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+  infoText: {
+    fontSize: 15,
     color: colors.textSecondary,
-    marginBottom: 8,
-    marginLeft: 4,
-    textTransform: 'uppercase',
+    textAlign: 'center',
+    lineHeight: 22,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  userItem: {
+  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  userItemBorder: {
+    marginBottom: 16,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  userLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  cardHeaderText: {
+    marginLeft: 12,
     flex: 1,
   },
-  userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  userEmail: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 6,
-  },
-  userBadges: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  roleBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  roleBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  userActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '80%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontSize: 24,
+  cardTitle: {
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
+    marginBottom: 4,
   },
-  modalSection: {
-    marginBottom: 24,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  modalValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  modalSubvalue: {
+  cardSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 4,
   },
-  roleButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  roleButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  roleButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  roleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginLeft: 8,
-  },
-  roleButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  switchRow: {
+  pinContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  switchLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    marginLeft: 12,
-  },
-  toggleButton: {
-    width: 56,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.border,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleButtonActive: {
-    backgroundColor: colors.success,
-  },
-  toggleThumb: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  toggleThumbActive: {
-    alignSelf: 'flex-end',
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.success,
-    borderRadius: 12,
+    backgroundColor: colors.background,
     padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
   },
-  saveButtonText: {
+  pinLabel: {
     fontSize: 16,
     fontWeight: '600',
+    color: colors.text,
+  },
+  pinBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  pinText: {
+    fontSize: 24,
+    fontWeight: '700',
     color: '#FFFFFF',
-    marginLeft: 8,
+    letterSpacing: 4,
+  },
+  permissionsList: {
+    gap: 12,
+  },
+  permissionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  permissionText: {
+    fontSize: 15,
+    color: colors.text,
+    marginLeft: 12,
+    flex: 1,
+  },
+  noteCard: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 8,
+  },
+  noteText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
 });

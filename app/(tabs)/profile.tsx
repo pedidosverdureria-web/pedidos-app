@@ -7,187 +7,176 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
+  Alert,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { IconSymbol } from '@/components/IconSymbol';
 
 export default function ProfileScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
-  const profileSections = [
-    {
-      title: 'Acciones Rápidas',
-      items: [
+  const handleSignOut = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro que deseas cerrar sesión?',
+      [
         {
-          icon: 'plus.circle.fill',
-          label: 'Crear Pedido Manual',
-          route: '/order/new',
-          color: colors.success,
-          description: 'Crear un nuevo pedido manualmente',
+          text: 'Cancelar',
+          style: 'cancel',
         },
         {
-          icon: 'chart.bar.fill',
-          label: 'Estadísticas',
-          route: '/stats',
-          color: colors.info,
-          description: 'Ver estadísticas de pedidos',
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+              router.replace('/login');
+            } catch (error) {
+              console.error('[Profile] Error signing out:', error);
+              Alert.alert('Error', 'No se pudo cerrar sesión');
+            }
+          },
         },
-        {
-          icon: 'clock.fill',
-          label: 'Registro de Actividad',
-          route: '/activity',
-          color: colors.accent,
-          description: 'Historial de actividad',
-        },
-      ],
-    },
-    {
-      title: 'Configuración',
-      items: [
-        {
-          icon: 'message.fill',
-          label: 'Integración WhatsApp',
-          route: '/settings/whatsapp',
-          color: colors.success,
-          description: 'Configurar webhook de WhatsApp',
-        },
-        {
-          icon: 'printer.fill',
-          label: 'Configuración de Impresora',
-          route: '/settings/printer',
-          color: colors.primary,
-          description: 'Gestionar impresora Bluetooth',
-        },
-        {
-          icon: 'bell.fill',
-          label: 'Notificaciones',
-          route: '/settings/notifications',
-          color: colors.warning,
-          description: 'Gestionar notificaciones',
-        },
-        ...(user?.role === 'admin'
-          ? [
-              {
-                icon: 'person.2.fill',
-                label: 'Gestión de Usuarios',
-                route: '/settings/users',
-                color: colors.secondary,
-                description: 'Administrar usuarios y roles',
-              },
-            ]
-          : []),
-      ],
-    },
-    {
-      title: 'Información',
-      items: [
-        {
-          icon: 'gear',
-          label: 'Configuración General',
-          route: '/settings',
-          color: colors.primary,
-          description: 'Configuración de la aplicación',
-        },
-        {
-          icon: 'info.circle.fill',
-          label: 'Acerca de',
-          route: '/settings/about',
-          color: colors.info,
-          description: 'Información de la aplicación',
-        },
-      ],
-    },
-  ];
+      ]
+    );
+  };
 
   const renderHeaderRight = () => (
     <TouchableOpacity
       onPress={() => router.push('/settings')}
-      style={styles.headerButton}
+      style={{ marginRight: 16 }}
     >
-      <IconSymbol name="gear" color={colors.primary} size={24} />
+      <IconSymbol name="gearshape.fill" size={24} color={colors.primary} />
     </TouchableOpacity>
   );
 
   return (
     <>
-      {Platform.OS === 'ios' && (
-        <Stack.Screen
-          options={{
-            title: 'Perfil',
-            headerRight: renderHeaderRight,
-          }}
-        />
-      )}
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {user && (
-          <View style={styles.profileCard}>
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <IconSymbol name="person.fill" size={48} color="#FFFFFF" />
+      <Stack.Screen
+        options={{
+          title: 'Perfil',
+          headerRight: renderHeaderRight,
+        }}
+      />
+      <ScrollView style={styles.container}>
+        {/* User Info Card */}
+        <View style={styles.card}>
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <IconSymbol
+                name={user?.role === 'admin' ? 'person.badge.shield.checkmark.fill' : 'person.fill'}
+                size={48}
+                color={colors.primary}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.name}>{user?.full_name || 'Usuario'}</Text>
+          <View style={styles.roleContainer}>
+            <View
+              style={[
+                styles.roleBadge,
+                { backgroundColor: user?.role === 'admin' ? colors.success + '20' : colors.info + '20' },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.roleText,
+                  { color: user?.role === 'admin' ? colors.success : colors.info },
+                ]}
+              >
+                {user?.role === 'admin' ? 'Administrador' : 'Trabajador'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/settings')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="gearshape.fill" size={24} color={colors.primary} />
+              <Text style={styles.menuItemText}>Configuración</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/activity')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="clock.fill" size={24} color={colors.primary} />
+              <Text style={styles.menuItemText}>Actividad</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/stats')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="chart.bar.fill" size={24} color={colors.primary} />
+              <Text style={styles.menuItemText}>Estadísticas</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Admin Only Section */}
+        {user?.role === 'admin' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Administración</Text>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/settings/users')}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol name="person.2.fill" size={24} color={colors.primary} />
+                <Text style={styles.menuItemText}>Gestión de Usuarios</Text>
               </View>
-            </View>
-            <Text style={styles.name}>{user.full_name || 'Usuario'}</Text>
-            <Text style={styles.email}>{user.email}</Text>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>{user.role.toUpperCase()}</Text>
-            </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/settings/whatsapp')}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol name="message.fill" size={24} color={colors.primary} />
+                <Text style={styles.menuItemText}>WhatsApp</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
           </View>
         )}
 
-        <TouchableOpacity
-          style={styles.featuredAction}
-          onPress={() => router.push('/order/new')}
-        >
-          <View style={styles.featuredIconContainer}>
-            <IconSymbol name="plus.circle.fill" size={32} color="#FFFFFF" />
-          </View>
-          <View style={styles.featuredContent}>
-            <Text style={styles.featuredTitle}>Crear Pedido Manual</Text>
-            <Text style={styles.featuredDescription}>
-              Crea un nuevo pedido ingresando los datos del cliente y productos
-            </Text>
-          </View>
-          <IconSymbol name="chevron.right" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-
-        {profileSections.map((section, sectionIndex) => (
-          <View key={sectionIndex} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionCard}>
-              {section.items.map((item, itemIndex) => (
-                <TouchableOpacity
-                  key={itemIndex}
-                  style={[
-                    styles.actionItem,
-                    itemIndex < section.items.length - 1 && styles.actionItemBorder,
-                  ]}
-                  onPress={() => router.push(item.route as any)}
-                >
-                  <View style={styles.actionLeft}>
-                    <View style={[styles.actionIcon, { backgroundColor: item.color }]}>
-                      <IconSymbol name={item.icon as any} size={20} color="#FFFFFF" />
-                    </View>
-                    <View style={styles.actionTextContainer}>
-                      <Text style={styles.actionLabel}>{item.label}</Text>
-                      {item.description && (
-                        <Text style={styles.actionDescription}>{item.description}</Text>
-                      )}
-                    </View>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              ))}
+        {/* Sign Out */}
+        <View style={styles.section}>
+          <TouchableOpacity
+            style={[styles.menuItem, styles.signOutButton]}
+            onPress={handleSignOut}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="rectangle.portrait.and.arrow.right" size={24} color={colors.error} />
+              <Text style={[styles.menuItemText, styles.signOutText]}>Cerrar Sesión</Text>
             </View>
-          </View>
-        ))}
+          </TouchableOpacity>
+        </View>
 
-        <View style={styles.infoCard}>
-          <IconSymbol name="info.circle.fill" size={24} color={colors.info} />
-          <Text style={styles.infoText}>
-            Gestiona tu perfil, crea pedidos manuales, visualiza estadísticas y configura la aplicación desde aquí.
-          </Text>
+        {/* App Info */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Order Manager v1.0.0</Text>
+          <Text style={styles.footerText}>Aplicación de uso privado</Text>
         </View>
       </ScrollView>
     </>
@@ -199,167 +188,97 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  headerButton: {
-    padding: 8,
-  },
-  profileCard: {
+  card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    margin: 16,
     padding: 24,
+    borderRadius: 16,
     alignItems: 'center',
-    marginBottom: 24,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   avatarContainer: {
     marginBottom: 16,
   },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: colors.primary,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3,
+    borderColor: colors.primary,
   },
   name: {
     fontSize: 24,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  email: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: 12,
+  roleContainer: {
+    marginTop: 8,
   },
   roleBadge: {
-    backgroundColor: colors.primary,
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
   roleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  featuredAction: {
-    backgroundColor: colors.success,
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  featuredIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  featuredContent: {
-    flex: 1,
-  },
-  featuredTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  featuredDescription: {
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 18,
+    fontWeight: '600',
   },
   section: {
+    marginHorizontal: 16,
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: 12,
     marginLeft: 4,
-    textTransform: 'uppercase',
   },
-  sectionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  actionItem: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-  },
-  actionItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  actionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  actionIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  actionTextContainer: {
-    flex: 1,
-  },
-  actionLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  actionDescription: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    lineHeight: 16,
-  },
-  infoCard: {
-    flexDirection: 'row',
     backgroundColor: colors.card,
     padding: 16,
     borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.info,
+    marginBottom: 8,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  infoText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuItemText: {
+    fontSize: 16,
     color: colors.text,
-    lineHeight: 20,
+    fontWeight: '500',
+  },
+  signOutButton: {
+    borderColor: colors.error + '40',
+  },
+  signOutText: {
+    color: colors.error,
+  },
+  footer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingBottom: 40,
+  },
+  footerText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
 });
