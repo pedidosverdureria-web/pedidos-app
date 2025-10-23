@@ -722,9 +722,13 @@ serve(async (req) => {
         let customerName = extractCustomerName(contact, customerPhone);
 
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
+        console.log('Message text:', messageText);
 
         // Check for fx6100 special order format
-        const fx6100Match = messageText.match(/^fx6100\s+(\S+)\s+(.+)$/is);
+        // Updated regex to capture names with spaces by looking for the first line break or comma
+        const fx6100Pattern = /^fx6100\s+(.+?)[\n,]\s*(.+)$/is;
+        const fx6100Match = messageText.match(fx6100Pattern);
+        
         if (fx6100Match) {
           console.log('Detected fx6100 special order format');
           
