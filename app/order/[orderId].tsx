@@ -212,7 +212,7 @@ export default function OrderDetailScreen() {
       // Send WhatsApp notification to customer
       await sendOrderStatusUpdate(orderId as string, newStatus);
       
-      Alert.alert('Éxito', 'Estado del pedido actualizado');
+      Alert.alert('Éxito', 'Estado del pedido actualizado y notificación enviada');
     } catch (error) {
       console.error('Error updating status:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado');
@@ -673,7 +673,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
           <View style={styles.cardHeader}>
             <View style={styles.cardTitleWithIcon}>
               <Text style={styles.cardTitle}>Productos</Text>
-              <IconSymbol name="dollarsign.circle.fill" size={20} color={colors.warning} />
+              <IconSymbol name="cart.fill" size={20} color={colors.primary} />
             </View>
             <View style={styles.headerActions}>
               {order.items && order.items.length > 0 && (
