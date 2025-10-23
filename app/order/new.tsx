@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ interface OrderItem {
 }
 
 export default function NewOrderScreen() {
-  const { user, session } = useAuth();
+  const { user, session, isAuthenticated } = useAuth();
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
@@ -34,10 +34,34 @@ export default function NewOrderScreen() {
     { product_name: '', quantity: 1, unit_price: 0, notes: '' },
   ]);
   const [loading, setLoading] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [errors, setErrors] = useState<{
     customerName?: string;
     items?: { [key: number]: { product_name?: string; unit_price?: string } };
   }>({});
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      console.log('NewOrderScreen: Checking authentication');
+      console.log('User:', user?.email);
+      console.log('Session exists:', !!session);
+      console.log('Is authenticated:', isAuthenticated);
+      
+      const supabase = getSupabase();
+      if (supabase) {
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+        console.log('Current session check:', currentSession ? 'Valid' : 'Invalid');
+        if (error) {
+          console.error('Session check error:', error);
+        }
+      }
+      
+      setAuthChecked(true);
+    };
+    
+    checkAuth();
+  }, [user, session, isAuthenticated]);
 
   const addItem = () => {
     setItems([...items, { product_name: '', quantity: 1, unit_price: 0, notes: '' }]);
@@ -136,22 +160,59 @@ export default function NewOrderScreen() {
 
   const handleSubmit = async () => {
     console.log('=== Starting order creation ===');
-    console.log('User authenticated:', !!user);
-    console.log('User ID:', user?.id);
-    console.log('Session exists:', !!session);
     
+    // First, validate the form
     if (!validateForm()) {
       console.log('Form validation failed');
       return;
     }
 
+    // Check authentication before proceeding
+    const supabase = getSupabase();
+    if (!supabase) {
+      Alert.alert('Error', 'Supabase no está inicializado. Por favor configura la conexión primero.');
+      return;
+    }
+
+    // Verify current session
+    console.log('Verifying authentication...');
+    const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Session verification error:', sessionError);
+      Alert.alert(
+        'Error de Autenticación',
+        'No se pudo verificar tu sesión. Por favor cierra sesión y vuelve a iniciar sesión.',
+        [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/login')
+          }
+        ]
+      );
+      return;
+    }
+
+    if (!currentSession || !currentSession.user) {
+      console.error('No valid session found');
+      Alert.alert(
+        'Sesión Expirada',
+        'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
+        [
+          {
+            text: 'Iniciar Sesión',
+            onPress: () => router.replace('/login')
+          }
+        ]
+      );
+      return;
+    }
+
+    console.log('Authentication verified. User ID:', currentSession.user.id);
+    console.log('User email:', currentSession.user.email);
+
     setLoading(true);
     try {
-      const supabase = getSupabase();
-      if (!supabase) {
-        throw new Error('Supabase no inicializado. Por favor configura la conexión primero.');
-      }
-
       // Filter valid items
       const validItems = items.filter(
         (item) => item.product_name.trim() && item.unit_price > 0
@@ -159,31 +220,18 @@ export default function NewOrderScreen() {
 
       console.log('Creating order with', validItems.length, 'valid items');
 
-      // Prepare order data
-      const orderData: any = {
+      // Prepare order data with the authenticated user's ID
+      const orderData = {
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim() || null,
         customer_address: customerAddress.trim() || null,
-        status: 'pending',
-        source: 'manual',
+        status: 'pending' as const,
+        source: 'manual' as const,
         is_read: true,
+        created_by: currentSession.user.id, // Use the verified session user ID
       };
 
-      // Only add created_by if user is authenticated and has a valid ID
-      // This prevents the foreign key constraint error
-      if (user?.id && session) {
-        console.log('Adding created_by field with user ID:', user.id);
-        orderData.created_by = user.id;
-      } else {
-        console.log('User not authenticated or no valid ID, creating order without created_by');
-        // Explicitly set to null to be clear about the intent
-        orderData.created_by = null;
-      }
-
-      console.log('Order data prepared:', {
-        ...orderData,
-        created_by: orderData.created_by ? 'SET' : 'NULL'
-      });
+      console.log('Order data prepared with user ID:', currentSession.user.id);
 
       // Create order (order_number will be auto-generated by trigger)
       const { data: order, error: orderError } = await supabase
@@ -200,12 +248,30 @@ export default function NewOrderScreen() {
           hint: orderError.hint
         });
         
-        // Provide more specific error messages
+        // Provide specific error messages based on error code
         if (orderError.code === '23503') {
-          throw new Error('Error de autenticación. Por favor cierra sesión y vuelve a iniciar sesión.');
+          // Foreign key constraint violation
+          Alert.alert(
+            'Error de Autenticación',
+            'Tu sesión no es válida. Por favor cierra sesión y vuelve a iniciar sesión.',
+            [
+              {
+                text: 'Ir a Login',
+                onPress: () => router.replace('/login')
+              }
+            ]
+          );
+          return;
+        } else if (orderError.code === '42501') {
+          // Insufficient privileges
+          Alert.alert(
+            'Error de Permisos',
+            'No tienes permisos para crear pedidos. Por favor contacta al administrador.',
+          );
+          return;
         }
         
-        throw orderError;
+        throw new Error(orderError.message || 'Error al crear el pedido');
       }
 
       console.log('Order created successfully:', order.id, 'Order number:', order.order_number);
@@ -227,7 +293,7 @@ export default function NewOrderScreen() {
 
       if (itemsError) {
         console.error('Order items creation error:', itemsError);
-        throw itemsError;
+        throw new Error('Error al crear los productos del pedido');
       }
 
       console.log('Order items created successfully');
@@ -278,7 +344,7 @@ export default function NewOrderScreen() {
       );
     } catch (error: any) {
       console.error('=== Error creating order ===');
-      console.error('Error type:', error.constructor.name);
+      console.error('Error type:', error.constructor?.name);
       console.error('Error message:', error.message);
       console.error('Error details:', error);
       
@@ -290,6 +356,47 @@ export default function NewOrderScreen() {
       setLoading(false);
     }
   };
+
+  // Show loading while checking auth
+  if (!authChecked) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Stack.Screen
+          options={{
+            title: 'Nuevo Pedido',
+            headerBackTitle: 'Atrás',
+          }}
+        />
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Verificando autenticación...</Text>
+      </View>
+    );
+  }
+
+  // Show warning if not authenticated
+  if (!isAuthenticated || !session) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Stack.Screen
+          options={{
+            title: 'Nuevo Pedido',
+            headerBackTitle: 'Atrás',
+          }}
+        />
+        <IconSymbol name="exclamationmark.triangle.fill" size={64} color={colors.warning} />
+        <Text style={styles.warningTitle}>Sesión Requerida</Text>
+        <Text style={styles.warningText}>
+          Debes iniciar sesión para crear pedidos manualmente.
+        </Text>
+        <TouchableOpacity
+          style={styles.loginButton}
+          onPress={() => router.replace('/login')}
+        >
+          <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -308,6 +415,14 @@ export default function NewOrderScreen() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Authentication Status Banner */}
+        <View style={styles.authBanner}>
+          <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+          <Text style={styles.authBannerText}>
+            Conectado como: {user?.email || 'Usuario'}
+          </Text>
+        </View>
+
         {/* Customer Information Card */}
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
@@ -491,9 +606,59 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
   content: {
     padding: 16,
     paddingBottom: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
+  warningTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  warningText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  loginButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  authBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  authBannerText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
   },
   card: {
     backgroundColor: colors.card,
