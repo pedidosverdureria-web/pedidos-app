@@ -33,8 +33,10 @@ export default function PrinterSettingsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [config, setConfig] = useState({
     auto_print_enabled: false,
+    auto_cut_enabled: true,
     header_font_size: 2,
     separator_lines: 1,
     include_logo: true,
@@ -53,17 +55,18 @@ export default function PrinterSettingsScreen() {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        throw error;
+        console.error('Error loading printer config:', error);
       }
 
       if (data) {
         setConfig({
-          auto_print_enabled: data.auto_print_enabled,
-          header_font_size: data.header_font_size,
-          separator_lines: data.separator_lines,
-          include_logo: data.include_logo,
-          include_customer_info: data.include_customer_info,
-          include_totals: data.include_totals,
+          auto_print_enabled: data.auto_print_enabled ?? false,
+          auto_cut_enabled: data.auto_cut_enabled ?? true,
+          header_font_size: data.header_font_size ?? 2,
+          separator_lines: data.separator_lines ?? 1,
+          include_logo: data.include_logo ?? true,
+          include_customer_info: data.include_customer_info ?? true,
+          include_totals: data.include_totals ?? true,
         });
       }
     } catch (error) {
@@ -78,12 +81,17 @@ export default function PrinterSettingsScreen() {
   }, [loadConfig]);
 
   const handleSaveConfig = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'No hay usuario autenticado');
+      return;
+    }
+
     try {
       setSaving(true);
       const supabase = getSupabase();
 
       const dataToSave = {
-        user_id: user?.id,
+        user_id: user.id,
         printer_name: connectedDevice?.name || null,
         printer_address: connectedDevice?.id || null,
         is_default: true,
@@ -91,31 +99,39 @@ export default function PrinterSettingsScreen() {
         updated_at: new Date().toISOString(),
       };
 
+      console.log('Saving printer config:', dataToSave);
+
       const { data: existing } = await supabase
         .from('printer_config')
         .select('id')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .single();
 
       if (existing) {
         const { error } = await supabase
           .from('printer_config')
           .update(dataToSave)
-          .eq('user_id', user?.id);
+          .eq('user_id', user.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error updating config:', error);
+          throw error;
+        }
       } else {
         const { error } = await supabase
           .from('printer_config')
           .insert([dataToSave]);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting config:', error);
+          throw error;
+        }
       }
 
       Alert.alert('Éxito', 'Configuración guardada correctamente');
     } catch (error) {
       console.error('Error saving printer config:', error);
-      Alert.alert('Error', 'No se pudo guardar la configuración');
+      Alert.alert('Error', 'No se pudo guardar la configuración. Por favor intenta de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -128,11 +144,14 @@ export default function PrinterSettingsScreen() {
     }
 
     try {
-      await testPrint();
-      Alert.alert('Éxito', 'Impresión de prueba enviada');
+      setTesting(true);
+      await testPrint(config.auto_cut_enabled);
+      Alert.alert('Éxito', 'Impresión de prueba enviada correctamente');
     } catch (error) {
       console.error('Error testing print:', error);
-      Alert.alert('Error', 'No se pudo imprimir');
+      Alert.alert('Error', 'No se pudo imprimir. Verifica que la impresora esté encendida y cerca del dispositivo.');
+    } finally {
+      setTesting(false);
     }
   };
 
@@ -155,10 +174,10 @@ export default function PrinterSettingsScreen() {
         return;
       }
       await connectToDevice(device);
-      Alert.alert('Éxito', 'Conectado a la impresora');
+      Alert.alert('Éxito', `Conectado a ${device.name || 'la impresora'}`);
     } catch (error) {
       console.error('Error connecting to printer:', error);
-      Alert.alert('Error', 'No se pudo conectar a la impresora');
+      Alert.alert('Error', 'No se pudo conectar a la impresora. Asegúrate de que esté encendida y cerca del dispositivo.');
     }
   };
 
@@ -308,6 +327,21 @@ export default function PrinterSettingsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
+                <IconSymbol name="scissors" size={24} color={colors.accent} />
+                <Text style={styles.switchLabel}>Auto Corte</Text>
+              </View>
+              <Switch
+                value={config.auto_cut_enabled}
+                onValueChange={(value) =>
+                  setConfig({ ...config, auto_cut_enabled: value })
+                }
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLeft}>
                 <IconSymbol name="photo.fill" size={24} color={colors.primary} />
                 <Text style={styles.switchLabel}>Incluir Logo</Text>
               </View>
@@ -321,7 +355,7 @@ export default function PrinterSettingsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <IconSymbol name="person.fill" size={24} color={colors.accent} />
+                <IconSymbol name="person.fill" size={24} color={colors.info} />
                 <Text style={styles.switchLabel}>Info del Cliente</Text>
               </View>
               <Switch
@@ -329,7 +363,7 @@ export default function PrinterSettingsScreen() {
                 onValueChange={(value) =>
                   setConfig({ ...config, include_customer_info: value })
                 }
-                trackColor={{ false: colors.border, true: colors.accent }}
+                trackColor={{ false: colors.border, true: colors.info }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -350,12 +384,21 @@ export default function PrinterSettingsScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.testButton, !isConnected && styles.buttonDisabled]}
+          style={[styles.testButton, (!isConnected || testing) && styles.buttonDisabled]}
           onPress={handleTestPrint}
-          disabled={!isConnected}
+          disabled={!isConnected || testing}
         >
-          <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
-          <Text style={styles.testButtonText}>Imprimir Prueba</Text>
+          {testing ? (
+            <>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.testButtonText}>Imprimiendo...</Text>
+            </>
+          ) : (
+            <>
+              <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
+              <Text style={styles.testButtonText}>Imprimir Prueba</Text>
+            </>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -559,12 +602,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    gap: 8,
   },
   testButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginLeft: 8,
   },
   saveButton: {
     flexDirection: 'row',
@@ -573,12 +616,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success,
     borderRadius: 12,
     padding: 16,
+    gap: 8,
   },
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginLeft: 8,
   },
   buttonDisabled: {
     opacity: 0.6,

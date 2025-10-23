@@ -25,6 +25,7 @@ import {
 } from '@/utils/whatsappNotifications';
 import { createInAppNotification, sendLocalNotification } from '@/utils/pushNotifications';
 import { getSupabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 
 const styles = StyleSheet.create({
   container: {
@@ -379,9 +380,11 @@ function formatCLP(amount: number): string {
 
 export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams();
+  const { user } = useAuth();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -398,6 +401,7 @@ export default function OrderDetailScreen() {
   const [editItemNotes, setEditItemNotes] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [bulkPrices, setBulkPrices] = useState<{ [key: string]: string }>({});
+  const [printerConfig, setPrinterConfig] = useState<any>(null);
 
   const { printReceipt, isConnected } = usePrinter();
 
@@ -428,9 +432,31 @@ export default function OrderDetailScreen() {
     }
   }, [orderId]);
 
+  const loadPrinterConfig = useCallback(async () => {
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('printer_config')
+        .select('*')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading printer config:', error);
+      }
+
+      if (data) {
+        setPrinterConfig(data);
+      }
+    } catch (error) {
+      console.error('Error loading printer config:', error);
+    }
+  }, [user?.id]);
+
   useEffect(() => {
     loadOrder();
-  }, [loadOrder]);
+    loadPrinterConfig();
+  }, [loadOrder, loadPrinterConfig]);
 
   const updateCustomerInfo = async () => {
     if (!order) return;
@@ -477,10 +503,8 @@ export default function OrderDetailScreen() {
 
       if (error) throw error;
 
-      // Send WhatsApp notification
       await sendOrderStatusUpdate(order.id, newStatus);
 
-      // Create in-app notification
       await createInAppNotification(
         null,
         'Estado de pedido actualizado',
@@ -489,7 +513,6 @@ export default function OrderDetailScreen() {
         order.id
       );
 
-      // Send local push notification
       await sendLocalNotification(
         'Estado de pedido actualizado',
         `Pedido #${order.order_number} cambió a ${getStatusLabel(newStatus)}`,
@@ -537,7 +560,6 @@ export default function OrderDetailScreen() {
 
       if (error) throw error;
 
-      // Update order total
       const newTotal = (order.total_amount || 0) + totalPrice;
       await supabase
         .from('orders')
@@ -547,10 +569,8 @@ export default function OrderDetailScreen() {
         })
         .eq('id', order.id);
 
-      // Send WhatsApp notification
       await sendProductAddedNotification(order.id, newItem.id);
 
-      // Create in-app notification
       await createInAppNotification(
         null,
         'Producto agregado',
@@ -602,7 +622,6 @@ export default function OrderDetailScreen() {
 
       if (error) throw error;
 
-      // Recalculate order total
       const { data: items } = await supabase
         .from('order_items')
         .select('total_price')
@@ -654,7 +673,6 @@ export default function OrderDetailScreen() {
 
               if (error) throw error;
 
-              // Update order total
               const newTotal = (order.total_amount || 0) - (item.total_price || 0);
               await supabase
                 .from('orders')
@@ -664,10 +682,8 @@ export default function OrderDetailScreen() {
                 })
                 .eq('id', order.id);
 
-              // Send WhatsApp notification
               await sendProductRemovedNotification(order.id, item);
 
-              // Create in-app notification
               await createInAppNotification(
                 null,
                 'Producto eliminado',
@@ -704,7 +720,6 @@ export default function OrderDetailScreen() {
       return;
     }
 
-    // Initialize bulk prices with current prices
     const initialPrices: { [key: string]: string } = {};
     order.items.forEach((item) => {
       initialPrices[item.id] = item.unit_price.toString();
@@ -719,7 +734,6 @@ export default function OrderDetailScreen() {
       return;
     }
 
-    // Validate all prices
     const hasEmptyPrice = Object.values(bulkPrices).some((price) => !price || price.trim() === '');
     if (hasEmptyPrice) {
       Alert.alert('Error', 'Por favor ingresa un precio para todos los productos');
@@ -730,7 +744,6 @@ export default function OrderDetailScreen() {
       setSaving(true);
       const supabase = getSupabase();
 
-      // Update each item with its new price
       for (const item of order.items) {
         const newUnitPrice = parseFloat(bulkPrices[item.id]) || 0;
         const newTotalPrice = item.quantity * newUnitPrice;
@@ -747,7 +760,6 @@ export default function OrderDetailScreen() {
         if (error) throw error;
       }
 
-      // Recalculate order total
       const { data: items } = await supabase
         .from('order_items')
         .select('total_price')
@@ -782,21 +794,12 @@ export default function OrderDetailScreen() {
     if (!isConnected) {
       Alert.alert(
         'Impresora no conectada',
-        'No hay una impresora conectada. ¿Deseas continuar de todas formas?',
+        'No hay una impresora conectada. Por favor conecta una impresora en la configuración.',
         [
           { text: 'Cancelar', style: 'cancel' },
           {
-            text: 'Continuar',
-            onPress: async () => {
-              try {
-                const receipt = generateReceiptText(order);
-                await printReceipt(receipt);
-                Alert.alert('Éxito', 'Pedido enviado a imprimir');
-              } catch (error) {
-                console.error('Error printing:', error);
-                Alert.alert('Error', 'No se pudo imprimir el pedido');
-              }
-            },
+            text: 'Ir a Configuración',
+            onPress: () => router.push('/settings/printer'),
           },
         ]
       );
@@ -804,44 +807,67 @@ export default function OrderDetailScreen() {
     }
 
     try {
+      setPrinting(true);
       const receipt = generateReceiptText(order);
-      await printReceipt(receipt);
+      const autoCut = printerConfig?.auto_cut_enabled ?? true;
+      await printReceipt(receipt, autoCut);
       Alert.alert('Éxito', 'Pedido impreso correctamente');
     } catch (error) {
       console.error('Error printing:', error);
-      Alert.alert('Error', 'No se pudo imprimir el pedido');
+      Alert.alert('Error', 'No se pudo imprimir el pedido. Verifica que la impresora esté encendida y cerca del dispositivo.');
+    } finally {
+      setPrinting(false);
     }
   };
 
   const generateReceiptText = (order: Order): string => {
-    return `
-=================================
-        PEDIDO #${order.order_number}
-=================================
+    const config = printerConfig || {};
+    let receipt = '';
 
-Cliente: ${order.customer_name}
-${order.customer_phone ? `Teléfono: ${order.customer_phone}` : ''}
-${order.customer_address ? `Dirección: ${order.customer_address}` : ''}
+    receipt += `\n`;
+    receipt += `=================================\n`;
+    receipt += `        PEDIDO #${order.order_number}\n`;
+    receipt += `=================================\n`;
+    receipt += `\n`;
 
----------------------------------
-PRODUCTOS
----------------------------------
+    if (config.include_customer_info !== false) {
+      receipt += `Cliente: ${order.customer_name}\n`;
+      if (order.customer_phone) {
+        receipt += `Teléfono: ${order.customer_phone}\n`;
+      }
+      if (order.customer_address) {
+        receipt += `Dirección: ${order.customer_address}\n`;
+      }
+      receipt += `\n`;
+    }
 
-${order.items?.map((item) => `
-${item.product_name}
-  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}
-  ${item.notes ? `  Nota: ${item.notes}` : ''}
-`).join('\n')}
+    receipt += `---------------------------------\n`;
+    receipt += `PRODUCTOS\n`;
+    receipt += `---------------------------------\n`;
+    receipt += `\n`;
 
----------------------------------
-TOTAL: ${formatCLP(order.total_amount)}
----------------------------------
+    order.items?.forEach((item) => {
+      receipt += `${item.product_name}\n`;
+      receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
+      if (item.notes) {
+        receipt += `  Nota: ${item.notes}\n`;
+      }
+      receipt += `\n`;
+    });
 
-Estado: ${getStatusLabel(order.status)}
-Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
+    if (config.include_totals !== false) {
+      receipt += `---------------------------------\n`;
+      receipt += `TOTAL: ${formatCLP(order.total_amount)}\n`;
+      receipt += `---------------------------------\n`;
+      receipt += `\n`;
+    }
 
-=================================
-      `;
+    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+    receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}\n`;
+    receipt += `\n`;
+    receipt += `=================================\n`;
+
+    return receipt;
   };
 
   const handleWhatsApp = () => {
@@ -873,18 +899,14 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
               setSaving(true);
               const supabase = getSupabase();
 
-              // Delete order items first
               await supabase.from('order_items').delete().eq('order_id', order.id);
 
-              // Delete order
               const { error } = await supabase.from('orders').delete().eq('id', order.id);
 
               if (error) throw error;
 
-              // Send WhatsApp notification
               await sendOrderDeletedNotification(order.id);
 
-              // Create in-app notification
               await createInAppNotification(
                 null,
                 'Pedido eliminado',
@@ -937,19 +959,22 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
           headerBackTitle: 'Atrás',
           headerRight: () => (
             <View style={styles.headerRightContainer}>
-              <TouchableOpacity onPress={handlePrint}>
-                <IconSymbol
-                  name="printer.fill"
-                  size={24}
-                  color={isConnected ? colors.primary : colors.warning}
-                />
+              <TouchableOpacity onPress={handlePrint} disabled={printing}>
+                {printing ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <IconSymbol
+                    name="printer.fill"
+                    size={24}
+                    color={isConnected ? colors.primary : colors.textSecondary}
+                  />
+                )}
               </TouchableOpacity>
             </View>
           ),
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Status Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Estado</Text>
           <View style={styles.card}>
@@ -981,7 +1006,6 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
           </View>
         </View>
 
-        {/* Customer Information Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Información del Cliente</Text>
@@ -1060,7 +1084,6 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
           </View>
         </View>
 
-        {/* Products Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Productos</Text>
@@ -1169,7 +1192,6 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
                   </View>
                 ))}
 
-                {/* Apply Price to All Button */}
                 {canEditProducts && order.items.length > 0 && (
                   <TouchableOpacity
                     style={[styles.actionButton, styles.applyPriceButton, { marginTop: 12 }]}
@@ -1200,7 +1222,6 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
           </View>
         </View>
 
-        {/* Action Buttons */}
         {order.customer_phone && (
           <TouchableOpacity
             style={[styles.actionButton, styles.whatsappButton]}
@@ -1227,7 +1248,6 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Add Product Modal */}
       <Modal
         visible={showAddProductModal}
         transparent
@@ -1291,7 +1311,6 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
         </View>
       </Modal>
 
-      {/* Bulk Price Edit Modal */}
       <Modal
         visible={showPriceModal}
         transparent
