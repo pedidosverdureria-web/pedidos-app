@@ -65,6 +65,11 @@ const getAvailableStatusTransitions = (currentStatus: OrderStatus): OrderStatus[
   }
 };
 
+// Format currency as Chilean Pesos
+const formatCLP = (amount: number): string => {
+  return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
+
 export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams();
   const [order, setOrder] = useState<Order | null>(null);
@@ -72,7 +77,8 @@ export default function OrderDetailScreen() {
   const [editingCustomer, setEditingCustomer] = useState(false);
   const [editingProduct, setEditingProduct] = useState<string | null>(null);
   const [addingProduct, setAddingProduct] = useState(false);
-  const { printReceipt } = usePrinter();
+  const [bulkPriceMode, setBulkPriceMode] = useState(false);
+  const { printReceipt, isConnected } = usePrinter();
 
   // Customer edit state
   const [customerName, setCustomerName] = useState('');
@@ -82,8 +88,11 @@ export default function OrderDetailScreen() {
   // Product edit state
   const [productName, setProductName] = useState('');
   const [productQuantity, setProductQuantity] = useState('1');
-  const [productPrice, setProductPrice] = useState('0');
+  const [productPrice, setProductPrice] = useState('');
   const [productNotes, setProductNotes] = useState('');
+
+  // Bulk price state
+  const [bulkPrices, setBulkPrices] = useState<{ [key: string]: string }>({});
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -110,6 +119,13 @@ export default function OrderDetailScreen() {
       setCustomerName(transformedOrder.customer_name);
       setCustomerPhone(transformedOrder.customer_phone || '');
       setCustomerAddress(transformedOrder.customer_address || '');
+
+      // Initialize bulk prices
+      const prices: { [key: string]: string } = {};
+      transformedOrder.items?.forEach((item: OrderItem) => {
+        prices[item.id] = item.unit_price > 0 ? item.unit_price.toString() : '';
+      });
+      setBulkPrices(prices);
     } catch (error) {
       console.error('Error fetching order:', error);
       Alert.alert('Error', 'Failed to load order');
@@ -135,7 +151,7 @@ export default function OrderDetailScreen() {
   useEffect(() => {
     fetchOrder();
     markAsRead();
-  }, [fetchOrder, markAsRead]);
+  }, [orderId]);
 
   const updateCustomerInfo = async () => {
     if (!customerName.trim()) {
@@ -216,13 +232,15 @@ export default function OrderDetailScreen() {
       const supabase = getSupabase();
       if (!supabase) return;
 
+      // Note: The price entered is the FINAL price, not unit price
+      // We store it as unit_price but it represents the total price for this item
       const { data, error } = await supabase
         .from('order_items')
         .insert({
           order_id: orderId,
           product_name: productName,
           quantity: quantity,
-          unit_price: price,
+          unit_price: price, // This is the final price, not multiplied by quantity
           notes: productNotes || null,
         })
         .select()
@@ -233,7 +251,7 @@ export default function OrderDetailScreen() {
       setAddingProduct(false);
       setProductName('');
       setProductQuantity('1');
-      setProductPrice('0');
+      setProductPrice('');
       setProductNotes('');
       
       await fetchOrder();
@@ -266,12 +284,13 @@ export default function OrderDetailScreen() {
       const supabase = getSupabase();
       if (!supabase) return;
 
+      // Note: The price entered is the FINAL price, not unit price
       const { error } = await supabase
         .from('order_items')
         .update({
           product_name: productName,
           quantity: quantity,
-          unit_price: price,
+          unit_price: price, // This is the final price, not multiplied by quantity
           notes: productNotes || null,
           updated_at: new Date().toISOString(),
         })
@@ -285,6 +304,73 @@ export default function OrderDetailScreen() {
     } catch (error) {
       console.error('Error updating product:', error);
       Alert.alert('Error', 'No se pudo actualizar el producto');
+    }
+  };
+
+  const updateBulkPrice = async (itemId: string, price: string) => {
+    const priceValue = parseFloat(price) || 0;
+
+    if (priceValue <= 0) {
+      Alert.alert('Error', 'El precio debe ser mayor a 0');
+      return;
+    }
+
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return;
+
+      const { error } = await supabase
+        .from('order_items')
+        .update({
+          unit_price: priceValue,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      await fetchOrder();
+    } catch (error) {
+      console.error('Error updating price:', error);
+      Alert.alert('Error', 'No se pudo actualizar el precio');
+    }
+  };
+
+  const saveBulkPrices = async () => {
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return;
+
+      let hasError = false;
+      for (const [itemId, price] of Object.entries(bulkPrices)) {
+        const priceValue = parseFloat(price) || 0;
+        if (priceValue > 0) {
+          const { error } = await supabase
+            .from('order_items')
+            .update({
+              unit_price: priceValue,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', itemId);
+
+          if (error) {
+            console.error('Error updating price for item:', itemId, error);
+            hasError = true;
+          }
+        }
+      }
+
+      await fetchOrder();
+      setBulkPriceMode(false);
+
+      if (hasError) {
+        Alert.alert('Advertencia', 'Algunos precios no se pudieron actualizar');
+      } else {
+        Alert.alert('Éxito', 'Todos los precios han sido actualizados');
+      }
+    } catch (error) {
+      console.error('Error saving bulk prices:', error);
+      Alert.alert('Error', 'No se pudieron guardar los precios');
     }
   };
 
@@ -332,21 +418,37 @@ export default function OrderDetailScreen() {
   const handlePrint = () => {
     if (!order) return;
 
+    if (!isConnected) {
+      Alert.alert(
+        'Impresora no conectada',
+        'Por favor conecta una impresora en la configuración antes de imprimir.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Ir a Configuración', onPress: () => router.push('/settings/printer') }
+        ]
+      );
+      return;
+    }
+
     const receipt = `
-PEDIDO #${order.order_number}
-${'-'.repeat(32)}
+================================
+       PEDIDO #${order.order_number}
+================================
 Cliente: ${order.customer_name}
 Teléfono: ${order.customer_phone || 'N/A'}
-${order.customer_address ? `Dirección: ${order.customer_address}` : ''}
-${'-'.repeat(32)}
-Productos:
-${order.items?.map((item) => `${item.quantity}x ${item.product_name} - $${item.unit_price.toFixed(2)}\n${item.notes ? `  Nota: ${item.notes}` : ''}`).join('\n')}
-${'-'.repeat(32)}
-Total: $${order.total_amount.toFixed(2)}
-Pagado: $${order.paid_amount.toFixed(2)}
-Pendiente: $${(order.total_amount - order.paid_amount).toFixed(2)}
-${'-'.repeat(32)}
+${order.customer_address ? `Dirección: ${order.customer_address}\n` : ''}
+================================
+PRODUCTOS:
+${order.items?.map((item) => 
+  `${item.quantity}x ${item.product_name}\n   ${formatCLP(item.unit_price)}${item.notes ? `\n   Nota: ${item.notes}` : ''}`
+).join('\n')}
+================================
+Total: ${formatCLP(order.total_amount)}
+Pagado: ${formatCLP(order.paid_amount)}
+Pendiente: ${formatCLP(order.total_amount - order.paid_amount)}
+================================
 Estado: ${getStatusLabel(order.status).toUpperCase()}
+================================
     `.trim();
 
     printReceipt(receipt);
@@ -358,7 +460,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
       return;
     }
 
-    const message = `Hola ${order.customer_name}, tu pedido #${order.order_number} está ${getStatusLabel(order.status)}. Total: $${order.total_amount.toFixed(2)}`;
+    const message = `Hola ${order.customer_name}, tu pedido #${order.order_number} está ${getStatusLabel(order.status)}. Total: ${formatCLP(order.total_amount)}`;
     const url = `whatsapp://send?phone=${order.customer_phone}&text=${encodeURIComponent(message)}`;
     
     Linking.canOpenURL(url)
@@ -424,6 +526,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
 
   const pendingAmount = order.total_amount - order.paid_amount;
   const availableStatusTransitions = getAvailableStatusTransitions(order.status);
+  const canAddProducts = order.status === 'preparing';
 
   return (
     <>
@@ -544,10 +647,48 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Productos</Text>
-            <TouchableOpacity onPress={() => setAddingProduct(true)}>
-              <IconSymbol name="plus.circle.fill" size={24} color={colors.success} />
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              {order.items && order.items.length > 0 && (
+                <TouchableOpacity 
+                  onPress={() => setBulkPriceMode(!bulkPriceMode)}
+                  style={styles.headerActionButton}
+                >
+                  <IconSymbol 
+                    name={bulkPriceMode ? "xmark.circle.fill" : "dollarsign.circle.fill"} 
+                    size={24} 
+                    color={bulkPriceMode ? colors.error : colors.warning} 
+                  />
+                </TouchableOpacity>
+              )}
+              {canAddProducts && (
+                <TouchableOpacity onPress={() => setAddingProduct(true)}>
+                  <IconSymbol name="plus.circle.fill" size={24} color={colors.success} />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
+
+          {!canAddProducts && order.status !== 'delivered' && order.status !== 'cancelled' && (
+            <View style={styles.infoBox}>
+              <IconSymbol name="info.circle.fill" size={20} color={colors.info} />
+              <Text style={styles.infoBoxText}>
+                Los productos solo se pueden agregar cuando el pedido está en estado "Preparando"
+              </Text>
+            </View>
+          )}
+
+          {bulkPriceMode && (
+            <View style={styles.bulkPriceHeader}>
+              <Text style={styles.bulkPriceTitle}>💰 Modo de Precios Rápidos</Text>
+              <Text style={styles.bulkPriceSubtitle}>
+                Ingresa los precios finales para cada producto
+              </Text>
+              <TouchableOpacity style={styles.saveBulkButton} onPress={saveBulkPrices}>
+                <IconSymbol name="checkmark.circle.fill" size={20} color="#FFFFFF" />
+                <Text style={styles.saveBulkButtonText}>Guardar Todos los Precios</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {order.items && order.items.length > 0 ? (
             order.items.map((item) => (
@@ -577,14 +718,14 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                       </View>
 
                       <View style={styles.halfInput}>
-                        <Text style={styles.label}>Precio</Text>
+                        <Text style={styles.label}>Precio Final (CLP)</Text>
                         <TextInput
                           style={styles.input}
-                          placeholder="0.00"
+                          placeholder="0"
                           placeholderTextColor={colors.textSecondary}
                           value={productPrice}
                           onChangeText={setProductPrice}
-                          keyboardType="decimal-pad"
+                          keyboardType="number-pad"
                         />
                       </View>
                     </View>
@@ -613,6 +754,33 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                       </TouchableOpacity>
                     </View>
                   </View>
+                ) : bulkPriceMode ? (
+                  <View>
+                    <View style={styles.itemHeader}>
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemName}>{item.product_name}</Text>
+                        <Text style={styles.itemQuantityText}>Cantidad: {item.quantity}</Text>
+                        {item.notes && <Text style={styles.itemNotes}>{item.notes}</Text>}
+                      </View>
+                    </View>
+                    <View style={styles.bulkPriceInput}>
+                      <Text style={styles.bulkPriceLabel}>Precio Final (CLP):</Text>
+                      <TextInput
+                        style={styles.bulkPriceField}
+                        placeholder="0"
+                        placeholderTextColor={colors.textSecondary}
+                        value={bulkPrices[item.id] || ''}
+                        onChangeText={(value) => setBulkPrices({ ...bulkPrices, [item.id]: value })}
+                        keyboardType="number-pad"
+                      />
+                      <TouchableOpacity
+                        style={styles.quickSaveButton}
+                        onPress={() => updateBulkPrice(item.id, bulkPrices[item.id] || '')}
+                      >
+                        <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 ) : (
                   <View>
                     <View style={styles.itemHeader}>
@@ -638,7 +806,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                     <View style={styles.itemFooter}>
                       <Text style={styles.itemQuantity}>Cantidad: {item.quantity}</Text>
                       <Text style={styles.itemPrice}>
-                        ${item.unit_price.toFixed(2)} × {item.quantity} = ${item.total_price.toFixed(2)}
+                        Precio: {formatCLP(item.unit_price)}
                       </Text>
                     </View>
                   </View>
@@ -655,18 +823,18 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
           <Text style={styles.cardTitle}>Resumen de Pago</Text>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Total</Text>
-            <Text style={styles.paymentValue}>${order.total_amount.toFixed(2)}</Text>
+            <Text style={styles.paymentValue}>{formatCLP(order.total_amount)}</Text>
           </View>
           <View style={styles.paymentRow}>
             <Text style={styles.paymentLabel}>Pagado</Text>
             <Text style={[styles.paymentValue, { color: colors.success }]}>
-              ${order.paid_amount.toFixed(2)}
+              {formatCLP(order.paid_amount)}
             </Text>
           </View>
           <View style={[styles.paymentRow, styles.paymentRowTotal]}>
             <Text style={styles.paymentLabelTotal}>Pendiente</Text>
             <Text style={[styles.paymentValueTotal, { color: pendingAmount > 0 ? colors.error : colors.success }]}>
-              ${pendingAmount.toFixed(2)}
+              {formatCLP(pendingAmount)}
             </Text>
           </View>
         </View>
@@ -750,6 +918,13 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
             </View>
 
             <ScrollView style={styles.modalBody}>
+              <View style={styles.infoBox}>
+                <IconSymbol name="info.circle.fill" size={20} color={colors.info} />
+                <Text style={styles.infoBoxText}>
+                  El precio que ingreses será el precio final del producto, no se multiplicará por la cantidad.
+                </Text>
+              </View>
+
               <Text style={styles.label}>Nombre del Producto *</Text>
               <TextInput
                 style={styles.input}
@@ -773,14 +948,14 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
                 </View>
 
                 <View style={styles.halfInput}>
-                  <Text style={styles.label}>Precio *</Text>
+                  <Text style={styles.label}>Precio Final (CLP) *</Text>
                   <TextInput
                     style={styles.input}
-                    placeholder="0.00"
+                    placeholder="0"
                     placeholderTextColor={colors.textSecondary}
                     value={productPrice}
                     onChangeText={setProductPrice}
-                    keyboardType="decimal-pad"
+                    keyboardType="number-pad"
                   />
                 </View>
               </View>
@@ -797,6 +972,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
               />
 
               <TouchableOpacity style={styles.modalButton} onPress={addProduct}>
+                <IconSymbol name="plus.circle.fill" size={20} color="#FFFFFF" />
                 <Text style={styles.modalButtonText}>Agregar Producto</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -838,6 +1014,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  headerActionButton: {
+    padding: 4,
   },
   label: {
     fontSize: 14,
@@ -901,6 +1085,54 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '500',
   },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.info,
+  },
+  infoBoxText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  bulkPriceHeader: {
+    backgroundColor: colors.warning,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  bulkPriceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  bulkPriceSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  saveBulkButton: {
+    backgroundColor: colors.success,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  saveBulkButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   itemCard: {
     backgroundColor: colors.background,
     borderRadius: 8,
@@ -922,6 +1154,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+    marginBottom: 4,
+  },
+  itemQuantityText: {
+    fontSize: 14,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   itemNotes: {
@@ -952,6 +1189,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
+  },
+  bulkPriceInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  bulkPriceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  bulkPriceField: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 8,
+    fontSize: 16,
+    color: colors.text,
+  },
+  quickSaveButton: {
+    padding: 4,
   },
   row: {
     flexDirection: 'row',
@@ -1110,6 +1373,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   modalButtonText: {
     color: '#FFFFFF',

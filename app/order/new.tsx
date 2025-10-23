@@ -25,6 +25,11 @@ interface OrderItem {
   notes: string;
 }
 
+// Format currency as Chilean Pesos
+const formatCLP = (amount: number): string => {
+  return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
+
 export default function NewOrderScreen() {
   const { user, session, isAuthenticated } = useAuth();
   const [customerName, setCustomerName] = useState('');
@@ -110,7 +115,8 @@ export default function NewOrderScreen() {
   };
 
   const calculateTotal = () => {
-    return items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+    // Note: unit_price is now the final price, not multiplied by quantity
+    return items.reduce((sum, item) => sum + item.unit_price, 0);
   };
 
   const validateForm = (): boolean => {
@@ -228,7 +234,7 @@ export default function NewOrderScreen() {
         status: 'pending' as const,
         source: 'manual' as const,
         is_read: true,
-        created_by: currentSession.user.id, // Use the verified session user ID
+        created_by: currentSession.user.id,
       };
 
       console.log('Order data prepared with user ID:', currentSession.user.id);
@@ -250,7 +256,6 @@ export default function NewOrderScreen() {
         
         // Provide specific error messages based on error code
         if (orderError.code === '23503') {
-          // Foreign key constraint violation
           Alert.alert(
             'Error de Autenticación',
             'Tu sesión no es válida. Por favor cierra sesión y vuelve a iniciar sesión.',
@@ -263,7 +268,6 @@ export default function NewOrderScreen() {
           );
           return;
         } else if (orderError.code === '42501') {
-          // Insufficient privileges
           Alert.alert(
             'Error de Permisos',
             'No tienes permisos para crear pedidos. Por favor contacta al administrador.',
@@ -276,12 +280,12 @@ export default function NewOrderScreen() {
 
       console.log('Order created successfully:', order.id, 'Order number:', order.order_number);
 
-      // Create order items
+      // Create order items - Note: unit_price is the final price
       const orderItems = validItems.map((item) => ({
         order_id: order.id,
         product_name: item.product_name.trim(),
         quantity: item.quantity,
-        unit_price: item.unit_price,
+        unit_price: item.unit_price, // This is the final price
         notes: item.notes.trim() || null,
       }));
 
@@ -423,6 +427,14 @@ export default function NewOrderScreen() {
           </Text>
         </View>
 
+        {/* Info Box about pricing */}
+        <View style={styles.infoBox}>
+          <IconSymbol name="info.circle.fill" size={20} color={colors.info} />
+          <Text style={styles.infoBoxText}>
+            💰 Los precios que ingreses serán los precios finales en pesos chilenos (CLP), no se multiplicarán por la cantidad.
+          </Text>
+        </View>
+
         {/* Customer Information Card */}
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
@@ -528,18 +540,18 @@ export default function NewOrderScreen() {
 
                 <View style={styles.halfInput}>
                   <Text style={styles.label}>
-                    Precio <Text style={styles.required}>*</Text>
+                    Precio Final (CLP) <Text style={styles.required}>*</Text>
                   </Text>
                   <TextInput
                     style={[
                       styles.input,
                       errors.items?.[index]?.unit_price && styles.inputError,
                     ]}
-                    placeholder="0.00"
+                    placeholder="0"
                     placeholderTextColor={colors.textSecondary}
                     value={item.unit_price > 0 ? item.unit_price.toString() : ''}
                     onChangeText={(value) => updateItem(index, 'unit_price', value)}
-                    keyboardType="decimal-pad"
+                    keyboardType="number-pad"
                   />
                 </View>
               </View>
@@ -556,11 +568,11 @@ export default function NewOrderScreen() {
                 onChangeText={(value) => updateItem(index, 'notes', value)}
               />
 
-              {item.quantity > 0 && item.unit_price > 0 && (
+              {item.unit_price > 0 && (
                 <View style={styles.itemTotal}>
-                  <Text style={styles.itemTotalLabel}>Subtotal:</Text>
+                  <Text style={styles.itemTotalLabel}>Precio del producto:</Text>
                   <Text style={styles.itemTotalValue}>
-                    ${(item.quantity * item.unit_price).toFixed(2)}
+                    {formatCLP(item.unit_price)}
                   </Text>
                 </View>
               )}
@@ -572,7 +584,7 @@ export default function NewOrderScreen() {
         <View style={styles.totalCard}>
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total del Pedido</Text>
-            <Text style={styles.totalValue}>${calculateTotal().toFixed(2)}</Text>
+            <Text style={styles.totalValue}>{formatCLP(calculateTotal())}</Text>
           </View>
           <Text style={styles.totalSubtext}>
             {items.filter((i) => i.product_name && i.unit_price > 0).length} producto(s)
@@ -659,6 +671,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     fontWeight: '500',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.info,
+  },
+  infoBoxText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
   },
   card: {
     backgroundColor: colors.card,

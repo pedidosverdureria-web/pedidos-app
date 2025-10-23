@@ -4,8 +4,14 @@ import { getSupabase } from '@/lib/supabase';
 interface OrderItem {
   product_name: string;
   quantity: number;
+  unit_price: number;
   notes?: string;
 }
+
+// Format currency as Chilean Pesos
+const formatCLP = (amount: number): string => {
+  return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+};
 
 /**
  * Formats items list for messages
@@ -15,7 +21,7 @@ function formatItemsList(items: OrderItem[]): string {
     const unit = item.notes?.includes('Unidad:') 
       ? item.notes.replace('Unidad:', '').trim() 
       : 'unidades';
-    return `${index + 1}. ${item.quantity} ${unit} de ${item.product_name}`;
+    return `${index + 1}. ${item.quantity} ${unit} de ${item.product_name} - ${formatCLP(item.unit_price)}`;
   }).join('\n');
 }
 
@@ -26,7 +32,8 @@ function createStatusUpdateMessage(
   customerName: string,
   orderNumber: string,
   status: string,
-  items: OrderItem[]
+  items: OrderItem[],
+  totalAmount?: number
 ): string {
   const itemsList = formatItemsList(items);
 
@@ -38,17 +45,26 @@ function createStatusUpdateMessage(
     case 'preparing':
       statusEmoji = '👨‍🍳';
       statusText = 'En Preparación';
-      additionalInfo = '\n\n💰 Estamos asignando los precios y preparando tu pedido.';
+      additionalInfo = '\n\n💰 Estamos preparando tu pedido y confirmando los precios.';
+      if (totalAmount && totalAmount > 0) {
+        additionalInfo += `\n\n💵 *Total:* ${formatCLP(totalAmount)} CLP`;
+      }
       break;
     case 'ready':
       statusEmoji = '✅';
       statusText = 'Listo para Entrega';
       additionalInfo = '\n\n🚚 Tu pedido está listo. ¡Puedes pasar a recogerlo!';
+      if (totalAmount && totalAmount > 0) {
+        additionalInfo += `\n\n💵 *Total a pagar:* ${formatCLP(totalAmount)} CLP`;
+      }
       break;
     case 'delivered':
       statusEmoji = '🎉';
       statusText = 'Entregado';
       additionalInfo = '\n\n¡Esperamos que disfrutes tus productos! Gracias por tu compra.';
+      if (totalAmount && totalAmount > 0) {
+        additionalInfo += `\n\n💵 *Total pagado:* ${formatCLP(totalAmount)} CLP`;
+      }
       break;
     case 'cancelled':
       statusEmoji = '❌';
@@ -94,7 +110,7 @@ Hola ${customerName}, se ha agregado un producto a tu pedido.
 📋 *Número de pedido:* ${orderNumber}
 
 ✨ *Producto agregado:*
-${addedProduct.quantity} ${unit} de ${addedProduct.product_name}
+${addedProduct.quantity} ${unit} de ${addedProduct.product_name} - ${formatCLP(addedProduct.unit_price)} CLP
 
 📦 *Lista completa de productos:*
 ${itemsList}
@@ -172,7 +188,8 @@ export async function sendOrderStatusUpdate(
       order.customer_name,
       order.order_number,
       newStatus,
-      order.items
+      order.items,
+      order.total_amount
     );
 
     await sendWhatsAppMessage(
