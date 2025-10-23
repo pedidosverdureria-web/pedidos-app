@@ -90,22 +90,6 @@ export default function LoginScreen() {
           <Text style={styles.subtitle}>Ingresa tu PIN para continuar</Text>
         </View>
 
-        {/* PIN Info Box */}
-        <View style={styles.infoBox}>
-          <View style={styles.infoHeader}>
-            <IconSymbol name="info.circle.fill" size={20} color={colors.primary} />
-            <Text style={styles.infoTitle}>Información de Acceso</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <IconSymbol name="person.badge.shield.checkmark.fill" size={18} color={colors.success} />
-            <Text style={styles.infoText}>Admin: PIN 5050</Text>
-          </View>
-          <View style={styles.infoRow}>
-            <IconSymbol name="person.fill" size={18} color={colors.info} />
-            <Text style={styles.infoText}>Trabajador: PIN 5030</Text>
-          </View>
-        </View>
-
         <View style={styles.form}>
           {/* PIN Display */}
           <View style={styles.pinDisplay}>
@@ -188,7 +172,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 48,
   },
   title: {
     fontSize: 32,
@@ -201,41 +185,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
-  },
-  infoBox: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 32,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginLeft: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  infoText: {
-    fontSize: 15,
-    color: colors.text,
-    marginLeft: 12,
-    fontWeight: '500',
   },
   form: {
     width: '100%',

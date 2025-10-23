@@ -183,6 +183,9 @@ const styles = StyleSheet.create({
   addProductButton: {
     backgroundColor: colors.success,
   },
+  applyPriceButton: {
+    backgroundColor: colors.info,
+  },
   buttonDisabled: {
     opacity: 0.6,
   },
@@ -661,6 +664,73 @@ export default function OrderDetailScreen() {
     setEditItemNotes(item.notes || '');
   };
 
+  const applyPriceToAll = async () => {
+    if (!order || !order.items || order.items.length === 0) {
+      Alert.alert('Error', 'No hay productos en este pedido');
+      return;
+    }
+
+    const firstItem = order.items[0];
+    const priceToApply = firstItem.unit_price;
+
+    Alert.alert(
+      'Confirmar acción',
+      `¿Deseas aplicar el precio ${formatCLP(priceToApply)} a todos los productos de la lista?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Aplicar',
+          onPress: async () => {
+            try {
+              setSaving(true);
+              const supabase = getSupabase();
+
+              // Update all items with the first item's price
+              const updates = order.items!.map((item) => ({
+                id: item.id,
+                unit_price: priceToApply,
+                total_price: item.quantity * priceToApply,
+                updated_at: new Date().toISOString(),
+              }));
+
+              // Update each item
+              for (const update of updates) {
+                const { error } = await supabase
+                  .from('order_items')
+                  .update({
+                    unit_price: update.unit_price,
+                    total_price: update.total_price,
+                    updated_at: update.updated_at,
+                  })
+                  .eq('id', update.id);
+
+                if (error) throw error;
+              }
+
+              // Recalculate order total
+              const newTotal = updates.reduce((sum, item) => sum + item.total_price, 0);
+              await supabase
+                .from('orders')
+                .update({
+                  total_amount: newTotal,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', order.id);
+
+              await loadOrder();
+              Alert.alert('Éxito', 'Precio aplicado a todos los productos');
+            } catch (error) {
+              console.error('Error applying price to all:', error);
+              Alert.alert('Error', 'No se pudo aplicar el precio a todos los productos');
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handlePrint = async () => {
     if (!order) {
       Alert.alert('Error', 'No hay pedido para imprimir');
@@ -960,101 +1030,121 @@ Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}
           </View>
           <View style={styles.card}>
             {order.items && order.items.length > 0 ? (
-              order.items.map((item) => (
-                <View key={item.id}>
-                  {editingItem?.id === item.id ? (
-                    <View style={styles.itemCard}>
-                      <TextInput
-                        style={styles.input}
-                        value={editItemName}
-                        onChangeText={setEditItemName}
-                        placeholder="Nombre del producto"
-                        placeholderTextColor={colors.textSecondary}
-                      />
-                      <TextInput
-                        style={styles.input}
-                        value={editItemQuantity}
-                        onChangeText={setEditItemQuantity}
-                        placeholder="Cantidad"
-                        placeholderTextColor={colors.textSecondary}
-                        keyboardType="numeric"
-                      />
-                      <TextInput
-                        style={styles.input}
-                        value={editItemPrice}
-                        onChangeText={setEditItemPrice}
-                        placeholder="Precio unitario"
-                        placeholderTextColor={colors.textSecondary}
-                        keyboardType="numeric"
-                      />
-                      <TextInput
-                        style={styles.input}
-                        value={editItemNotes}
-                        onChangeText={setEditItemNotes}
-                        placeholder="Notas (opcional)"
-                        placeholderTextColor={colors.textSecondary}
-                        multiline
-                      />
-                      <View style={styles.itemActions}>
-                        <TouchableOpacity
-                          style={[styles.itemActionButton, { borderColor: colors.success }]}
-                          onPress={() => updateProduct(item.id)}
-                          disabled={saving}
-                        >
-                          <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
-                          <Text style={[styles.itemActionButtonText, { color: colors.success }]}>
-                            Guardar
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[styles.itemActionButton, { borderColor: colors.error }]}
-                          onPress={() => setEditingItem(null)}
-                        >
-                          <IconSymbol name="xmark.circle.fill" size={16} color={colors.error} />
-                          <Text style={[styles.itemActionButtonText, { color: colors.error }]}>
-                            Cancelar
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={styles.itemCard}>
-                      <View style={styles.itemHeader}>
-                        <Text style={styles.itemName}>{item.product_name}</Text>
-                        <Text style={styles.itemPrice}>{formatCLP(item.total_price)}</Text>
-                      </View>
-                      <View style={styles.itemDetails}>
-                        <Text style={styles.itemQuantity}>
-                          Cantidad: {item.quantity} x {formatCLP(item.unit_price)}
-                        </Text>
-                      </View>
-                      {item.notes && <Text style={styles.itemNotes}>{item.notes}</Text>}
-                      {canEditProducts && (
+              <>
+                {order.items.map((item) => (
+                  <View key={item.id}>
+                    {editingItem?.id === item.id ? (
+                      <View style={styles.itemCard}>
+                        <TextInput
+                          style={styles.input}
+                          value={editItemName}
+                          onChangeText={setEditItemName}
+                          placeholder="Nombre del producto"
+                          placeholderTextColor={colors.textSecondary}
+                        />
+                        <TextInput
+                          style={styles.input}
+                          value={editItemQuantity}
+                          onChangeText={setEditItemQuantity}
+                          placeholder="Cantidad"
+                          placeholderTextColor={colors.textSecondary}
+                          keyboardType="numeric"
+                        />
+                        <TextInput
+                          style={styles.input}
+                          value={editItemPrice}
+                          onChangeText={setEditItemPrice}
+                          placeholder="Precio unitario"
+                          placeholderTextColor={colors.textSecondary}
+                          keyboardType="numeric"
+                        />
+                        <TextInput
+                          style={styles.input}
+                          value={editItemNotes}
+                          onChangeText={setEditItemNotes}
+                          placeholder="Notas (opcional)"
+                          placeholderTextColor={colors.textSecondary}
+                          multiline
+                        />
                         <View style={styles.itemActions}>
                           <TouchableOpacity
-                            style={[styles.itemActionButton, { borderColor: colors.primary }]}
-                            onPress={() => startEditingProduct(item)}
+                            style={[styles.itemActionButton, { borderColor: colors.success }]}
+                            onPress={() => updateProduct(item.id)}
+                            disabled={saving}
                           >
-                            <IconSymbol name="pencil" size={16} color={colors.primary} />
-                            <Text style={[styles.itemActionButtonText, { color: colors.primary }]}>
-                              Editar
+                            <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
+                            <Text style={[styles.itemActionButtonText, { color: colors.success }]}>
+                              Guardar
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.itemActionButton, { borderColor: colors.error }]}
-                            onPress={() => deleteProduct(item.id)}
+                            onPress={() => setEditingItem(null)}
                           >
-                            <IconSymbol name="trash" size={16} color={colors.error} />
+                            <IconSymbol name="xmark.circle.fill" size={16} color={colors.error} />
                             <Text style={[styles.itemActionButtonText, { color: colors.error }]}>
-                              Eliminar
+                              Cancelar
                             </Text>
                           </TouchableOpacity>
                         </View>
-                      )}
-                    </View>
-                  )}
-                </View>
-              ))
+                      </View>
+                    ) : (
+                      <View style={styles.itemCard}>
+                        <View style={styles.itemHeader}>
+                          <Text style={styles.itemName}>{item.product_name}</Text>
+                          <Text style={styles.itemPrice}>{formatCLP(item.total_price)}</Text>
+                        </View>
+                        <View style={styles.itemDetails}>
+                          <Text style={styles.itemQuantity}>
+                            Cantidad: {item.quantity} x {formatCLP(item.unit_price)}
+                          </Text>
+                        </View>
+                        {item.notes && <Text style={styles.itemNotes}>{item.notes}</Text>}
+                        {canEditProducts && (
+                          <View style={styles.itemActions}>
+                            <TouchableOpacity
+                              style={[styles.itemActionButton, { borderColor: colors.primary }]}
+                              onPress={() => startEditingProduct(item)}
+                            >
+                              <IconSymbol name="pencil" size={16} color={colors.primary} />
+                              <Text style={[styles.itemActionButtonText, { color: colors.primary }]}>
+                                Editar
+                              </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.itemActionButton, { borderColor: colors.error }]}
+                              onPress={() => deleteProduct(item.id)}
+                            >
+                              <IconSymbol name="trash" size={16} color={colors.error} />
+                              <Text style={[styles.itemActionButtonText, { color: colors.error }]}>
+                                Eliminar
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                ))}
+
+                {/* Apply Price to All Button */}
+                {canEditProducts && order.items.length > 1 && (
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.applyPriceButton, { marginTop: 12 }]}
+                    onPress={applyPriceToAll}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <IconSymbol name="arrow.down.circle.fill" size={20} color="#FFFFFF" />
+                        <Text style={styles.actionButtonText}>Aplicar Precio a Todos</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </>
             ) : (
               <Text style={{ color: colors.textSecondary, textAlign: 'center', padding: 16 }}>
                 No hay productos en este pedido
