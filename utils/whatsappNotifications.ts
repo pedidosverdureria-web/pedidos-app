@@ -120,6 +120,56 @@ ${itemsList}
 }
 
 /**
+ * Creates product removed message
+ */
+function createProductRemovedMessage(
+  customerName: string,
+  orderNumber: string,
+  removedProduct: OrderItem,
+  allItems: OrderItem[]
+): string {
+  // Don't show prices in product removed messages
+  const itemsList = allItems.length > 0 ? formatItemsList(allItems, false) : 'No quedan productos en el pedido';
+  const unit = removedProduct.notes?.includes('Unidad:')
+    ? removedProduct.notes.replace('Unidad:', '').trim()
+    : 'unidades';
+
+  return `🗑️ *Producto Eliminado*
+
+Hola ${customerName}, se ha eliminado un producto de tu pedido.
+
+📋 *Número de pedido:* ${orderNumber}
+
+❌ *Producto eliminado:*
+• ${removedProduct.quantity} ${unit} de ${removedProduct.product_name}
+
+📦 *Lista actualizada de productos:*
+${itemsList}
+
+¡Gracias por tu preferencia! 😊`;
+}
+
+/**
+ * Creates order deleted message
+ */
+function createOrderDeletedMessage(
+  customerName: string,
+  orderNumber: string
+): string {
+  return `🗑️ *Pedido Cancelado*
+
+Hola ${customerName}, tu pedido ha sido cancelado.
+
+📋 *Número de pedido:* ${orderNumber}
+
+❌ Este pedido ha sido eliminado del sistema.
+
+Si tienes alguna pregunta o deseas realizar un nuevo pedido, no dudes en contactarnos.
+
+¡Gracias por tu comprensión! 😊`;
+}
+
+/**
  * Sends WhatsApp message via API
  */
 async function sendWhatsAppMessage(
@@ -265,5 +315,112 @@ export async function sendProductAddedNotification(
     console.log('Sent product added notification to:', order.customer_phone);
   } catch (error) {
     console.error('Error sending product added notification:', error);
+  }
+}
+
+/**
+ * Sends product removed notification to customer
+ */
+export async function sendProductRemovedNotification(
+  orderId: string,
+  removedProduct: OrderItem
+): Promise<void> {
+  try {
+    const supabase = getSupabase();
+
+    // Get WhatsApp config
+    const { data: config } = await supabase
+      .from('whatsapp_config')
+      .select('*')
+      .eq('is_active', true)
+      .single();
+
+    if (!config || !config.access_token || !config.phone_number_id) {
+      console.log('WhatsApp not configured, skipping notification');
+      return;
+    }
+
+    // Get order details with updated items list
+    const { data: order } = await supabase
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .eq('id', orderId)
+      .single();
+
+    if (!order || !order.customer_phone || order.source !== 'whatsapp') {
+      console.log('Order not found or not from WhatsApp, skipping notification');
+      return;
+    }
+
+    // Create and send product removed message
+    const message = createProductRemovedMessage(
+      order.customer_name,
+      order.order_number,
+      removedProduct,
+      order.items
+    );
+
+    await sendWhatsAppMessage(
+      config.phone_number_id,
+      config.access_token,
+      order.customer_phone,
+      message
+    );
+
+    console.log('Sent product removed notification to:', order.customer_phone);
+  } catch (error) {
+    console.error('Error sending product removed notification:', error);
+  }
+}
+
+/**
+ * Sends order deleted notification to customer
+ */
+export async function sendOrderDeletedNotification(
+  orderId: string
+): Promise<void> {
+  try {
+    const supabase = getSupabase();
+
+    // Get WhatsApp config
+    const { data: config } = await supabase
+      .from('whatsapp_config')
+      .select('*')
+      .eq('is_active', true)
+      .single();
+
+    if (!config || !config.access_token || !config.phone_number_id) {
+      console.log('WhatsApp not configured, skipping notification');
+      return;
+    }
+
+    // Get order details before deletion
+    const { data: order } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .single();
+
+    if (!order || !order.customer_phone || order.source !== 'whatsapp') {
+      console.log('Order not found or not from WhatsApp, skipping notification');
+      return;
+    }
+
+    // Create and send order deleted message
+    const message = createOrderDeletedMessage(
+      order.customer_name,
+      order.order_number
+    );
+
+    await sendWhatsAppMessage(
+      config.phone_number_id,
+      config.access_token,
+      order.customer_phone,
+      message
+    );
+
+    console.log('Sent order deleted notification to:', order.customer_phone);
+  } catch (error) {
+    console.error('Error sending order deleted notification:', error);
   }
 }

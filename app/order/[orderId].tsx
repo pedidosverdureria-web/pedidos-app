@@ -18,7 +18,12 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { Order, OrderStatus, OrderItem } from '@/types';
 import { usePrinter } from '@/hooks/usePrinter';
-import { sendOrderStatusUpdate, sendProductAddedNotification } from '@/utils/whatsappNotifications';
+import { 
+  sendOrderStatusUpdate, 
+  sendProductAddedNotification, 
+  sendProductRemovedNotification,
+  sendOrderDeletedNotification 
+} from '@/utils/whatsappNotifications';
 
 const getStatusColor = (status: OrderStatus) => {
   switch (status) {
@@ -259,7 +264,7 @@ export default function OrderDetailScreen() {
       // Send WhatsApp notification to customer about the added product
       await sendProductAddedNotification(orderId as string, data.id);
       
-      Alert.alert('Éxito', 'Producto agregado');
+      Alert.alert('Éxito', 'Producto agregado y notificación enviada al cliente');
     } catch (error) {
       console.error('Error adding product:', error);
       Alert.alert('Error', 'No se pudo agregar el producto');
@@ -375,36 +380,52 @@ export default function OrderDetailScreen() {
   };
 
   const deleteProduct = async (itemId: string) => {
-    Alert.alert(
-      'Eliminar Producto',
-      '¿Estás seguro de que quieres eliminar este producto?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const supabase = getSupabase();
-              if (!supabase) return;
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return;
 
-              const { error } = await supabase
-                .from('order_items')
-                .delete()
-                .eq('id', itemId);
+      // Get the product details before deletion for notification
+      const productToDelete = order?.items?.find((item) => item.id === itemId);
+      
+      if (!productToDelete) {
+        Alert.alert('Error', 'Producto no encontrado');
+        return;
+      }
 
-              if (error) throw error;
+      Alert.alert(
+        'Eliminar Producto',
+        '¿Estás seguro de que quieres eliminar este producto?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Eliminar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                const { error } = await supabase
+                  .from('order_items')
+                  .delete()
+                  .eq('id', itemId);
 
-              await fetchOrder();
-              Alert.alert('Éxito', 'Producto eliminado');
-            } catch (error) {
-              console.error('Error deleting product:', error);
-              Alert.alert('Error', 'No se pudo eliminar el producto');
-            }
+                if (error) throw error;
+
+                // Send WhatsApp notification to customer about the removed product
+                await sendProductRemovedNotification(orderId as string, productToDelete);
+
+                await fetchOrder();
+                Alert.alert('Éxito', 'Producto eliminado y notificación enviada al cliente');
+              } catch (error) {
+                console.error('Error deleting product:', error);
+                Alert.alert('Error', 'No se pudo eliminar el producto');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Error in deleteProduct:', error);
+      Alert.alert('Error', 'Ocurrió un error al intentar eliminar el producto');
+    }
   };
 
   const startEditingProduct = (item: OrderItem) => {
@@ -488,6 +509,9 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
               const supabase = getSupabase();
               if (!supabase) return;
 
+              // Send notification before deleting
+              await sendOrderDeletedNotification(orderId as string);
+
               const { error } = await supabase
                 .from('orders')
                 .delete()
@@ -495,7 +519,7 @@ Estado: ${getStatusLabel(order.status).toUpperCase()}
 
               if (error) throw error;
 
-              Alert.alert('Éxito', 'Pedido eliminado', [
+              Alert.alert('Éxito', 'Pedido eliminado y notificación enviada al cliente', [
                 { text: 'OK', onPress: () => router.back() },
               ]);
             } catch (error) {
