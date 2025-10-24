@@ -19,6 +19,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
+type TextSize = 'small' | 'medium' | 'large';
+type PaperSize = '58mm' | '80mm';
+
 export default function PrinterSettingsScreen() {
   const { user } = useAuth();
   const {
@@ -39,11 +42,12 @@ export default function PrinterSettingsScreen() {
   const [config, setConfig] = useState({
     auto_print_enabled: false,
     auto_cut_enabled: true,
-    header_font_size: 2,
-    separator_lines: 1,
+    text_size: 'medium' as TextSize,
+    paper_size: '80mm' as PaperSize,
     include_logo: true,
     include_customer_info: true,
     include_totals: true,
+    use_webhook_format: true,
   });
 
   const loadConfig = useCallback(async () => {
@@ -59,11 +63,12 @@ export default function PrinterSettingsScreen() {
         setConfig({
           auto_print_enabled: parsedConfig.auto_print_enabled ?? false,
           auto_cut_enabled: parsedConfig.auto_cut_enabled ?? true,
-          header_font_size: parsedConfig.header_font_size ?? 2,
-          separator_lines: parsedConfig.separator_lines ?? 1,
+          text_size: parsedConfig.text_size ?? 'medium',
+          paper_size: parsedConfig.paper_size ?? '80mm',
           include_logo: parsedConfig.include_logo ?? true,
           include_customer_info: parsedConfig.include_customer_info ?? true,
           include_totals: parsedConfig.include_totals ?? true,
+          use_webhook_format: parsedConfig.use_webhook_format ?? true,
         });
       } else {
         console.log('No saved printer config found, using defaults');
@@ -85,15 +90,15 @@ export default function PrinterSettingsScreen() {
       setSaving(true);
       console.log('Saving printer config...');
 
-      // Create a clean config object with only the necessary fields
       const configToSave = {
         auto_print_enabled: config.auto_print_enabled,
         auto_cut_enabled: config.auto_cut_enabled,
-        header_font_size: config.header_font_size,
-        separator_lines: config.separator_lines,
+        text_size: config.text_size,
+        paper_size: config.paper_size,
         include_logo: config.include_logo,
         include_customer_info: config.include_customer_info,
         include_totals: config.include_totals,
+        use_webhook_format: config.use_webhook_format,
         printer_name: connectedDevice?.name || null,
         printer_id: connectedDevice?.id || null,
         updated_at: new Date().toISOString(),
@@ -101,10 +106,8 @@ export default function PrinterSettingsScreen() {
 
       console.log('Config to save:', configToSave);
 
-      // Save to AsyncStorage
       await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(configToSave));
       
-      // Verify the save was successful
       const verification = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       console.log('Verification - saved config:', verification);
 
@@ -295,8 +298,130 @@ export default function PrinterSettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuración de Impresión</Text>
+          <Text style={styles.sectionTitle}>Preferencias de Impresión</Text>
           <View style={styles.card}>
+            <View style={styles.preferenceRow}>
+              <View style={styles.preferenceLeft}>
+                <IconSymbol name="textformat.size" size={24} color={colors.primary} />
+                <Text style={styles.preferenceLabel}>Tamaño de Texto</Text>
+              </View>
+              <View style={styles.segmentedControl}>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    styles.segmentButtonLeft,
+                    config.text_size === 'small' && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => setConfig({ ...config, text_size: 'small' })}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      config.text_size === 'small' && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    Pequeño
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    config.text_size === 'medium' && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => setConfig({ ...config, text_size: 'medium' })}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      config.text_size === 'medium' && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    Mediano
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    styles.segmentButtonRight,
+                    config.text_size === 'large' && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => setConfig({ ...config, text_size: 'large' })}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      config.text_size === 'large' && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    Grande
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.preferenceRow}>
+              <View style={styles.preferenceLeft}>
+                <IconSymbol name="doc.text" size={24} color={colors.accent} />
+                <Text style={styles.preferenceLabel}>Tamaño de Papel</Text>
+              </View>
+              <View style={styles.segmentedControl}>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    styles.segmentButtonLeft,
+                    config.paper_size === '58mm' && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => setConfig({ ...config, paper_size: '58mm' })}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      config.paper_size === '58mm' && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    58mm
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.segmentButton,
+                    styles.segmentButtonRight,
+                    config.paper_size === '80mm' && styles.segmentButtonActive,
+                  ]}
+                  onPress={() => setConfig({ ...config, paper_size: '80mm' })}
+                >
+                  <Text
+                    style={[
+                      styles.segmentButtonText,
+                      config.paper_size === '80mm' && styles.segmentButtonTextActive,
+                    ]}
+                  >
+                    80mm
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.switchRow}>
+              <View style={styles.switchLeft}>
+                <IconSymbol name="list.bullet" size={24} color={colors.info} />
+                <View style={styles.switchTextContainer}>
+                  <Text style={styles.switchLabel}>Formato Lista WhatsApp</Text>
+                  <Text style={styles.switchSubtext}>Ej: 3 kilos de papas $3000</Text>
+                </View>
+              </View>
+              <Switch
+                value={config.use_webhook_format}
+                onValueChange={(value) =>
+                  setConfig({ ...config, use_webhook_format: value })
+                }
+                trackColor={{ false: colors.border, true: colors.info }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
                 <IconSymbol name="bolt.fill" size={24} color={colors.warning} />
@@ -564,6 +689,63 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  preferenceRow: {
+    marginBottom: 20,
+  },
+  preferenceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  preferenceLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+    marginLeft: 12,
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
+    borderRightWidth: 1,
+    borderRightColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentButtonLeft: {
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  segmentButtonRight: {
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+    borderRightWidth: 0,
+  },
+  segmentButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  segmentButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  segmentButtonTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 16,
+  },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -575,11 +757,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  switchTextContainer: {
+    marginLeft: 12,
+    flex: 1,
+  },
   switchLabel: {
     fontSize: 16,
     fontWeight: '500',
     color: colors.text,
     marginLeft: 12,
+  },
+  switchSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: 12,
+    marginTop: 2,
   },
   testButton: {
     flexDirection: 'row',

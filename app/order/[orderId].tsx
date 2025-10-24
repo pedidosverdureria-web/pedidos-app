@@ -30,6 +30,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
+type TextSize = 'small' | 'medium' | 'large';
+type PaperSize = '58mm' | '80mm';
+
+interface PrinterConfig {
+  auto_print_enabled?: boolean;
+  auto_cut_enabled?: boolean;
+  text_size?: TextSize;
+  paper_size?: PaperSize;
+  include_logo?: boolean;
+  include_customer_info?: boolean;
+  include_totals?: boolean;
+  use_webhook_format?: boolean;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -381,6 +395,17 @@ function formatCLP(amount: number): string {
   }).format(amount);
 }
 
+function getUnitFromNotes(notes?: string): string {
+  if (!notes) return 'unidades';
+  
+  const unitMatch = notes.match(/Unidad:\s*(.+)/i);
+  if (unitMatch && unitMatch[1]) {
+    return unitMatch[1].trim();
+  }
+  
+  return 'unidades';
+}
+
 export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams();
   const { user } = useAuth();
@@ -404,7 +429,7 @@ export default function OrderDetailScreen() {
   const [editItemNotes, setEditItemNotes] = useState('');
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [bulkPrices, setBulkPrices] = useState<{ [key: string]: string }>({});
-  const [printerConfig, setPrinterConfig] = useState<any>(null);
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
 
   const { printReceipt, isConnected } = usePrinter();
 
@@ -821,52 +846,90 @@ export default function OrderDetailScreen() {
 
   const generateReceiptText = (order: Order): string => {
     const config = printerConfig || {};
+    const paperSize = config.paper_size || '80mm';
+    const useWebhookFormat = config.use_webhook_format ?? true;
+    
+    const maxWidth = paperSize === '58mm' ? 32 : 48;
+    
     let receipt = '';
 
     receipt += `\n`;
-    receipt += `=================================\n`;
-    receipt += `        PEDIDO #${order.order_number}\n`;
-    receipt += `=================================\n`;
+    receipt += `=`.repeat(maxWidth) + `\n`;
+    receipt += centerText('PEDIDO #' + order.order_number, maxWidth) + `\n`;
+    receipt += `=`.repeat(maxWidth) + `\n`;
     receipt += `\n`;
 
     if (config.include_customer_info !== false) {
       receipt += `Cliente: ${order.customer_name}\n`;
       if (order.customer_phone) {
-        receipt += `Teléfono: ${order.customer_phone}\n`;
+        receipt += `Telefono: ${order.customer_phone}\n`;
       }
       if (order.customer_address) {
-        receipt += `Dirección: ${order.customer_address}\n`;
+        receipt += `Direccion: ${order.customer_address}\n`;
       }
       receipt += `\n`;
     }
 
-    receipt += `---------------------------------\n`;
+    receipt += `-`.repeat(maxWidth) + `\n`;
     receipt += `PRODUCTOS\n`;
-    receipt += `---------------------------------\n`;
+    receipt += `-`.repeat(maxWidth) + `\n`;
     receipt += `\n`;
 
     order.items?.forEach((item) => {
-      receipt += `${item.product_name}\n`;
-      receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
-      if (item.notes) {
-        receipt += `  Nota: ${item.notes}\n`;
+      if (useWebhookFormat) {
+        const unit = getUnitFromNotes(item.notes);
+        const line = `${item.quantity} ${unit} de ${item.product_name} ${formatCLP(item.total_price)}`;
+        receipt += wrapText(line, maxWidth) + `\n`;
+      } else {
+        receipt += wrapText(item.product_name, maxWidth) + `\n`;
+        receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
+        if (item.notes) {
+          receipt += `  Nota: ${wrapText(item.notes, maxWidth - 8)}\n`;
+        }
       }
       receipt += `\n`;
     });
 
     if (config.include_totals !== false) {
-      receipt += `---------------------------------\n`;
+      receipt += `-`.repeat(maxWidth) + `\n`;
       receipt += `TOTAL: ${formatCLP(order.total_amount)}\n`;
-      receipt += `---------------------------------\n`;
+      receipt += `-`.repeat(maxWidth) + `\n`;
       receipt += `\n`;
     }
 
     receipt += `Estado: ${getStatusLabel(order.status)}\n`;
     receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}\n`;
     receipt += `\n`;
-    receipt += `=================================\n`;
+    receipt += `=`.repeat(maxWidth) + `\n`;
 
     return receipt;
+  };
+
+  const centerText = (text: string, width: number): string => {
+    if (text.length >= width) return text;
+    const padding = Math.floor((width - text.length) / 2);
+    return ' '.repeat(padding) + text;
+  };
+
+  const wrapText = (text: string, width: number): string => {
+    if (text.length <= width) return text;
+    
+    const words = text.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      if ((currentLine + ' ' + word).trim().length <= width) {
+        currentLine = (currentLine + ' ' + word).trim();
+      } else {
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    
+    if (currentLine) lines.push(currentLine);
+    
+    return lines.join('\n');
   };
 
   const handleWhatsApp = () => {
