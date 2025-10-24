@@ -406,6 +406,11 @@ function getUnitFromNotes(notes?: string): string {
   return 'unidades';
 }
 
+function formatProductDisplay(item: OrderItem): string {
+  const unit = getUnitFromNotes(item.notes);
+  return `${item.quantity} ${unit} de ${item.product_name}`;
+}
+
 export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams();
   const { user } = useAuth();
@@ -1218,12 +1223,12 @@ export default function OrderDetailScreen() {
                     ) : (
                       <View style={styles.itemCard}>
                         <View style={styles.itemHeader}>
-                          <Text style={styles.itemName}>{item.product_name}</Text>
+                          <Text style={styles.itemName}>{formatProductDisplay(item)}</Text>
                           <Text style={styles.itemPrice}>{formatCLP(item.total_price)}</Text>
                         </View>
                         <View style={styles.itemDetails}>
                           <Text style={styles.itemQuantity}>
-                            Cantidad: {item.quantity} x {formatCLP(item.unit_price)}
+                            Precio unitario: {formatCLP(item.unit_price)}
                           </Text>
                         </View>
                         {item.notes && <Text style={styles.itemNotes}>{item.notes}</Text>}
@@ -1388,10 +1393,7 @@ export default function OrderDetailScreen() {
             <ScrollView style={styles.priceModalScrollView}>
               {order?.items?.map((item) => (
                 <View key={item.id} style={styles.priceModalItem}>
-                  <Text style={styles.priceModalItemName}>{item.product_name}</Text>
-                  <Text style={styles.priceModalItemQuantity}>
-                    Cantidad: {item.quantity}
-                  </Text>
+                  <Text style={styles.priceModalItemName}>{formatProductDisplay(item)}</Text>
                   <TextInput
                     style={styles.priceModalInput}
                     value={bulkPrices[item.id] || ''}
