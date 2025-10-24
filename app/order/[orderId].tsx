@@ -852,6 +852,7 @@ export default function OrderDetailScreen() {
       
       const receipt = generateReceiptText(order);
       console.log('[OrderDetail] Generated receipt text, length:', receipt.length);
+      console.log('[OrderDetail] Receipt preview:', receipt.substring(0, 200));
       
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
       const textSize = printerConfig?.text_size || 'medium';
@@ -883,12 +884,15 @@ export default function OrderDetailScreen() {
       useWebhookFormat,
       textSize: config.text_size,
       status: order.status,
+      itemCount: order.items?.length || 0,
     });
     
+    // Calculate max width based on paper size
     const maxWidth = paperSize === '58mm' ? 32 : 48;
     
     let receipt = '';
 
+    // Header
     receipt += '\n';
     receipt += '='.repeat(maxWidth) + '\n';
     receipt += centerText('TICKET DE PEDIDO', maxWidth) + '\n';
@@ -897,70 +901,92 @@ export default function OrderDetailScreen() {
     receipt += '\n';
 
     // Show order status prominently
-    receipt += centerText('ESTADO: ' + getStatusLabel(order.status).toUpperCase(), maxWidth) + '\n';
+    const statusText = 'ESTADO: ' + getStatusLabel(order.status).toUpperCase();
+    receipt += centerText(statusText, maxWidth) + '\n';
     receipt += '\n';
 
+    // Customer information
     if (config.include_customer_info !== false) {
       receipt += 'Cliente: ' + order.customer_name + '\n';
       if (order.customer_phone) {
         receipt += 'Telefono: ' + order.customer_phone + '\n';
       }
       if (order.customer_address) {
-        receipt += 'Direccion: ' + order.customer_address + '\n';
+        // Wrap long addresses
+        const addressLines = wrapText('Direccion: ' + order.customer_address, maxWidth);
+        receipt += addressLines + '\n';
       }
       receipt += '\n';
     }
 
+    // Products section
     receipt += '-'.repeat(maxWidth) + '\n';
     receipt += 'PRODUCTOS\n';
     receipt += '-'.repeat(maxWidth) + '\n';
     receipt += '\n';
 
     if (order.items && order.items.length > 0) {
-      order.items.forEach((item) => {
+      order.items.forEach((item, index) => {
+        console.log(`[OrderDetail] Formatting item ${index + 1}/${order.items.length}:`, {
+          name: item.product_name,
+          quantity: item.quantity,
+          price: item.total_price,
+          notes: item.notes,
+        });
+        
         if (useWebhookFormat) {
           // Use WhatsApp format: "2 kilos de papas $3000"
           const unit = getUnitFromNotes(item.notes);
           const productLine = `${item.quantity} ${unit} de ${item.product_name}`;
-          const priceLine = formatCLP(item.total_price);
-          const fullLine = `${productLine} ${priceLine}`;
+          const priceText = formatCLP(item.total_price);
+          const fullLine = `${productLine} ${priceText}`;
           
-          console.log('[OrderDetail] Formatting item with WhatsApp format:', {
-            product: item.product_name,
-            quantity: item.quantity,
-            unit,
-            notes: item.notes,
-            formattedLine: fullLine,
-          });
-          
-          receipt += wrapText(fullLine, maxWidth) + '\n';
+          // Wrap long lines
+          const wrappedLine = wrapText(fullLine, maxWidth);
+          receipt += wrappedLine + '\n';
         } else {
           // Use traditional format
-          receipt += wrapText(item.product_name, maxWidth) + '\n';
+          const productName = wrapText(item.product_name, maxWidth);
+          receipt += productName + '\n';
           receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
           if (item.notes) {
-            receipt += `  Nota: ${wrapText(item.notes, maxWidth - 8)}\n`;
+            const wrappedNotes = wrapText(`  Nota: ${item.notes}`, maxWidth);
+            receipt += wrappedNotes + '\n';
           }
         }
         receipt += '\n';
       });
+    } else {
+      receipt += centerText('Sin productos', maxWidth) + '\n';
+      receipt += '\n';
     }
 
+    // Total
     if (config.include_totals !== false) {
       receipt += '-'.repeat(maxWidth) + '\n';
-      receipt += 'TOTAL: ' + formatCLP(order.total_amount) + '\n';
+      const totalLine = 'TOTAL: ' + formatCLP(order.total_amount);
+      receipt += totalLine + '\n';
       receipt += '-'.repeat(maxWidth) + '\n';
       receipt += '\n';
     }
 
-    const date = new Date(order.created_at).toLocaleString('es-ES');
+    // Footer
+    const date = new Date(order.created_at).toLocaleString('es-ES', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
     receipt += 'Fecha: ' + date + '\n';
     receipt += '\n';
     receipt += '='.repeat(maxWidth) + '\n';
     receipt += centerText('Gracias por su pedido', maxWidth) + '\n';
     receipt += '='.repeat(maxWidth) + '\n';
 
-    console.log('[OrderDetail] Generated receipt preview:', receipt.substring(0, 200) + '...');
+    console.log('[OrderDetail] Generated receipt, total length:', receipt.length);
+    console.log('[OrderDetail] Receipt lines:', receipt.split('\n').length);
+    
     return receipt;
   };
 
@@ -978,15 +1004,34 @@ export default function OrderDetailScreen() {
     let currentLine = '';
     
     for (const word of words) {
-      if ((currentLine + ' ' + word).trim().length <= width) {
-        currentLine = (currentLine + ' ' + word).trim();
+      const testLine = currentLine ? currentLine + ' ' + word : word;
+      
+      if (testLine.length <= width) {
+        currentLine = testLine;
       } else {
-        if (currentLine) lines.push(currentLine);
-        currentLine = word;
+        // If current line has content, push it
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          // Word is longer than width, split it
+          if (word.length > width) {
+            let remaining = word;
+            while (remaining.length > width) {
+              lines.push(remaining.substring(0, width));
+              remaining = remaining.substring(width);
+            }
+            currentLine = remaining;
+          } else {
+            currentLine = word;
+          }
+        }
       }
     }
     
-    if (currentLine) lines.push(currentLine);
+    if (currentLine) {
+      lines.push(currentLine);
+    }
     
     return lines.join('\n');
   };

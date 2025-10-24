@@ -60,29 +60,59 @@ const ALTERNATIVE_CHARACTERISTIC_UUIDS = [
 
 const SAVED_PRINTER_KEY = '@saved_printer_device';
 const KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
+const MAX_CHUNK_SIZE = 180; // Maximum bytes per write operation (safe for most printers)
 
-// Character mapping for Spanish characters to CP850 encoding
-const CHAR_MAP: { [key: string]: string } = {
-  'á': '\xA0', 'é': '\x82', 'í': '\xA1', 'ó': '\xA2', 'ú': '\xA3',
-  'Á': '\xB5', 'É': '\x90', 'Í': '\xD6', 'Ó': '\xE0', 'Ú': '\xE9',
-  'ñ': '\xA4', 'Ñ': '\xA5',
-  'ü': '\x81', 'Ü': '\x9A',
-  '¿': '\xA8', '¡': '\xAD',
-  '°': '\xF8', '€': '\xEE',
+// Complete CP850 character mapping for Spanish and special characters
+const CP850_MAP: { [key: string]: number } = {
+  // Lowercase vowels with accents
+  'á': 0xA0, 'é': 0x82, 'í': 0xA1, 'ó': 0xA2, 'ú': 0xA3,
+  // Uppercase vowels with accents
+  'Á': 0xB5, 'É': 0x90, 'Í': 0xD6, 'Ó': 0xE0, 'Ú': 0xE9,
+  // Ñ and ñ
+  'ñ': 0xA4, 'Ñ': 0xA5,
+  // Ü and ü
+  'ü': 0x81, 'Ü': 0x9A,
+  // Special Spanish punctuation
+  '¿': 0xA8, '¡': 0xAD,
+  // Other special characters
+  '°': 0xF8, '€': 0xEE, '£': 0x9C, '¥': 0x9D,
+  'ç': 0x87, 'Ç': 0x80,
+  'à': 0x85, 'è': 0x8A, 'ì': 0x8D, 'ò': 0x95, 'ù': 0x97,
+  'À': 0xB7, 'È': 0xD4, 'Ì': 0xDE, 'Ò': 0xE3, 'Ù': 0xEB,
+  // Box drawing and line characters
+  '─': 0xC4, '│': 0xB3, '┌': 0xDA, '┐': 0xBF, '└': 0xC0, '┘': 0xD9,
+  '├': 0xC3, '┤': 0xB4, '┬': 0xC2, '┴': 0xC1, '┼': 0xC5,
+  '═': 0xCD, '║': 0xBA, '╔': 0xC9, '╗': 0xBB, '╚': 0xC8, '╝': 0xBC,
+  '╠': 0xCC, '╣': 0xB9, '╦': 0xCB, '╩': 0xCA, '╬': 0xCE,
 };
 
-// Function to convert text with Spanish characters to CP850 encoding
-const convertToCP850 = (text: string): string => {
-  let result = '';
+/**
+ * Convert text with Spanish characters to CP850 encoding
+ * This ensures proper display of accented characters on thermal printers
+ */
+const convertToCP850 = (text: string): Uint8Array => {
+  const bytes: number[] = [];
+  
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
-    if (CHAR_MAP[char]) {
-      result += CHAR_MAP[char];
-    } else {
-      result += char;
+    const charCode = char.charCodeAt(0);
+    
+    // Check if character has a CP850 mapping
+    if (CP850_MAP[char] !== undefined) {
+      bytes.push(CP850_MAP[char]);
+    } 
+    // ASCII characters (0-127) can be used directly
+    else if (charCode < 128) {
+      bytes.push(charCode);
+    }
+    // For unmapped characters, use a safe replacement
+    else {
+      console.warn(`[usePrinter] Unmapped character: ${char} (code: ${charCode}), using '?'`);
+      bytes.push(0x3F); // '?' character
     }
   }
-  return result;
+  
+  return new Uint8Array(bytes);
 };
 
 // Keep-alive mechanism to prevent Bluetooth disconnection
@@ -101,7 +131,8 @@ const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; c
         console.log('[usePrinter] Sending keep-alive ping');
         // Send a simple status request command (ESC v - doesn't print anything)
         const keepAliveCommand = ESC + 'v';
-        const base64Data = Buffer.from(keepAliveCommand, 'binary').toString('base64');
+        const buffer = Buffer.from(keepAliveCommand, 'binary');
+        const base64Data = buffer.toString('base64');
         
         await device.writeCharacteristicWithResponseForService(
           characteristic.serviceUUID,
@@ -350,7 +381,11 @@ export const usePrinter = () => {
     }
   };
 
-  const sendDataToPrinter = async (data: string) => {
+  /**
+   * Send data to printer in chunks to avoid buffer overflow
+   * This is critical for printing large receipts with many items
+   */
+  const sendDataToPrinter = async (data: Uint8Array) => {
     const device = connectedDevice || globalConnectedDevice;
     const characteristic = printerCharacteristic || globalPrinterCharacteristic;
     
@@ -359,7 +394,7 @@ export const usePrinter = () => {
     }
 
     try {
-      console.log('[usePrinter] Sending data to printer, length:', data.length);
+      console.log('[usePrinter] Sending data to printer, total bytes:', data.length);
       
       // Check if device is still connected
       const isConnected = await device.isConnected();
@@ -368,18 +403,36 @@ export const usePrinter = () => {
         throw new Error('La impresora se desconectó. Por favor, reconecta la impresora.');
       }
       
-      // Convert string to binary buffer (not UTF-8, use binary encoding)
-      const buffer = Buffer.from(data, 'binary');
-      const base64Data = buffer.toString('base64');
+      // Split data into chunks to avoid buffer overflow
+      const chunks: Uint8Array[] = [];
+      for (let i = 0; i < data.length; i += MAX_CHUNK_SIZE) {
+        const chunk = data.slice(i, Math.min(i + MAX_CHUNK_SIZE, data.length));
+        chunks.push(chunk);
+      }
       
-      // Write to characteristic
-      await device.writeCharacteristicWithResponseForService(
-        characteristic.serviceUUID,
-        characteristic.characteristicUUID,
-        base64Data
-      );
+      console.log(`[usePrinter] Split data into ${chunks.length} chunks`);
       
-      console.log('[usePrinter] Data sent successfully');
+      // Send each chunk with a small delay to ensure printer processes it
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const buffer = Buffer.from(chunk);
+        const base64Data = buffer.toString('base64');
+        
+        console.log(`[usePrinter] Sending chunk ${i + 1}/${chunks.length}, size: ${chunk.length} bytes`);
+        
+        await device.writeCharacteristicWithResponseForService(
+          characteristic.serviceUUID,
+          characteristic.characteristicUUID,
+          base64Data
+        );
+        
+        // Small delay between chunks to prevent buffer overflow
+        if (i < chunks.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+      }
+      
+      console.log('[usePrinter] All data sent successfully');
     } catch (error) {
       console.error('[usePrinter] Error sending data:', error);
       throw error;
@@ -412,29 +465,33 @@ export const usePrinter = () => {
 
     try {
       console.log('[usePrinter] Printing receipt with text size:', textSize);
+      console.log('[usePrinter] Original content length:', content.length);
       console.log('[usePrinter] Original content preview:', content.substring(0, 100));
       
-      // Convert Spanish characters to CP850 encoding
-      const convertedContent = convertToCP850(content);
-      console.log('[usePrinter] Converted content preview:', convertedContent.substring(0, 100));
-      
-      // Build the print command
-      let printData = COMMANDS.INIT; // Initialize printer
-      printData += COMMANDS.SET_CODEPAGE_850; // Set code page to CP850
-      printData += COMMANDS.ALIGN_LEFT; // Align left for better readability
-      printData += getFontSizeCommand(textSize); // Set font size based on config
-      printData += convertedContent;
-      printData += COMMANDS.FONT_SIZE_SMALL; // Reset to normal size
-      printData += COMMANDS.LINE_FEED;
-      printData += COMMANDS.LINE_FEED;
-      printData += COMMANDS.LINE_FEED;
+      // Build the print command as a string first
+      let printCommand = COMMANDS.INIT; // Initialize printer
+      printCommand += COMMANDS.SET_CODEPAGE_850; // Set code page to CP850
+      printCommand += COMMANDS.ALIGN_LEFT; // Align left for better readability
+      printCommand += getFontSizeCommand(textSize); // Set font size based on config
+      printCommand += content;
+      printCommand += COMMANDS.FONT_SIZE_SMALL; // Reset to normal size
+      printCommand += COMMANDS.LINE_FEED;
+      printCommand += COMMANDS.LINE_FEED;
+      printCommand += COMMANDS.LINE_FEED;
       
       // Add cut command if enabled
       if (autoCut) {
-        printData += COMMANDS.CUT_PAPER;
+        printCommand += COMMANDS.CUT_PAPER;
       }
       
-      await sendDataToPrinter(printData);
+      console.log('[usePrinter] Total command length before encoding:', printCommand.length);
+      
+      // Convert to CP850 encoding
+      const encodedData = convertToCP850(printCommand);
+      console.log('[usePrinter] Encoded data length:', encodedData.length, 'bytes');
+      
+      // Send to printer in chunks
+      await sendDataToPrinter(encodedData);
       console.log('[usePrinter] Print completed successfully');
     } catch (error) {
       console.error('[usePrinter] Print error:', error);
@@ -452,6 +509,7 @@ Esta es una prueba de impresión.
 
 Caracteres especiales:
 á é í ó ú ñ Ñ ¿ ¡
+Á É Í Ó Ú ü Ü
 
 Si puedes leer esto correctamente,
 tu impresora funciona bien.
