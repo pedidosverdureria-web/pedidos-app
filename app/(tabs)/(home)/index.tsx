@@ -165,17 +165,19 @@ export default function HomeScreen() {
     };
 
     let receipt = '\n';
-    receipt += centerText('PEDIDO') + '\n';
-    receipt += centerText(`#${order.order_number}`) + '\n';
-    receipt += '='.repeat(maxWidth) + '\n\n';
+    receipt += '='.repeat(maxWidth) + '\n';
+    receipt += centerText('NUEVO PEDIDO') + '\n';
+    receipt += centerText('#' + order.order_number) + '\n';
+    receipt += '='.repeat(maxWidth) + '\n';
+    receipt += '\n';
 
     if (printerConfig.include_customer_info !== false) {
-      receipt += `Cliente: ${order.customer_name}\n`;
+      receipt += 'Cliente: ' + order.customer_name + '\n';
       if (order.customer_phone) {
-        receipt += `Tel: ${order.customer_phone}\n`;
+        receipt += 'Tel: ' + order.customer_phone + '\n';
       }
       if (order.customer_address) {
-        receipt += `Dir: ${order.customer_address}\n`;
+        receipt += 'Dir: ' + order.customer_address + '\n';
       }
       receipt += '\n';
     }
@@ -183,6 +185,7 @@ export default function HomeScreen() {
     receipt += '-'.repeat(maxWidth) + '\n';
     receipt += 'PRODUCTOS\n';
     receipt += '-'.repeat(maxWidth) + '\n';
+    receipt += '\n';
 
     if (order.items && order.items.length > 0) {
       order.items.forEach((item) => {
@@ -207,12 +210,15 @@ export default function HomeScreen() {
 
     if (printerConfig.include_totals !== false) {
       receipt += '-'.repeat(maxWidth) + '\n';
-      receipt += `TOTAL: ${formatCLP(order.total_amount)}\n`;
-      receipt += '='.repeat(maxWidth) + '\n\n';
+      receipt += 'TOTAL: ' + formatCLP(order.total_amount) + '\n';
+      receipt += '='.repeat(maxWidth) + '\n';
+      receipt += '\n';
     }
 
     const date = new Date(order.created_at).toLocaleString('es-ES');
     receipt += centerText(date) + '\n';
+    receipt += '\n';
+    receipt += '='.repeat(maxWidth) + '\n';
 
     return receipt;
   }, [printerConfig]);
@@ -231,7 +237,9 @@ export default function HomeScreen() {
       console.log('[HomeScreen] Auto-printing order:', order.order_number);
       const receiptText = generateReceiptText(order);
       const textSize = printerConfig.text_size || 'medium';
-      await printReceipt(receiptText, printerConfig.auto_cut_enabled ?? true, textSize);
+      const autoCut = printerConfig.auto_cut_enabled ?? true;
+      
+      await printReceipt(receiptText, autoCut, textSize);
       console.log('[HomeScreen] Order printed successfully:', order.order_number);
     } catch (error) {
       console.error('[HomeScreen] Error auto-printing order:', error);

@@ -39,6 +39,8 @@ const COMMANDS = {
   FONT_SIZE_SMALL: GS + '!' + '\x00',      // Normal size
   FONT_SIZE_MEDIUM: GS + '!' + '\x11',     // Double height and width
   FONT_SIZE_LARGE: GS + '!' + '\x22',      // Triple height and width
+  // Set code page to CP850 (supports Spanish characters)
+  SET_CODEPAGE_850: ESC + 't' + '\x02',
 };
 
 // Generic printer service UUID (commonly used by thermal printers)
@@ -59,6 +61,30 @@ const ALTERNATIVE_CHARACTERISTIC_UUIDS = [
 const SAVED_PRINTER_KEY = '@saved_printer_device';
 const KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
 
+// Character mapping for Spanish characters to CP850 encoding
+const CHAR_MAP: { [key: string]: string } = {
+  'á': '\xA0', 'é': '\x82', 'í': '\xA1', 'ó': '\xA2', 'ú': '\xA3',
+  'Á': '\xB5', 'É': '\x90', 'Í': '\xD6', 'Ó': '\xE0', 'Ú': '\xE9',
+  'ñ': '\xA4', 'Ñ': '\xA5',
+  'ü': '\x81', 'Ü': '\x9A',
+  '¿': '\xA8', '¡': '\xAD',
+  '°': '\xF8', '€': '\xEE',
+};
+
+// Function to convert text with Spanish characters to CP850 encoding
+const convertToCP850 = (text: string): string => {
+  let result = '';
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (CHAR_MAP[char]) {
+      result += CHAR_MAP[char];
+    } else {
+      result += char;
+    }
+  }
+  return result;
+};
+
 // Keep-alive mechanism to prevent Bluetooth disconnection
 const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; characteristicUUID: string }) => {
   console.log('[usePrinter] Starting keep-alive mechanism');
@@ -75,7 +101,7 @@ const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; c
         console.log('[usePrinter] Sending keep-alive ping');
         // Send a simple status request command (ESC v - doesn't print anything)
         const keepAliveCommand = ESC + 'v';
-        const base64Data = Buffer.from(keepAliveCommand, 'utf-8').toString('base64');
+        const base64Data = Buffer.from(keepAliveCommand, 'binary').toString('base64');
         
         await device.writeCharacteristicWithResponseForService(
           characteristic.serviceUUID,
@@ -342,8 +368,9 @@ export const usePrinter = () => {
         throw new Error('La impresora se desconectó. Por favor, reconecta la impresora.');
       }
       
-      // Convert string to base64
-      const base64Data = Buffer.from(data, 'utf-8').toString('base64');
+      // Convert string to binary buffer (not UTF-8, use binary encoding)
+      const buffer = Buffer.from(data, 'binary');
+      const base64Data = buffer.toString('base64');
       
       // Write to characteristic
       await device.writeCharacteristicWithResponseForService(
@@ -385,12 +412,18 @@ export const usePrinter = () => {
 
     try {
       console.log('[usePrinter] Printing receipt with text size:', textSize);
+      console.log('[usePrinter] Original content preview:', content.substring(0, 100));
+      
+      // Convert Spanish characters to CP850 encoding
+      const convertedContent = convertToCP850(content);
+      console.log('[usePrinter] Converted content preview:', convertedContent.substring(0, 100));
       
       // Build the print command
       let printData = COMMANDS.INIT; // Initialize printer
+      printData += COMMANDS.SET_CODEPAGE_850; // Set code page to CP850
       printData += COMMANDS.ALIGN_LEFT; // Align left for better readability
       printData += getFontSizeCommand(textSize); // Set font size based on config
-      printData += content;
+      printData += convertedContent;
       printData += COMMANDS.FONT_SIZE_SMALL; // Reset to normal size
       printData += COMMANDS.LINE_FEED;
       printData += COMMANDS.LINE_FEED;
@@ -417,8 +450,11 @@ export const usePrinter = () => {
 
 Esta es una prueba de impresión.
 
-Si puedes leer esto, tu 
-impresora funciona correctamente.
+Caracteres especiales:
+á é í ó ú ñ Ñ ¿ ¡
+
+Si puedes leer esto correctamente,
+tu impresora funciona bien.
 
 Fecha: ${new Date().toLocaleString('es-ES')}
 

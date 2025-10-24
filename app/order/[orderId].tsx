@@ -854,9 +854,10 @@ export default function OrderDetailScreen() {
       console.log('[OrderDetail] Generated receipt text, length:', receipt.length);
       
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
-      console.log('[OrderDetail] Auto-cut enabled:', autoCut);
+      const textSize = printerConfig?.text_size || 'medium';
+      console.log('[OrderDetail] Print settings:', { autoCut, textSize });
       
-      await printReceipt(receipt, autoCut, printerConfig?.text_size || 'medium');
+      await printReceipt(receipt, autoCut, textSize);
       console.log('[OrderDetail] Print completed successfully');
       
       Alert.alert('Éxito', 'Pedido impreso correctamente');
@@ -881,73 +882,83 @@ export default function OrderDetailScreen() {
       paperSize,
       useWebhookFormat,
       textSize: config.text_size,
+      status: order.status,
     });
     
     const maxWidth = paperSize === '58mm' ? 32 : 48;
     
     let receipt = '';
 
-    receipt += `\n`;
-    receipt += `=`.repeat(maxWidth) + `\n`;
-    receipt += centerText('PEDIDO #' + order.order_number, maxWidth) + `\n`;
-    receipt += `=`.repeat(maxWidth) + `\n`;
-    receipt += `\n`;
+    receipt += '\n';
+    receipt += '='.repeat(maxWidth) + '\n';
+    receipt += centerText('TICKET DE PEDIDO', maxWidth) + '\n';
+    receipt += centerText('#' + order.order_number, maxWidth) + '\n';
+    receipt += '='.repeat(maxWidth) + '\n';
+    receipt += '\n';
+
+    // Show order status prominently
+    receipt += centerText('ESTADO: ' + getStatusLabel(order.status).toUpperCase(), maxWidth) + '\n';
+    receipt += '\n';
 
     if (config.include_customer_info !== false) {
-      receipt += `Cliente: ${order.customer_name}\n`;
+      receipt += 'Cliente: ' + order.customer_name + '\n';
       if (order.customer_phone) {
-        receipt += `Telefono: ${order.customer_phone}\n`;
+        receipt += 'Telefono: ' + order.customer_phone + '\n';
       }
       if (order.customer_address) {
-        receipt += `Direccion: ${order.customer_address}\n`;
+        receipt += 'Direccion: ' + order.customer_address + '\n';
       }
-      receipt += `\n`;
+      receipt += '\n';
     }
 
-    receipt += `-`.repeat(maxWidth) + `\n`;
-    receipt += `PRODUCTOS\n`;
-    receipt += `-`.repeat(maxWidth) + `\n`;
-    receipt += `\n`;
+    receipt += '-'.repeat(maxWidth) + '\n';
+    receipt += 'PRODUCTOS\n';
+    receipt += '-'.repeat(maxWidth) + '\n';
+    receipt += '\n';
 
-    order.items?.forEach((item) => {
-      if (useWebhookFormat) {
-        // Use WhatsApp format: "2 kilos de papas $3000"
-        const unit = getUnitFromNotes(item.notes);
-        const productLine = `${item.quantity} ${unit} de ${item.product_name}`;
-        const priceLine = formatCLP(item.total_price);
-        const fullLine = `${productLine} ${priceLine}`;
-        
-        console.log('[OrderDetail] Formatting item with WhatsApp format:', {
-          product: item.product_name,
-          quantity: item.quantity,
-          unit,
-          notes: item.notes,
-          formattedLine: fullLine,
-        });
-        
-        receipt += wrapText(fullLine, maxWidth) + `\n`;
-      } else {
-        // Use traditional format
-        receipt += wrapText(item.product_name, maxWidth) + `\n`;
-        receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
-        if (item.notes) {
-          receipt += `  Nota: ${wrapText(item.notes, maxWidth - 8)}\n`;
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((item) => {
+        if (useWebhookFormat) {
+          // Use WhatsApp format: "2 kilos de papas $3000"
+          const unit = getUnitFromNotes(item.notes);
+          const productLine = `${item.quantity} ${unit} de ${item.product_name}`;
+          const priceLine = formatCLP(item.total_price);
+          const fullLine = `${productLine} ${priceLine}`;
+          
+          console.log('[OrderDetail] Formatting item with WhatsApp format:', {
+            product: item.product_name,
+            quantity: item.quantity,
+            unit,
+            notes: item.notes,
+            formattedLine: fullLine,
+          });
+          
+          receipt += wrapText(fullLine, maxWidth) + '\n';
+        } else {
+          // Use traditional format
+          receipt += wrapText(item.product_name, maxWidth) + '\n';
+          receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
+          if (item.notes) {
+            receipt += `  Nota: ${wrapText(item.notes, maxWidth - 8)}\n`;
+          }
         }
-      }
-      receipt += `\n`;
-    });
+        receipt += '\n';
+      });
+    }
 
     if (config.include_totals !== false) {
-      receipt += `-`.repeat(maxWidth) + `\n`;
-      receipt += `TOTAL: ${formatCLP(order.total_amount)}\n`;
-      receipt += `-`.repeat(maxWidth) + `\n`;
-      receipt += `\n`;
+      receipt += '-'.repeat(maxWidth) + '\n';
+      receipt += 'TOTAL: ' + formatCLP(order.total_amount) + '\n';
+      receipt += '-'.repeat(maxWidth) + '\n';
+      receipt += '\n';
     }
 
-    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-    receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-ES')}\n`;
-    receipt += `\n`;
-    receipt += `=`.repeat(maxWidth) + `\n`;
+    const date = new Date(order.created_at).toLocaleString('es-ES');
+    receipt += 'Fecha: ' + date + '\n';
+    receipt += '\n';
+    receipt += '='.repeat(maxWidth) + '\n';
+    receipt += centerText('Gracias por su pedido', maxWidth) + '\n';
+    receipt += '='.repeat(maxWidth) + '\n';
 
     console.log('[OrderDetail] Generated receipt preview:', receipt.substring(0, 200) + '...');
     return receipt;
