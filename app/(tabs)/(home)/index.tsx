@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { useOrders } from '@/hooks/useOrders';
 import { Order, OrderStatus } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePrinter } from '@/hooks/usePrinter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'Todos', value: 'all' },
@@ -26,6 +28,9 @@ const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'Entregado', value: 'delivered' },
   { label: 'Cancelado', value: 'cancelled' },
 ];
+
+const PRINTER_CONFIG_KEY = '@printer_config';
+const POLLING_INTERVAL = 20000; // 20 seconds
 
 const getStatusColor = (status: OrderStatus) => {
   switch (status) {
@@ -67,6 +72,142 @@ export default function HomeScreen() {
   const { orders, loading, refetch } = useOrders(
     statusFilter === 'all' ? undefined : statusFilter
   );
+  const { printReceipt, isConnected } = usePrinter();
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
+  const [autoCutEnabled, setAutoCutEnabled] = useState(true);
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load printer config to check if auto-print is enabled
+  const loadPrinterConfig = useCallback(async () => {
+    try {
+      const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      if (savedConfig) {
+        const config = JSON.parse(savedConfig);
+        setAutoPrintEnabled(config.auto_print_enabled ?? false);
+        setAutoCutEnabled(config.auto_cut_enabled ?? true);
+        console.log('Auto-print enabled:', config.auto_print_enabled);
+      }
+    } catch (error) {
+      console.error('Error loading printer config:', error);
+    }
+  }, []);
+
+  // Generate receipt text for printing
+  const generateReceiptText = useCallback((order: Order): string => {
+    const width = 32; // Characters per line for 80mm paper
+    const centerText = (text: string) => {
+      const padding = Math.max(0, Math.floor((width - text.length) / 2));
+      return ' '.repeat(padding) + text;
+    };
+
+    let receipt = '\n';
+    receipt += centerText('PEDIDO') + '\n';
+    receipt += centerText(`#${order.order_number}`) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+
+    receipt += `Cliente: ${order.customer_name}\n`;
+    if (order.customer_phone) {
+      receipt += `Tel: ${order.customer_phone}\n`;
+    }
+    if (order.customer_address) {
+      receipt += `Dir: ${order.customer_address}\n`;
+    }
+    receipt += '\n';
+
+    receipt += '-'.repeat(width) + '\n';
+    receipt += 'PRODUCTOS\n';
+    receipt += '-'.repeat(width) + '\n';
+
+    if (order.items && order.items.length > 0) {
+      order.items.forEach((item) => {
+        const unit = item.notes || 'unidad';
+        const line = `${item.quantity} ${unit} de ${item.product_name}`;
+        receipt += line + '\n';
+        receipt += `  ${formatCLP(item.unit_price)}\n`;
+      });
+    }
+
+    receipt += '-'.repeat(width) + '\n';
+    receipt += `TOTAL: ${formatCLP(order.total_amount)}\n`;
+    receipt += '='.repeat(width) + '\n\n';
+
+    const date = new Date(order.created_at).toLocaleString('es-ES');
+    receipt += centerText(date) + '\n';
+
+    return receipt;
+  }, []);
+
+  // Auto-print new orders
+  const autoPrintOrder = useCallback(async (order: Order) => {
+    if (!autoPrintEnabled || !isConnected) {
+      console.log('Auto-print skipped:', { autoPrintEnabled, isConnected });
+      return;
+    }
+
+    try {
+      console.log('Auto-printing order:', order.order_number);
+      const receiptText = generateReceiptText(order);
+      await printReceipt(receiptText, autoCutEnabled);
+      console.log('Order printed successfully:', order.order_number);
+    } catch (error) {
+      console.error('Error auto-printing order:', error);
+    }
+  }, [autoPrintEnabled, isConnected, generateReceiptText, printReceipt, autoCutEnabled]);
+
+  // Check for new orders and auto-print them
+  const checkForNewOrders = useCallback((currentOrders: Order[]) => {
+    const currentOrderIds = new Set(currentOrders.map(order => order.id));
+    
+    // Find new orders that weren't in the previous set
+    const newOrderIds = Array.from(currentOrderIds).filter(
+      id => !previousOrderIdsRef.current.has(id)
+    );
+
+    // If there are new orders and we had previous orders (not initial load)
+    if (newOrderIds.length > 0 && previousOrderIdsRef.current.size > 0) {
+      const newOrders = currentOrders.filter(order => newOrderIds.includes(order.id));
+      
+      console.log(`Found ${newOrders.length} new order(s)`);
+      
+      // Auto-print each new order
+      newOrders.forEach(order => {
+        autoPrintOrder(order);
+      });
+    }
+
+    // Update the previous order IDs
+    previousOrderIdsRef.current = currentOrderIds;
+  }, [autoPrintOrder]);
+
+  // Set up polling for new orders
+  useEffect(() => {
+    // Initial check
+    if (orders.length > 0) {
+      checkForNewOrders(orders);
+    }
+
+    // Set up polling interval
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    pollingIntervalRef.current = setInterval(() => {
+      console.log('Polling for new orders...');
+      refetch();
+    }, POLLING_INTERVAL);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [orders, checkForNewOrders, refetch]);
+
+  // Load printer config on mount
+  useEffect(() => {
+    loadPrinterConfig();
+  }, [loadPrinterConfig]);
 
   // Define all hooks before any conditional returns
   const renderOrderCard = useCallback(({ item }: { item: Order }) => (
@@ -232,6 +373,14 @@ export default function HomeScreen() {
           </View>
 
           {renderFilterList()}
+
+          {/* Auto-print indicator */}
+          {autoPrintEnabled && isConnected && (
+            <View style={styles.autoPrintBanner}>
+              <IconSymbol name="printer.fill" size={16} color={colors.success} />
+              <Text style={styles.autoPrintText}>Impresión automática activada</Text>
+            </View>
+          )}
         </View>
 
         {/* Orders List */}
@@ -336,6 +485,23 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#FFFFFF',
+  },
+  autoPrintBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  autoPrintText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.success,
+    marginLeft: 8,
   },
   listContent: {
     paddingBottom: 16,

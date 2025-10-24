@@ -35,15 +35,22 @@ export default function NotificationsScreen() {
     try {
       setLoading(true);
       const supabase = getSupabase();
+      
+      console.log('Loading notifications for user:', user?.id);
+      
+      // Fetch all notifications (both user-specific and global)
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .or(`user_id.eq.${user?.id},user_id.is.null`)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading notifications:', error);
+        throw error;
+      }
 
+      console.log('Loaded notifications:', data?.length || 0);
       setNotifications(data || []);
     } catch (error) {
       console.error('Error loading notifications:', error);
@@ -55,6 +62,39 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     loadNotifications();
+
+    // Set up real-time subscription for new notifications
+    const supabase = getSupabase();
+    if (supabase) {
+      console.log('Setting up realtime subscription for notifications...');
+      
+      const channel = supabase
+        .channel('notifications_changes')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'notifications' },
+          (payload) => {
+            console.log('New notification received:', payload);
+            loadNotifications();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'notifications' },
+          (payload) => {
+            console.log('Notification updated:', payload);
+            loadNotifications();
+          }
+        )
+        .subscribe((status) => {
+          console.log('Notifications subscription status:', status);
+        });
+
+      return () => {
+        console.log('Cleaning up notifications subscription...');
+        supabase.removeChannel(channel);
+      };
+    }
   }, [loadNotifications]);
 
   const handlePushNotificationToggle = async (value: boolean) => {
