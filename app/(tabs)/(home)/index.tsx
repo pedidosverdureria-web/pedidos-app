@@ -1,5 +1,11 @@
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Stack, router } from 'expo-router';
+import { usePrinter } from '@/hooks/usePrinter';
 import {
   View,
   Text,
@@ -11,26 +17,14 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
 import { useOrders } from '@/hooks/useOrders';
 import { Order, OrderStatus } from '@/types';
-import { useAuth } from '@/contexts/AuthContext';
-import { usePrinter } from '@/hooks/usePrinter';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
-  { label: 'Todos', value: 'all' },
-  { label: 'Pendiente', value: 'pending' },
-  { label: 'Preparando', value: 'preparing' },
-  { label: 'Listo', value: 'ready' },
-  { label: 'Entregado', value: 'delivered' },
-  { label: 'Cancelado', value: 'cancelled' },
-];
-
-const PRINTER_CONFIG_KEY = '@printer_config';
-const POLLING_INTERVAL = 20000; // 20 seconds
+import { 
+  registerForPushNotificationsAsync, 
+  setupNotificationResponseHandler,
+  checkNotificationPermissions,
+  requestNotificationPermissions 
+} from '@/utils/pushNotifications';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
@@ -46,684 +40,562 @@ interface PrinterConfig {
   use_webhook_format?: boolean;
 }
 
-const getStatusColor = (status: OrderStatus) => {
-  switch (status) {
-    case 'pending':
-      return colors.statusPending;
-    case 'preparing':
-      return colors.statusPreparing;
-    case 'ready':
-      return colors.statusReady;
-    case 'delivered':
-      return colors.statusDelivered;
-    case 'cancelled':
-      return colors.statusCancelled;
-    default:
-      return colors.textSecondary;
-  }
-};
+const STATUS_FILTERS: (OrderStatus | 'all')[] = [
+  'all',
+  'pending',
+  'preparing',
+  'ready',
+  'delivered',
+  'cancelled',
+];
 
-const getStatusLabel = (status: OrderStatus) => {
-  const labels: Record<OrderStatus, string> = {
-    pending: 'Pendiente',
-    preparing: 'Preparando',
-    ready: 'Listo',
-    delivered: 'Entregado',
-    cancelled: 'Cancelado',
-  };
-  return labels[status] || status;
-};
-
-// Format currency as Chilean Pesos
-const formatCLP = (amount: number): string => {
-  return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
-};
-
-// Extract unit from notes
-const getUnitFromNotes = (notes?: string): string => {
-  if (!notes) return 'unidades';
-  
-  const unitMatch = notes.match(/Unidad:\s*(.+)/i);
-  if (unitMatch && unitMatch[1]) {
-    return unitMatch[1].trim();
-  }
-  
-  return 'unidades';
-};
-
-export default function HomeScreen() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const { orders, loading, refetch } = useOrders(
-    statusFilter === 'all' ? undefined : statusFilter
-  );
-  const { printReceipt, isConnected } = usePrinter();
-  const [printerConfig, setPrinterConfig] = useState<PrinterConfig>({
-    auto_print_enabled: false,
-    auto_cut_enabled: true,
-    text_size: 'medium',
-    paper_size: '80mm',
-    use_webhook_format: true,
-  });
-  const previousOrderIdsRef = useRef<Set<string>>(new Set());
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Load printer config to check if auto-print is enabled
-  const loadPrinterConfig = useCallback(async () => {
-    try {
-      const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
-      if (savedConfig) {
-        const config = JSON.parse(savedConfig);
-        setPrinterConfig({
-          auto_print_enabled: config.auto_print_enabled ?? false,
-          auto_cut_enabled: config.auto_cut_enabled ?? true,
-          text_size: config.text_size ?? 'medium',
-          paper_size: config.paper_size ?? '80mm',
-          include_logo: config.include_logo ?? true,
-          include_customer_info: config.include_customer_info ?? true,
-          include_totals: config.include_totals ?? true,
-          use_webhook_format: config.use_webhook_format ?? true,
-        });
-        console.log('[HomeScreen] Loaded printer config:', config);
-      }
-    } catch (error) {
-      console.error('[HomeScreen] Error loading printer config:', error);
-    }
-  }, []);
-
-  // Generate receipt text for printing
-  const generateReceiptText = useCallback((order: Order): string => {
-    const paperSize = printerConfig.paper_size || '80mm';
-    const useWebhookFormat = printerConfig.use_webhook_format ?? true;
-    const maxWidth = paperSize === '58mm' ? 32 : 48;
-    
-    const centerText = (text: string) => {
-      const padding = Math.max(0, Math.floor((maxWidth - text.length) / 2));
-      return ' '.repeat(padding) + text;
-    };
-
-    const wrapText = (text: string, width: number): string => {
-      if (text.length <= width) return text;
-      
-      const words = text.split(' ');
-      const lines: string[] = [];
-      let currentLine = '';
-      
-      for (const word of words) {
-        if ((currentLine + ' ' + word).trim().length <= width) {
-          currentLine = (currentLine + ' ' + word).trim();
-        } else {
-          if (currentLine) lines.push(currentLine);
-          currentLine = word;
-        }
-      }
-      
-      if (currentLine) lines.push(currentLine);
-      
-      return lines.join('\n');
-    };
-
-    let receipt = '\n';
-    receipt += '='.repeat(maxWidth) + '\n';
-    receipt += centerText('NUEVO PEDIDO') + '\n';
-    receipt += centerText('#' + order.order_number) + '\n';
-    receipt += '='.repeat(maxWidth) + '\n';
-    receipt += '\n';
-
-    if (printerConfig.include_customer_info !== false) {
-      receipt += 'Cliente: ' + order.customer_name + '\n';
-      if (order.customer_phone) {
-        receipt += 'Tel: ' + order.customer_phone + '\n';
-      }
-      if (order.customer_address) {
-        receipt += 'Dir: ' + order.customer_address + '\n';
-      }
-      receipt += '\n';
-    }
-
-    receipt += '-'.repeat(maxWidth) + '\n';
-    receipt += 'PRODUCTOS\n';
-    receipt += '-'.repeat(maxWidth) + '\n';
-    receipt += '\n';
-
-    if (order.items && order.items.length > 0) {
-      order.items.forEach((item) => {
-        if (useWebhookFormat) {
-          // Use WhatsApp format: "2 kilos de papas $3000"
-          const unit = getUnitFromNotes(item.notes);
-          const productLine = `${item.quantity} ${unit} de ${item.product_name}`;
-          const priceLine = formatCLP(item.total_price);
-          const fullLine = `${productLine} ${priceLine}`;
-          receipt += wrapText(fullLine, maxWidth) + '\n';
-        } else {
-          // Use traditional format
-          receipt += wrapText(item.product_name, maxWidth) + '\n';
-          receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
-          if (item.notes) {
-            receipt += `  Nota: ${wrapText(item.notes, maxWidth - 8)}\n`;
-          }
-        }
-        receipt += '\n';
-      });
-    }
-
-    if (printerConfig.include_totals !== false) {
-      receipt += '-'.repeat(maxWidth) + '\n';
-      receipt += 'TOTAL: ' + formatCLP(order.total_amount) + '\n';
-      receipt += '='.repeat(maxWidth) + '\n';
-      receipt += '\n';
-    }
-
-    const date = new Date(order.created_at).toLocaleString('es-ES');
-    receipt += centerText(date) + '\n';
-    receipt += '\n';
-    receipt += '='.repeat(maxWidth) + '\n';
-
-    return receipt;
-  }, [printerConfig]);
-
-  // Auto-print new orders
-  const autoPrintOrder = useCallback(async (order: Order) => {
-    if (!printerConfig.auto_print_enabled || !isConnected) {
-      console.log('[HomeScreen] Auto-print skipped:', { 
-        autoPrintEnabled: printerConfig.auto_print_enabled, 
-        isConnected 
-      });
-      return;
-    }
-
-    try {
-      console.log('[HomeScreen] Auto-printing order:', order.order_number);
-      const receiptText = generateReceiptText(order);
-      const textSize = printerConfig.text_size || 'medium';
-      const autoCut = printerConfig.auto_cut_enabled ?? true;
-      
-      await printReceipt(receiptText, autoCut, textSize);
-      console.log('[HomeScreen] Order printed successfully:', order.order_number);
-    } catch (error) {
-      console.error('[HomeScreen] Error auto-printing order:', error);
-    }
-  }, [printerConfig, isConnected, generateReceiptText, printReceipt]);
-
-  // Check for new orders and auto-print them
-  const checkForNewOrders = useCallback((currentOrders: Order[]) => {
-    const currentOrderIds = new Set(currentOrders.map(order => order.id));
-    
-    // Find new orders that weren't in the previous set
-    const newOrderIds = Array.from(currentOrderIds).filter(
-      id => !previousOrderIdsRef.current.has(id)
-    );
-
-    // If there are new orders and we had previous orders (not initial load)
-    if (newOrderIds.length > 0 && previousOrderIdsRef.current.size > 0) {
-      const newOrders = currentOrders.filter(order => newOrderIds.includes(order.id));
-      
-      console.log(`[HomeScreen] Found ${newOrders.length} new order(s)`);
-      
-      // Auto-print each new order
-      newOrders.forEach(order => {
-        autoPrintOrder(order);
-      });
-    }
-
-    // Update the previous order IDs
-    previousOrderIdsRef.current = currentOrderIds;
-  }, [autoPrintOrder]);
-
-  // Set up polling for new orders
-  useEffect(() => {
-    // Initial check
-    if (orders.length > 0) {
-      checkForNewOrders(orders);
-    }
-
-    // Set up polling interval
-    if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
-    }
-
-    pollingIntervalRef.current = setInterval(() => {
-      console.log('[HomeScreen] Polling for new orders...');
-      refetch();
-    }, POLLING_INTERVAL);
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-    };
-  }, [orders, checkForNewOrders, refetch]);
-
-  // Load printer config on mount
-  useEffect(() => {
-    loadPrinterConfig();
-  }, [loadPrinterConfig]);
-
-  // Define all hooks before any conditional returns
-  const renderOrderCard = useCallback(({ item }: { item: Order }) => (
-    <TouchableOpacity
-      style={[styles.orderCard, !item.is_read && styles.orderCardUnread]}
-      onPress={() => router.push(`/order/${item.id}`)}
-    >
-      <View style={styles.orderHeader}>
-        <View style={styles.orderHeaderLeft}>
-          <Text style={styles.orderNumber}>#{item.order_number}</Text>
-          {!item.is_read && <View style={styles.unreadDot} />}
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
-        </View>
-      </View>
-
-      <View style={styles.orderInfo}>
-        <View style={styles.infoRow}>
-          <IconSymbol name="person.fill" size={16} color={colors.textSecondary} />
-          <Text style={styles.infoText}>{item.customer_name}</Text>
-        </View>
-        {item.customer_phone && (
-          <View style={styles.infoRow}>
-            <IconSymbol name="phone.fill" size={16} color={colors.textSecondary} />
-            <Text style={styles.infoText}>{item.customer_phone}</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.orderFooter}>
-        <View style={styles.sourceTag}>
-          <IconSymbol
-            name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'}
-            size={14}
-            color={item.source === 'whatsapp' ? colors.success : colors.textSecondary}
-          />
-          <Text style={[
-            styles.sourceText,
-            item.source === 'whatsapp' && { color: colors.success }
-          ]}>
-            {item.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}
-          </Text>
-        </View>
-        <Text style={styles.totalText}>{formatCLP(item.total_amount)}</Text>
-      </View>
-    </TouchableOpacity>
-  ), []);
-
-  const renderFilterList = useCallback(() => (
-    <FlatList
-      horizontal
-      data={STATUS_FILTERS}
-      keyExtractor={(item) => item.value}
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          style={[
-            styles.filterChip,
-            statusFilter === item.value && styles.filterChipActive,
-          ]}
-          onPress={() => setStatusFilter(item.value)}
-        >
-          <Text
-            style={[
-              styles.filterChipText,
-              statusFilter === item.value && styles.filterChipTextActive,
-            ]}
-          >
-            {item.label}
-          </Text>
-        </TouchableOpacity>
-      )}
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.filterList}
-    />
-  ), [statusFilter]);
-
-  const renderHeaderRight = useCallback(() => (
-    <TouchableOpacity
-      onPress={() => router.push('/order/new')}
-      style={styles.headerButton}
-    >
-      <IconSymbol name="plus.circle.fill" color={colors.primary} size={28} />
-    </TouchableOpacity>
-  ), []);
-
-  const renderHeaderLeft = useCallback(() => (
-    <TouchableOpacity
-      onPress={() => router.push('/settings')}
-      style={styles.headerButton}
-    >
-      <IconSymbol name="gear" color={colors.primary} size={24} />
-    </TouchableOpacity>
-  ), []);
-
-  useEffect(() => {
-    console.log('[HomeScreen] Auth state -', { isAuthenticated, authLoading });
-    
-    // Only redirect if auth is not loading and user is not authenticated
-    if (!authLoading && !isAuthenticated) {
-      console.log('[HomeScreen] User not authenticated, redirecting to login');
-      router.replace('/login');
-    }
-  }, [isAuthenticated, authLoading]);
-
-  // Show loading state while checking authentication
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando...</Text>
-      </View>
-    );
-  }
-
-  // Don't render the main content if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Redirigiendo...</Text>
-      </View>
-    );
-  }
-
-  const filteredOrders = orders.filter((order) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      order.order_number.toLowerCase().includes(query) ||
-      order.customer_name.toLowerCase().includes(query) ||
-      (order.customer_phone && order.customer_phone.includes(query))
-    );
-  });
-
-  const unreadCount = orders.filter((o) => !o.is_read).length;
-
-  return (
-    <>
-      {Platform.OS === 'ios' && (
-        <Stack.Screen
-          options={{
-            title: 'Pedidos',
-            headerRight: renderHeaderRight,
-            headerLeft: renderHeaderLeft,
-          }}
-        />
-      )}
-      <View style={styles.container}>
-        {/* Search and Filter Section - Outside FlatList */}
-        <View style={styles.headerContent}>
-          <View style={styles.searchContainer}>
-            <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Buscar pedidos..."
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCorrect={false}
-              autoCapitalize="none"
-            />
-          </View>
-
-          {renderFilterList()}
-
-          {/* Auto-print indicator */}
-          {printerConfig.auto_print_enabled && isConnected && (
-            <View style={styles.autoPrintBanner}>
-              <IconSymbol name="printer.fill" size={16} color={colors.success} />
-              <Text style={styles.autoPrintText}>
-                Impresión automática activada (Tamaño: {printerConfig.text_size})
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Orders List */}
-        <FlatList
-          data={filteredOrders}
-          renderItem={renderOrderCard}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            styles.listContent,
-            Platform.OS !== 'ios' && styles.listContentWithTabBar,
-          ]}
-          refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={refetch} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <IconSymbol name="tray.fill" size={64} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>No hay pedidos</Text>
-              <Text style={styles.emptySubtext}>
-                {searchQuery
-                  ? 'Intenta ajustar tu búsqueda'
-                  : 'Los nuevos pedidos aparecerán aquí automáticamente'}
-              </Text>
-            </View>
-          }
-        />
-
-        {unreadCount > 0 && (
-          <View style={styles.unreadBanner}>
-            <IconSymbol name="bell.badge.fill" size={20} color="#FFFFFF" />
-            <Text style={styles.unreadBannerText}>
-              {unreadCount} pedido{unreadCount > 1 ? 's' : ''} nuevo{unreadCount > 1 ? 's' : ''}
-            </Text>
-          </View>
-        )}
-      </View>
-    </>
-  );
-}
+const PRINTER_CONFIG_KEY = 'printer_config';
+const POLLING_INTERVAL = 20000; // 20 seconds
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  headerButton: {
-    padding: 8,
-  },
-  headerContent: {
+  header: {
     padding: 16,
-    paddingBottom: 8,
-    backgroundColor: colors.background,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    backgroundColor: colors.primary,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+  },
+  searchIcon: {
+    marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    height: 40,
+    color: '#fff',
     fontSize: 16,
-    color: colors.text,
   },
-  filterList: {
-    paddingVertical: 8,
+  filterContainer: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  filterChip: {
+  filterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: colors.card,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  filterButtonActive: {
+    backgroundColor: '#fff',
   },
-  filterChipText: {
+  filterButtonText: {
+    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
   },
-  filterChipTextActive: {
-    color: '#FFFFFF',
+  filterButtonTextActive: {
+    color: colors.primary,
   },
-  autoPrintBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: colors.success,
-  },
-  autoPrintText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.success,
-    marginLeft: 8,
-  },
-  listContent: {
-    paddingBottom: 16,
-  },
-  listContentWithTabBar: {
-    paddingBottom: 100,
+  content: {
+    flex: 1,
   },
   orderCard: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
     marginHorizontal: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
-    elevation: 2,
-  },
-  orderCardUnread: {
+    marginVertical: 8,
+    padding: 16,
+    borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  orderHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 8,
   },
   orderNumber: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: colors.text,
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.accent,
-    marginLeft: 8,
   },
   statusBadge: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   statusText: {
+    color: '#fff',
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+  },
+  customerName: {
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 4,
   },
   orderInfo: {
-    marginBottom: 12,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  infoText: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginLeft: 8,
+    marginBottom: 2,
   },
-  orderFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  sourceTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  sourceText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginLeft: 4,
-    fontWeight: '500',
-  },
-  totalText: {
-    fontSize: 18,
-    fontWeight: '700',
+  orderTotal: {
+    fontSize: 16,
+    fontWeight: 'bold',
     color: colors.primary,
+    marginTop: 8,
   },
-  emptyState: {
-    alignItems: 'center',
+  emptyContainer: {
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: 64,
+    alignItems: 'center',
+    padding: 32,
   },
   emptyText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
+    color: colors.textSecondary,
+    textAlign: 'center',
     marginTop: 16,
   },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
-    paddingHorizontal: 32,
-  },
-  unreadBanner: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    flexDirection: 'row',
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.accent,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)',
-    elevation: 6,
   },
-  unreadBannerText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
 });
+
+function getStatusColor(status: OrderStatus): string {
+  switch (status) {
+    case 'pending':
+      return '#F59E0B';
+    case 'preparing':
+      return '#3B82F6';
+    case 'ready':
+      return '#10B981';
+    case 'delivered':
+      return '#6B7280';
+    case 'cancelled':
+      return '#EF4444';
+    default:
+      return '#6B7280';
+  }
+}
+
+function getStatusLabel(status: OrderStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'preparing':
+      return 'Preparando';
+    case 'ready':
+      return 'Listo';
+    case 'delivered':
+      return 'Entregado';
+    case 'cancelled':
+      return 'Cancelado';
+    default:
+      return status;
+  }
+}
+
+function formatCLP(amount: number): string {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+  }).format(amount);
+}
+
+function getUnitFromNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  const lowerNotes = notes.toLowerCase();
+  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
+  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
+  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
+  if (lowerNotes.includes('ml')) return 'ml';
+  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
+  return '';
+}
+
+export default function HomeScreen() {
+  const { user, session, isAuthenticated, authLoading } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [refreshing, setRefreshing] = useState(false);
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
+  const [printedOrderIds, setPrintedOrderIds] = useState<Set<string>>(new Set());
+  const notificationListenerRef = useRef<any>(null);
+  const responseListenerRef = useRef<any>(null);
+
+  const { orders, loading, error, refetch } = useOrders(
+    statusFilter === 'all' ? undefined : statusFilter
+  );
+
+  const { isConnected, print } = usePrinter();
+
+  // Load printer configuration
+  const loadPrinterConfig = useCallback(async () => {
+    try {
+      const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        setPrinterConfig(config);
+        console.log('Printer config loaded:', config);
+      }
+    } catch (error) {
+      console.error('Error loading printer config:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPrinterConfig();
+  }, [loadPrinterConfig]);
+
+  // Setup notification permissions and handlers
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+
+    const setupNotifications = async () => {
+      try {
+        // Check if permissions are already granted
+        const hasPermissions = await checkNotificationPermissions();
+        
+        if (!hasPermissions) {
+          console.log('Requesting notification permissions...');
+          const granted = await requestNotificationPermissions();
+          
+          if (!granted) {
+            console.log('Notification permissions not granted');
+            return;
+          }
+        }
+
+        console.log('Notification permissions granted');
+        
+        // Register for push notifications
+        await registerForPushNotificationsAsync(user.id);
+        
+        // Setup notification response handler (when user taps notification)
+        responseListenerRef.current = setupNotificationResponseHandler((response) => {
+          console.log('Notification tapped:', response);
+          const orderId = response.notification.request.content.data?.orderId;
+          if (orderId) {
+            router.push(`/order/${orderId}`);
+          }
+        });
+      } catch (error) {
+        console.error('Error setting up notifications:', error);
+      }
+    };
+
+    setupNotifications();
+
+    // Cleanup
+    return () => {
+      if (notificationListenerRef.current) {
+        notificationListenerRef.current.remove();
+      }
+      if (responseListenerRef.current) {
+        responseListenerRef.current.remove();
+      }
+    };
+  }, [isAuthenticated, user]);
+
+  // Auto-print new orders
+  useEffect(() => {
+    if (!printerConfig?.auto_print_enabled || !isConnected) {
+      return;
+    }
+
+    const autoPrintNewOrders = async () => {
+      for (const order of orders) {
+        // Only auto-print pending orders that haven't been printed yet
+        if (order.status === 'pending' && !printedOrderIds.has(order.id)) {
+          console.log('Auto-printing new order:', order.order_number);
+          
+          try {
+            // Generate receipt text
+            const receiptText = generateReceiptText(order);
+            
+            // Print the receipt
+            await print(receiptText);
+            
+            // Mark as printed
+            setPrintedOrderIds(prev => new Set(prev).add(order.id));
+            
+            console.log('Order auto-printed successfully:', order.order_number);
+          } catch (error) {
+            console.error('Error auto-printing order:', error);
+          }
+        }
+      }
+    };
+
+    autoPrintNewOrders();
+  }, [orders, printerConfig, isConnected, printedOrderIds, print]);
+
+  const generateReceiptText = (order: Order): string => {
+    const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
+    const textSize = printerConfig?.text_size || 'medium';
+    
+    let receipt = '';
+    
+    // Header
+    if (printerConfig?.include_logo !== false) {
+      receipt += centerText('PEDIDO', width) + '\n';
+      receipt += '='.repeat(width) + '\n\n';
+    }
+    
+    // Order info
+    receipt += `Pedido: ${order.order_number}\n`;
+    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+    receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-CL')}\n`;
+    receipt += '-'.repeat(width) + '\n\n';
+    
+    // Customer info
+    if (printerConfig?.include_customer_info !== false) {
+      receipt += `Cliente: ${order.customer_name}\n`;
+      if (order.customer_phone) {
+        receipt += `Telefono: ${order.customer_phone}\n`;
+      }
+      if (order.customer_address) {
+        receipt += `Direccion: ${order.customer_address}\n`;
+      }
+      receipt += '-'.repeat(width) + '\n\n';
+    }
+    
+    // Items
+    receipt += 'PRODUCTOS:\n\n';
+    for (const item of order.items || []) {
+      const unit = getUnitFromNotes(item.notes);
+      const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+      
+      receipt += `${quantityStr} ${item.product_name}\n`;
+      
+      if (item.notes) {
+        const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
+        if (cleanNotes) {
+          receipt += `  ${cleanNotes}\n`;
+        }
+      }
+      
+      if (item.unit_price > 0) {
+        receipt += `  ${formatCLP(item.unit_price * item.quantity)}\n`;
+      }
+      receipt += '\n';
+    }
+    
+    // Totals
+    if (printerConfig?.include_totals !== false) {
+      receipt += '-'.repeat(width) + '\n';
+      const total = order.items?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
+      receipt += `TOTAL: ${formatCLP(total)}\n`;
+      
+      if (order.amount_paid > 0) {
+        receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
+        const pending = total - order.amount_paid;
+        if (pending > 0) {
+          receipt += `Pendiente: ${formatCLP(pending)}\n`;
+        }
+      }
+    }
+    
+    receipt += '\n' + '='.repeat(width) + '\n';
+    receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
+    
+    return receipt;
+  };
+
+  const centerText = (text: string, width: number): string => {
+    const padding = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(padding) + text;
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  const renderOrderCard = ({ item }: { item: Order }) => {
+    const total = item.items?.reduce(
+      (sum, orderItem) => sum + orderItem.unit_price * orderItem.quantity,
+      0
+    ) || 0;
+
+    return (
+      <TouchableOpacity
+        style={[styles.orderCard, { borderLeftColor: getStatusColor(item.status) }]}
+        onPress={() => router.push(`/order/${item.id}`)}
+      >
+        <View style={styles.orderHeader}>
+          <Text style={styles.orderNumber}>{item.order_number}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+          </View>
+        </View>
+        <Text style={styles.customerName}>{item.customer_name}</Text>
+        {item.customer_phone && (
+          <Text style={styles.orderInfo}>📞 {item.customer_phone}</Text>
+        )}
+        {item.items && item.items.length > 0 && (
+          <Text style={styles.orderInfo}>
+            {item.items.length} {item.items.length === 1 ? 'producto' : 'productos'}
+          </Text>
+        )}
+        {total > 0 && <Text style={styles.orderTotal}>{formatCLP(total)}</Text>}
+      </TouchableOpacity>
+    );
+  };
+
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>Debes iniciar sesión para ver los pedidos</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Pedidos</Text>
+        
+        <View style={styles.searchContainer}>
+          <IconSymbol name="magnifyingglass" size={20} color="#fff" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar pedidos..."
+            placeholderTextColor="rgba(255, 255, 255, 0.6)"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+
+        <FlatList
+          horizontal
+          data={STATUS_FILTERS}
+          keyExtractor={(item) => item}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                statusFilter === item && styles.filterButtonActive,
+              ]}
+              onPress={() => setStatusFilter(item)}
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  statusFilter === item && styles.filterButtonTextActive,
+                ]}
+              >
+                {item === 'all' ? 'Todos' : getStatusLabel(item as OrderStatus)}
+              </Text>
+            </TouchableOpacity>
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContainer}
+        />
+      </View>
+
+      {loading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="exclamationmark.triangle" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>Error al cargar pedidos: {error}</Text>
+        </View>
+      ) : filteredOrders.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="tray" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>
+            {searchQuery ? 'No se encontraron pedidos' : 'No hay pedidos'}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          style={styles.content}
+          data={filteredOrders}
+          keyExtractor={(item) => item.id}
+          renderItem={renderOrderCard}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      )}
+
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/order/new')}>
+        <IconSymbol name="plus" size={28} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
+}

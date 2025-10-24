@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "order-flow-app-jdvhwd",
@@ -34,7 +35,17 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/natively-dark.png",
+          "color": "#3B82F6",
+          "defaultChannel": "orders",
+          "sounds": [],
+          "enableBackgroundRemoteNotifications": true
+        }
+      ]
     ],
     "scheme": "natively",
     "experiments": {

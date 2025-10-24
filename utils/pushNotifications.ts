@@ -5,12 +5,15 @@ import { Platform } from 'react-native';
 import { getSupabase } from '@/lib/supabase';
 
 // Configure notification handler (only on native platforms)
+// This ensures notifications are shown with sound and vibration even when app is in foreground
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
     }),
   });
 }
@@ -28,20 +31,30 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
   let token: string | null = null;
 
   if (Platform.OS === 'android') {
+    // Create default notification channel with high priority
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
+      name: 'Predeterminado',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
+      sound: 'default',
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
     });
 
-    // Create order notifications channel
+    // Create order notifications channel with maximum priority for background notifications
     await Notifications.setNotificationChannelAsync('orders', {
       name: 'Pedidos',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
+      description: 'Notificaciones de nuevos pedidos',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 500, 250, 500], // Longer vibration pattern for orders
       lightColor: '#3B82F6',
       sound: 'default',
+      enableVibrate: true,
+      enableLights: true,
+      showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
   }
 
@@ -50,7 +63,15 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     let finalStatus = existingStatus;
     
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: true,
+          allowCriticalAlerts: false,
+        },
+      });
       finalStatus = status;
     }
     
@@ -121,7 +142,8 @@ export async function createInAppNotification(
 }
 
 /**
- * Send a local push notification
+ * Send a local push notification with sound and vibration
+ * This will work even when the screen is off or app is in background
  */
 export async function sendLocalNotification(
   title: string,
@@ -141,9 +163,17 @@ export async function sendLocalNotification(
         body,
         data: data || {},
         sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+        vibrate: [0, 500, 250, 500], // Custom vibration pattern
+        badge: 1,
+        categoryIdentifier: 'order',
+        ...(Platform.OS === 'android' && {
+          channelId: 'orders', // Use the orders channel for maximum priority
+        }),
       },
       trigger: null, // Immediate delivery
     });
+    console.log('Local notification sent successfully');
   } catch (error) {
     console.error('Error sending local notification:', error);
   }
@@ -229,4 +259,45 @@ export function setupNotificationReceivedHandler(
 
   const subscription = Notifications.addNotificationReceivedListener(onNotificationReceived);
   return subscription;
+}
+
+/**
+ * Check if notification permissions are granted
+ */
+export async function checkNotificationPermissions(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return false;
+  }
+
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'granted';
+  } catch (error) {
+    console.error('Error checking notification permissions:', error);
+    return false;
+  }
+}
+
+/**
+ * Request notification permissions
+ */
+export async function requestNotificationPermissions(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return false;
+  }
+
+  try {
+    const { status } = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+        allowAnnouncements: true,
+      },
+    });
+    return status === 'granted';
+  } catch (error) {
+    console.error('Error requesting notification permissions:', error);
+    return false;
+  }
 }
