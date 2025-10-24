@@ -41,6 +41,9 @@ const COMMANDS = {
   FONT_SIZE_LARGE: GS + '!' + '\x22',      // Triple height and width
   // Set code page to CP850 (supports Spanish characters)
   SET_CODEPAGE_850: ESC + 't' + '\x02',
+  // Alternative code pages
+  SET_CODEPAGE_437: ESC + 't' + '\x00',    // USA
+  SET_CODEPAGE_858: ESC + 't' + '\x13',    // Euro
 };
 
 // Generic printer service UUID (commonly used by thermal printers)
@@ -86,9 +89,41 @@ const CP850_MAP: { [key: string]: number } = {
   '╠': 0xCC, '╣': 0xB9, '╦': 0xCB, '╩': 0xCA, '╬': 0xCE,
 };
 
+// ISO-8859-1 (Latin-1) character mapping
+const ISO_8859_1_MAP: { [key: string]: number } = {
+  'á': 0xE1, 'é': 0xE9, 'í': 0xED, 'ó': 0xF3, 'ú': 0xFA,
+  'Á': 0xC1, 'É': 0xC9, 'Í': 0xCD, 'Ó': 0xD3, 'Ú': 0xDA,
+  'ñ': 0xF1, 'Ñ': 0xD1,
+  'ü': 0xFC, 'Ü': 0xDC,
+  '¿': 0xBF, '¡': 0xA1,
+  '°': 0xB0, '€': 0x80,
+};
+
+type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
+
+/**
+ * Convert text to the specified encoding
+ */
+const convertToEncoding = (text: string, encoding: Encoding): Uint8Array => {
+  console.log(`[usePrinter] Converting text to ${encoding}, length: ${text.length}`);
+  
+  switch (encoding) {
+    case 'CP850':
+      return convertToCP850(text);
+    case 'UTF-8':
+      return convertToUTF8(text);
+    case 'ISO-8859-1':
+      return convertToISO88591(text);
+    case 'Windows-1252':
+      return convertToWindows1252(text);
+    default:
+      console.warn(`[usePrinter] Unknown encoding ${encoding}, using CP850`);
+      return convertToCP850(text);
+  }
+};
+
 /**
  * Convert text with Spanish characters to CP850 encoding
- * This ensures proper display of accented characters on thermal printers
  */
 const convertToCP850 = (text: string): Uint8Array => {
   const bytes: number[] = [];
@@ -107,7 +142,72 @@ const convertToCP850 = (text: string): Uint8Array => {
     }
     // For unmapped characters, use a safe replacement
     else {
-      console.warn(`[usePrinter] Unmapped character: ${char} (code: ${charCode}), using '?'`);
+      console.warn(`[usePrinter] Unmapped character in CP850: ${char} (code: ${charCode}), using '?'`);
+      bytes.push(0x3F); // '?' character
+    }
+  }
+  
+  return new Uint8Array(bytes);
+};
+
+/**
+ * Convert text to UTF-8 encoding
+ */
+const convertToUTF8 = (text: string): Uint8Array => {
+  const encoder = new TextEncoder();
+  return encoder.encode(text);
+};
+
+/**
+ * Convert text to ISO-8859-1 (Latin-1) encoding
+ */
+const convertToISO88591 = (text: string): Uint8Array => {
+  const bytes: number[] = [];
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const charCode = char.charCodeAt(0);
+    
+    // Check if character has an ISO-8859-1 mapping
+    if (ISO_8859_1_MAP[char] !== undefined) {
+      bytes.push(ISO_8859_1_MAP[char]);
+    }
+    // Characters 0-255 are directly supported in ISO-8859-1
+    else if (charCode < 256) {
+      bytes.push(charCode);
+    }
+    // For unmapped characters, use a safe replacement
+    else {
+      console.warn(`[usePrinter] Unmapped character in ISO-8859-1: ${char} (code: ${charCode}), using '?'`);
+      bytes.push(0x3F); // '?' character
+    }
+  }
+  
+  return new Uint8Array(bytes);
+};
+
+/**
+ * Convert text to Windows-1252 encoding
+ */
+const convertToWindows1252 = (text: string): Uint8Array => {
+  // Windows-1252 is very similar to ISO-8859-1 with some differences in the 0x80-0x9F range
+  const bytes: number[] = [];
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const charCode = char.charCodeAt(0);
+    
+    // Check if character has an ISO-8859-1 mapping (works for most Windows-1252 chars)
+    if (ISO_8859_1_MAP[char] !== undefined) {
+      bytes.push(ISO_8859_1_MAP[char]);
+    }
+    // Characters 0-255 are mostly supported in Windows-1252
+    else if (charCode < 256) {
+      bytes.push(charCode);
+    }
+    // For unmapped characters, use a safe replacement
+    else {
+      console.warn(`[usePrinter] Unmapped character in Windows-1252: ${char} (code: ${charCode}), using '?'`);
       bytes.push(0x3F); // '?' character
     }
   }
@@ -455,7 +555,8 @@ export const usePrinter = () => {
   const printReceipt = async (
     content: string, 
     autoCut: boolean = true, 
-    textSize: 'small' | 'medium' | 'large' = 'medium'
+    textSize: 'small' | 'medium' | 'large' = 'medium',
+    encoding: Encoding = 'CP850'
   ) => {
     const device = connectedDevice || globalConnectedDevice;
     
@@ -464,13 +565,18 @@ export const usePrinter = () => {
     }
 
     try {
-      console.log('[usePrinter] Printing receipt with text size:', textSize);
+      console.log('[usePrinter] Printing receipt with settings:', { textSize, encoding, autoCut });
       console.log('[usePrinter] Original content length:', content.length);
       console.log('[usePrinter] Original content preview:', content.substring(0, 100));
       
       // Build the print command as a string first
       let printCommand = COMMANDS.INIT; // Initialize printer
-      printCommand += COMMANDS.SET_CODEPAGE_850; // Set code page to CP850
+      
+      // Set code page based on encoding (only for CP850)
+      if (encoding === 'CP850') {
+        printCommand += COMMANDS.SET_CODEPAGE_850;
+      }
+      
       printCommand += COMMANDS.ALIGN_LEFT; // Align left for better readability
       printCommand += getFontSizeCommand(textSize); // Set font size based on config
       printCommand += content;
@@ -486,8 +592,8 @@ export const usePrinter = () => {
       
       console.log('[usePrinter] Total command length before encoding:', printCommand.length);
       
-      // Convert to CP850 encoding
-      const encodedData = convertToCP850(printCommand);
+      // Convert to specified encoding
+      const encodedData = convertToEncoding(printCommand, encoding);
       console.log('[usePrinter] Encoded data length:', encodedData.length, 'bytes');
       
       // Send to printer in chunks
@@ -499,7 +605,7 @@ export const usePrinter = () => {
     }
   };
 
-  const testPrint = async (autoCut: boolean = true) => {
+  const testPrint = async (autoCut: boolean = true, encoding: Encoding = 'CP850') => {
     const testContent = `
 =================================
    IMPRESIÓN DE PRUEBA
@@ -520,7 +626,7 @@ Fecha: ${new Date().toLocaleString('es-ES')}
 `;
     
     try {
-      await printReceipt(testContent, autoCut, 'medium');
+      await printReceipt(testContent, autoCut, 'medium', encoding);
     } catch (error) {
       console.error('[usePrinter] Test print error:', error);
       throw error;

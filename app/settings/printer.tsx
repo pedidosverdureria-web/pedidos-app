@@ -19,8 +19,32 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
+type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
+
+const ENCODING_OPTIONS: { value: Encoding; label: string; description: string }[] = [
+  { 
+    value: 'CP850', 
+    label: 'CP850 (Recomendado)', 
+    description: 'Estándar para impresoras térmicas, soporta español' 
+  },
+  { 
+    value: 'UTF-8', 
+    label: 'UTF-8', 
+    description: 'Unicode estándar, puede no funcionar en todas las impresoras' 
+  },
+  { 
+    value: 'ISO-8859-1', 
+    label: 'ISO-8859-1 (Latin-1)', 
+    description: 'Codificación europea occidental' 
+  },
+  { 
+    value: 'Windows-1252', 
+    label: 'Windows-1252', 
+    description: 'Codificación Windows para español' 
+  },
+];
 
 const styles = StyleSheet.create({
   container: {
@@ -168,6 +192,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
+  encodingOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 8,
+    backgroundColor: colors.background,
+  },
+  encodingOptionActive: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+    backgroundColor: colors.primary + '10',
+  },
+  encodingOptionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  encodingOptionDescription: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
 });
 
 export default function PrinterSettingsScreen() {
@@ -183,6 +231,7 @@ export default function PrinterSettingsScreen() {
   const [includeCustomerInfo, setIncludeCustomerInfo] = useState(true);
   const [includeTotals, setIncludeTotals] = useState(true);
   const [useWebhookFormat, setUseWebhookFormat] = useState(true);
+  const [encoding, setEncoding] = useState<Encoding>('CP850');
 
   const {
     isConnected,
@@ -211,6 +260,7 @@ export default function PrinterSettingsScreen() {
         setIncludeCustomerInfo(config.include_customer_info ?? true);
         setIncludeTotals(config.include_totals ?? true);
         setUseWebhookFormat(config.use_webhook_format ?? true);
+        setEncoding(config.encoding || 'CP850');
       } else {
         console.log('[PrinterSettings] No saved config found, using defaults');
       }
@@ -238,6 +288,7 @@ export default function PrinterSettingsScreen() {
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
         use_webhook_format: useWebhookFormat,
+        encoding: encoding,
       };
       
       console.log('[PrinterSettings] Saving config:', config);
@@ -260,7 +311,7 @@ export default function PrinterSettingsScreen() {
 
     try {
       setLoading(true);
-      console.log('[PrinterSettings] Starting test print...');
+      console.log('[PrinterSettings] Starting test print with encoding:', encoding);
       
       const width = paperSize === '58mm' ? 32 : 48;
       const centerText = (text: string) => {
@@ -276,14 +327,21 @@ export default function PrinterSettingsScreen() {
       testReceipt += 'Configuracion:\n';
       testReceipt += `- Tamano de papel: ${paperSize}\n`;
       testReceipt += `- Tamano de texto: ${textSize}\n`;
+      testReceipt += `- Codificacion: ${encoding}\n`;
       testReceipt += `- Corte automatico: ${autoCutEnabled ? 'Si' : 'No'}\n`;
       testReceipt += `- Impresion automatica: ${autoPrintEnabled ? 'Si' : 'No'}\n`;
       testReceipt += '\n';
       testReceipt += '-'.repeat(width) + '\n';
       testReceipt += 'Caracteres especiales:\n';
-      testReceipt += 'Acentos: áéíóú ÁÉÍÓÚ\n';
+      testReceipt += 'Vocales: áéíóú ÁÉÍÓÚ\n';
       testReceipt += 'Enie: ñ Ñ\n';
-      testReceipt += 'Simbolos: $1.000 50%\n';
+      testReceipt += 'U dieresis: ü Ü\n';
+      testReceipt += 'Puntuacion: ¿? ¡!\n';
+      testReceipt += 'Simbolos: $1.000 50% °C\n';
+      testReceipt += '\n';
+      testReceipt += 'Palabras comunes:\n';
+      testReceipt += 'Español, niño, año, señor\n';
+      testReceipt += 'Camión, corazón, canción\n';
       testReceipt += '\n';
       testReceipt += '='.repeat(width) + '\n';
       testReceipt += centerText('Prueba exitosa!') + '\n';
@@ -291,9 +349,12 @@ export default function PrinterSettingsScreen() {
       testReceipt += '\n\n\n';
 
       console.log('[PrinterSettings] Test receipt generated, length:', testReceipt.length);
-      await printReceipt(testReceipt, autoCutEnabled, textSize);
+      await printReceipt(testReceipt, autoCutEnabled, textSize, encoding);
       console.log('[PrinterSettings] Test print completed');
-      Alert.alert('Éxito', 'Impresión de prueba enviada');
+      Alert.alert(
+        'Éxito', 
+        `Impresión de prueba enviada con codificación ${encoding}.\n\nVerifica que los caracteres especiales (ñ, á, é, etc.) se vean correctamente. Si no, prueba con otra codificación.`
+      );
     } catch (error) {
       console.error('[PrinterSettings] Error in test print:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
@@ -460,6 +521,39 @@ export default function PrinterSettingsScreen() {
             </View>
           </View>
         )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Codificación de Caracteres</Text>
+          <View style={styles.card}>
+            <Text style={[styles.settingDescription, { marginBottom: 12 }]}>
+              Selecciona la codificación que mejor muestre los caracteres especiales (ñ, á, é, etc.) en tu impresora. Prueba diferentes opciones hasta encontrar la correcta.
+            </Text>
+            {ENCODING_OPTIONS.map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.encodingOption,
+                  encoding === option.value && styles.encodingOptionActive,
+                ]}
+                onPress={() => setEncoding(option.value)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                  <IconSymbol
+                    name={encoding === option.value ? 'checkmark.circle.fill' : 'circle'}
+                    size={20}
+                    color={encoding === option.value ? colors.primary : colors.textSecondary}
+                  />
+                  <Text style={[styles.encodingOptionLabel, { marginLeft: 8, marginBottom: 0 }]}>
+                    {option.label}
+                  </Text>
+                </View>
+                <Text style={[styles.encodingOptionDescription, { marginLeft: 28 }]}>
+                  {option.description}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configuración de Impresión</Text>

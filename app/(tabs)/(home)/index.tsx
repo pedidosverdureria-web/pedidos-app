@@ -28,6 +28,7 @@ import {
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
+type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
 
 interface PrinterConfig {
   auto_print_enabled?: boolean;
@@ -38,6 +39,7 @@ interface PrinterConfig {
   include_customer_info?: boolean;
   include_totals?: boolean;
   use_webhook_format?: boolean;
+  encoding?: Encoding;
 }
 
 const STATUS_FILTERS: (OrderStatus | 'all')[] = [
@@ -56,6 +58,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  autoPrintBanner: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  autoPrintBannerWorking: {
+    backgroundColor: '#10B981',
+  },
+  autoPrintBannerNotWorking: {
+    backgroundColor: '#F59E0B',
+  },
+  autoPrintBannerText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   header: {
     padding: 16,
@@ -362,7 +383,8 @@ export default function HomeScreen() {
             // Print the receipt
             const autoCut = printerConfig?.auto_cut_enabled ?? true;
             const textSize = printerConfig?.text_size || 'medium';
-            await printReceipt(receiptText, autoCut, textSize);
+            const encoding = printerConfig?.encoding || 'CP850';
+            await printReceipt(receiptText, autoCut, textSize, encoding);
             
             // Mark as printed
             setPrintedOrderIds(prev => new Set(prev).add(order.id));
@@ -499,6 +521,10 @@ export default function HomeScreen() {
     );
   };
 
+  // Determine auto-print status
+  const autoPrintWorking = printerConfig?.auto_print_enabled && isConnected;
+  const showAutoPrintBanner = printerConfig?.auto_print_enabled !== undefined;
+
   if (authLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -522,6 +548,30 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
+      
+      {/* Auto-print status banner */}
+      {showAutoPrintBanner && (
+        <TouchableOpacity
+          style={[
+            styles.autoPrintBanner,
+            autoPrintWorking ? styles.autoPrintBannerWorking : styles.autoPrintBannerNotWorking,
+          ]}
+          onPress={() => router.push('/settings/printer')}
+        >
+          <IconSymbol
+            name={autoPrintWorking ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
+            size={20}
+            color="#FFFFFF"
+          />
+          <Text style={styles.autoPrintBannerText}>
+            {autoPrintWorking
+              ? 'Auto-impresión activa'
+              : isConnected
+              ? 'Auto-impresión desactivada'
+              : 'Impresora no conectada'}
+          </Text>
+        </TouchableOpacity>
+      )}
       
       <View style={styles.header}>
         <View style={styles.searchContainer}>

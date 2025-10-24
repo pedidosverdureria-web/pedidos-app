@@ -32,6 +32,7 @@ const PRINTER_CONFIG_KEY = '@printer_config';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
+type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
 
 interface PrinterConfig {
   auto_print_enabled?: boolean;
@@ -42,6 +43,7 @@ interface PrinterConfig {
   include_customer_info?: boolean;
   include_totals?: boolean;
   use_webhook_format?: boolean;
+  encoding?: Encoding;
 }
 
 const styles = StyleSheet.create({
@@ -856,9 +858,10 @@ export default function OrderDetailScreen() {
       
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
       const textSize = printerConfig?.text_size || 'medium';
-      console.log('[OrderDetail] Print settings:', { autoCut, textSize });
+      const encoding = printerConfig?.encoding || 'CP850';
+      console.log('[OrderDetail] Print settings:', { autoCut, textSize, encoding });
       
-      await printReceipt(receipt, autoCut, textSize);
+      await printReceipt(receipt, autoCut, textSize, encoding);
       console.log('[OrderDetail] Print completed successfully');
       
       Alert.alert('Éxito', 'Pedido impreso correctamente');
