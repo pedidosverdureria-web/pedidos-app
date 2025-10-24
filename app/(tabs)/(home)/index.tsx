@@ -247,7 +247,7 @@ export default function HomeScreen() {
               <Text style={styles.emptySubtext}>
                 {searchQuery
                   ? 'Intenta ajustar tu búsqueda'
-                  : 'Los nuevos pedidos aparecerán aquí'}
+                  : 'Los nuevos pedidos aparecerán aquí automáticamente'}
               </Text>
             </View>
           }
@@ -438,6 +438,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 8,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
   unreadBanner: {
     position: 'absolute',

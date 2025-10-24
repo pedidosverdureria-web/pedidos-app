@@ -116,16 +116,50 @@ export default function WhatsAppSettingsScreen() {
       return;
     }
 
+    if (!formData.webhook_url) {
+      Alert.alert('Error', 'Por favor completa la URL del Webhook');
+      return;
+    }
+
     try {
       setTesting(true);
-      // Here you would call your Edge Function to test the connection
-      Alert.alert(
-        'Test de Conexión',
-        'La funcionalidad de test estará disponible cuando se implemente el Edge Function de WhatsApp'
-      );
-    } catch (error) {
+      
+      // Call the test-whatsapp-webhook Edge Function
+      const supabase = getSupabase();
+      const { data, error } = await supabase.functions.invoke('test-whatsapp-webhook', {
+        body: {
+          access_token: formData.access_token,
+          phone_number_id: formData.phone_number_id,
+          webhook_url: formData.webhook_url,
+        },
+      });
+
+      if (error) {
+        console.error('Test connection error:', error);
+        Alert.alert(
+          'Error en la Prueba',
+          `No se pudo conectar con WhatsApp: ${error.message}`
+        );
+        return;
+      }
+
+      if (data?.success) {
+        Alert.alert(
+          '✅ Conexión Exitosa',
+          `La conexión con WhatsApp fue exitosa.\n\n${data.message || 'El webhook está configurado correctamente.'}`
+        );
+      } else {
+        Alert.alert(
+          '⚠️ Problema de Conexión',
+          data?.message || 'No se pudo verificar la conexión con WhatsApp'
+        );
+      }
+    } catch (error: any) {
       console.error('Error testing connection:', error);
-      Alert.alert('Error', 'No se pudo probar la conexión');
+      Alert.alert(
+        'Error',
+        `No se pudo probar la conexión: ${error.message || 'Error desconocido'}`
+      );
     } finally {
       setTesting(false);
     }
