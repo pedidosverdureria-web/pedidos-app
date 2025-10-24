@@ -535,18 +535,27 @@ Fecha: ${new Date().toLocaleString('es-ES')}
   }, []);
 
   return {
+    // Device management
     devices,
+    availableDevices: devices, // Add alias for backward compatibility
     connectedDevice: connectedDevice || globalConnectedDevice,
     scanning,
-    scanForDevices,
-    connectToDevice,
-    disconnectDevice,
-    printReceipt,
-    testPrint,
     isScanning: scanning,
     isConnected: !!(connectedDevice || globalConnectedDevice),
+    
+    // Connection functions
+    scanForDevices,
+    scan: scanForDevices, // Add alias for backward compatibility
     startScan: scanForDevices,
     stopScan: stopScanFunc,
+    connectToDevice,
+    connect: connectToDevice, // Add alias for backward compatibility
+    disconnectDevice,
     disconnect: disconnectDevice,
+    
+    // Printing functions
+    printReceipt,
+    testPrint,
+    printer: connectedDevice || globalConnectedDevice, // Add alias for backward compatibility
   };
 };

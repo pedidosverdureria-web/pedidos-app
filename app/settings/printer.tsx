@@ -187,10 +187,10 @@ export default function PrinterSettingsScreen() {
   const {
     isConnected,
     connectedDevice,
-    availableDevices,
-    connect,
-    disconnect,
-    scan,
+    devices,
+    connectToDevice,
+    disconnectDevice,
+    scanForDevices,
     printReceipt,
   } = usePrinter();
 
@@ -307,7 +307,7 @@ export default function PrinterSettingsScreen() {
     try {
       setScanning(true);
       console.log('[PrinterSettings] Starting Bluetooth scan...');
-      await scan();
+      await scanForDevices();
       console.log('[PrinterSettings] Scan completed');
     } catch (error) {
       console.error('[PrinterSettings] Error scanning:', error);
@@ -321,9 +321,12 @@ export default function PrinterSettingsScreen() {
     try {
       setLoading(true);
       console.log('[PrinterSettings] Connecting to device:', deviceId);
-      await connect(deviceId);
-      console.log('[PrinterSettings] Connected successfully');
-      Alert.alert('Éxito', 'Impresora conectada correctamente');
+      const device = devices.find(d => d.id === deviceId);
+      if (device) {
+        await connectToDevice(device);
+        console.log('[PrinterSettings] Connected successfully');
+        Alert.alert('Éxito', 'Impresora conectada correctamente');
+      }
     } catch (error) {
       console.error('[PrinterSettings] Error connecting:', error);
       Alert.alert('Error', 'No se pudo conectar a la impresora');
@@ -336,7 +339,7 @@ export default function PrinterSettingsScreen() {
     try {
       setLoading(true);
       console.log('[PrinterSettings] Disconnecting...');
-      await disconnect();
+      await disconnectDevice();
       console.log('[PrinterSettings] Disconnected successfully');
       Alert.alert('Éxito', 'Impresora desconectada');
     } catch (error) {
@@ -435,11 +438,11 @@ export default function PrinterSettingsScreen() {
           </View>
         </View>
 
-        {availableDevices.length > 0 && !isConnected && (
+        {devices && devices.length > 0 && !isConnected && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Dispositivos Disponibles</Text>
             <View style={styles.card}>
-              {availableDevices.map((device) => (
+              {devices.map((device) => (
                 <View key={device.id} style={styles.deviceCard}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.deviceName}>{device.name || 'Dispositivo sin nombre'}</Text>
