@@ -1,12 +1,17 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BleManager, Device } from 'react-native-ble-plx';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Buffer } from 'buffer';
 
-// Initialize BleManager only when needed to avoid initialization errors
+// Initialize BleManager as a singleton to persist across component mounts
 let bleManager: BleManager | null = null;
+let globalConnectedDevice: Device | null = null;
+let globalPrinterCharacteristic: {
+  serviceUUID: string;
+  characteristicUUID: string;
+} | null = null;
 
 const getBleManager = () => {
   if (!bleManager) {
@@ -54,12 +59,13 @@ const SAVED_PRINTER_KEY = '@saved_printer_device';
 
 export const usePrinter = () => {
   const [devices, setDevices] = useState<Device[]>([]);
-  const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
+  const [connectedDevice, setConnectedDevice] = useState<Device | null>(globalConnectedDevice);
   const [scanning, setScanning] = useState(false);
   const [printerCharacteristic, setPrinterCharacteristic] = useState<{
     serviceUUID: string;
     characteristicUUID: string;
-  } | null>(null);
+  } | null>(globalPrinterCharacteristic);
+  const isMounted = useRef(true);
 
   const requestPermissions = useCallback(async () => {
     if (Platform.OS === 'android') {
@@ -88,31 +94,33 @@ export const usePrinter = () => {
     return true;
   }, []);
 
-  // Load saved printer on mount
+  // Load saved printer on mount and try to reconnect
   useEffect(() => {
     console.log('usePrinter: Initializing');
+    isMounted.current = true;
     requestPermissions();
-    loadSavedPrinter();
+    loadAndReconnectSavedPrinter();
     
     return () => {
-      console.log('usePrinter: Cleaning up');
-      if (connectedDevice) {
-        connectedDevice.cancelConnection().catch((err) => {
-          console.error('usePrinter: Error disconnecting:', err);
-        });
-      }
+      console.log('usePrinter: Component unmounting, but keeping connection alive');
+      isMounted.current = false;
+      // DO NOT disconnect here - keep the connection alive
     };
   }, []);
 
-  const loadSavedPrinter = async () => {
+  const loadAndReconnectSavedPrinter = async () => {
     try {
       const savedPrinter = await AsyncStorage.getItem(SAVED_PRINTER_KEY);
       if (savedPrinter) {
         const printerData = JSON.parse(savedPrinter);
         console.log('usePrinter: Found saved printer:', printerData.name);
-        // Try to reconnect to saved printer
-        // Note: We can't directly reconnect without scanning first
-        // The user will need to scan and connect again
+        
+        // If we already have a global connection, use it
+        if (globalConnectedDevice && globalPrinterCharacteristic) {
+          console.log('usePrinter: Using existing global connection');
+          setConnectedDevice(globalConnectedDevice);
+          setPrinterCharacteristic(globalPrinterCharacteristic);
+        }
       }
     } catch (error) {
       console.error('usePrinter: Error loading saved printer:', error);
@@ -223,6 +231,10 @@ export const usePrinter = () => {
         throw new Error('No se encontró una característica de impresora válida');
       }
 
+      // Store in global variables to persist across component mounts
+      globalConnectedDevice = connected;
+      globalPrinterCharacteristic = characteristic;
+      
       setPrinterCharacteristic(characteristic);
       setConnectedDevice(connected);
       await savePrinter(connected);
@@ -234,12 +246,22 @@ export const usePrinter = () => {
   };
 
   const disconnectDevice = async () => {
-    if (connectedDevice) {
+    if (connectedDevice || globalConnectedDevice) {
       try {
         console.log('usePrinter: Disconnecting device');
-        await connectedDevice.cancelConnection();
+        const deviceToDisconnect = connectedDevice || globalConnectedDevice;
+        if (deviceToDisconnect) {
+          await deviceToDisconnect.cancelConnection();
+        }
+        
+        // Clear both local and global state
         setConnectedDevice(null);
         setPrinterCharacteristic(null);
+        globalConnectedDevice = null;
+        globalPrinterCharacteristic = null;
+        
+        // Clear saved printer
+        await AsyncStorage.removeItem(SAVED_PRINTER_KEY);
       } catch (error) {
         console.error('usePrinter: Error disconnecting:', error);
         throw error;
@@ -248,7 +270,10 @@ export const usePrinter = () => {
   };
 
   const sendDataToPrinter = async (data: string) => {
-    if (!connectedDevice || !printerCharacteristic) {
+    const device = connectedDevice || globalConnectedDevice;
+    const characteristic = printerCharacteristic || globalPrinterCharacteristic;
+    
+    if (!device || !characteristic) {
       throw new Error('No hay impresora conectada');
     }
 
@@ -259,9 +284,9 @@ export const usePrinter = () => {
       const base64Data = Buffer.from(data, 'utf-8').toString('base64');
       
       // Write to characteristic
-      await connectedDevice.writeCharacteristicWithResponseForService(
-        printerCharacteristic.serviceUUID,
-        printerCharacteristic.characteristicUUID,
+      await device.writeCharacteristicWithResponseForService(
+        characteristic.serviceUUID,
+        characteristic.characteristicUUID,
         base64Data
       );
       
@@ -273,7 +298,9 @@ export const usePrinter = () => {
   };
 
   const printReceipt = async (content: string, autoCut: boolean = true) => {
-    if (!connectedDevice) {
+    const device = connectedDevice || globalConnectedDevice;
+    
+    if (!device) {
       throw new Error('No hay impresora conectada');
     }
 
@@ -338,7 +365,7 @@ Fecha: ${new Date().toLocaleString('es-ES')}
 
   return {
     devices,
-    connectedDevice,
+    connectedDevice: connectedDevice || globalConnectedDevice,
     scanning,
     scanForDevices,
     connectToDevice,
@@ -346,7 +373,7 @@ Fecha: ${new Date().toLocaleString('es-ES')}
     printReceipt,
     testPrint,
     isScanning: scanning,
-    isConnected: !!connectedDevice,
+    isConnected: !!(connectedDevice || globalConnectedDevice),
     startScan: scanForDevices,
     stopScan: stopScanFunc,
     disconnect: disconnectDevice,

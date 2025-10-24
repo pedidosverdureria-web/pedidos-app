@@ -81,31 +81,44 @@ export default function PrinterSettingsScreen() {
   }, [loadConfig]);
 
   const handleSaveConfig = async () => {
-    if (!user?.id) {
-      Alert.alert('Error', 'No hay usuario autenticado');
-      return;
-    }
-
     try {
       setSaving(true);
+      console.log('Saving printer config...');
 
-      const dataToSave = {
-        user_id: user.id,
+      // Create a clean config object with only the necessary fields
+      const configToSave = {
+        auto_print_enabled: config.auto_print_enabled,
+        auto_cut_enabled: config.auto_cut_enabled,
+        header_font_size: config.header_font_size,
+        separator_lines: config.separator_lines,
+        include_logo: config.include_logo,
+        include_customer_info: config.include_customer_info,
+        include_totals: config.include_totals,
         printer_name: connectedDevice?.name || null,
-        printer_address: connectedDevice?.id || null,
-        is_default: true,
-        ...config,
+        printer_id: connectedDevice?.id || null,
         updated_at: new Date().toISOString(),
       };
 
-      console.log('Saving printer config to AsyncStorage:', dataToSave);
+      console.log('Config to save:', configToSave);
 
-      await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(dataToSave));
+      // Save to AsyncStorage
+      await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(configToSave));
+      
+      // Verify the save was successful
+      const verification = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      console.log('Verification - saved config:', verification);
 
-      Alert.alert('Éxito', 'Configuración guardada correctamente');
+      if (verification) {
+        Alert.alert('Éxito', 'Configuración guardada correctamente');
+      } else {
+        throw new Error('La configuración no se guardó correctamente');
+      }
     } catch (error) {
       console.error('Error saving printer config:', error);
-      Alert.alert('Error', 'No se pudo guardar la configuración. Por favor intenta de nuevo.');
+      Alert.alert(
+        'Error', 
+        `No se pudo guardar la configuración: ${error instanceof Error ? error.message : 'Error desconocido'}`
+      );
     } finally {
       setSaving(false);
     }
