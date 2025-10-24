@@ -94,21 +94,7 @@ export const usePrinter = () => {
     return true;
   }, []);
 
-  // Load saved printer on mount and try to reconnect
-  useEffect(() => {
-    console.log('usePrinter: Initializing');
-    isMounted.current = true;
-    requestPermissions();
-    loadAndReconnectSavedPrinter();
-    
-    return () => {
-      console.log('usePrinter: Component unmounting, but keeping connection alive');
-      isMounted.current = false;
-      // DO NOT disconnect here - keep the connection alive
-    };
-  }, []);
-
-  const loadAndReconnectSavedPrinter = async () => {
+  const loadAndReconnectSavedPrinter = useCallback(async () => {
     try {
       const savedPrinter = await AsyncStorage.getItem(SAVED_PRINTER_KEY);
       if (savedPrinter) {
@@ -125,7 +111,21 @@ export const usePrinter = () => {
     } catch (error) {
       console.error('usePrinter: Error loading saved printer:', error);
     }
-  };
+  }, []);
+
+  // Load saved printer on mount and try to reconnect
+  useEffect(() => {
+    console.log('usePrinter: Initializing');
+    isMounted.current = true;
+    requestPermissions();
+    loadAndReconnectSavedPrinter();
+    
+    return () => {
+      console.log('usePrinter: Component unmounting, but keeping connection alive');
+      isMounted.current = false;
+      // DO NOT disconnect here - keep the connection alive
+    };
+  }, [requestPermissions, loadAndReconnectSavedPrinter]);
 
   const savePrinter = async (device: Device) => {
     try {

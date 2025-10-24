@@ -68,48 +68,7 @@ export default function HomeScreen() {
     statusFilter === 'all' ? undefined : statusFilter
   );
 
-  useEffect(() => {
-    console.log('HomeScreen: Auth state -', { isAuthenticated, authLoading });
-    
-    // Only redirect if auth is not loading and user is not authenticated
-    if (!authLoading && !isAuthenticated) {
-      console.log('HomeScreen: User not authenticated, redirecting to login');
-      router.replace('/login');
-    }
-  }, [isAuthenticated, authLoading]);
-
-  // Show loading state while checking authentication
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando...</Text>
-      </View>
-    );
-  }
-
-  // Don't render the main content if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Redirigiendo...</Text>
-      </View>
-    );
-  }
-
-  const filteredOrders = orders.filter((order) => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      order.order_number.toLowerCase().includes(query) ||
-      order.customer_name.toLowerCase().includes(query) ||
-      (order.customer_phone && order.customer_phone.includes(query))
-    );
-  });
-
-  const unreadCount = orders.filter((o) => !o.is_read).length;
-
+  // Define all hooks before any conditional returns
   const renderOrderCard = useCallback(({ item }: { item: Order }) => (
     <TouchableOpacity
       style={[styles.orderCard, !item.is_read && styles.orderCardUnread]}
@@ -185,23 +144,65 @@ export default function HomeScreen() {
     />
   ), [statusFilter]);
 
-  const renderHeaderRight = () => (
+  const renderHeaderRight = useCallback(() => (
     <TouchableOpacity
       onPress={() => router.push('/order/new')}
       style={styles.headerButton}
     >
       <IconSymbol name="plus.circle.fill" color={colors.primary} size={28} />
     </TouchableOpacity>
-  );
+  ), []);
 
-  const renderHeaderLeft = () => (
+  const renderHeaderLeft = useCallback(() => (
     <TouchableOpacity
       onPress={() => router.push('/settings')}
       style={styles.headerButton}
     >
       <IconSymbol name="gear" color={colors.primary} size={24} />
     </TouchableOpacity>
-  );
+  ), []);
+
+  useEffect(() => {
+    console.log('HomeScreen: Auth state -', { isAuthenticated, authLoading });
+    
+    // Only redirect if auth is not loading and user is not authenticated
+    if (!authLoading && !isAuthenticated) {
+      console.log('HomeScreen: User not authenticated, redirecting to login');
+      router.replace('/login');
+    }
+  }, [isAuthenticated, authLoading]);
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </View>
+    );
+  }
+
+  // Don't render the main content if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={styles.loadingText}>Redirigiendo...</Text>
+      </View>
+    );
+  }
+
+  const filteredOrders = orders.filter((order) => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      order.order_number.toLowerCase().includes(query) ||
+      order.customer_name.toLowerCase().includes(query) ||
+      (order.customer_phone && order.customer_phone.includes(query))
+    );
+  });
+
+  const unreadCount = orders.filter((o) => !o.is_read).length;
 
   return (
     <>
