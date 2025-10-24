@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -110,7 +110,7 @@ export default function HomeScreen() {
 
   const unreadCount = orders.filter((o) => !o.is_read).length;
 
-  const renderOrderCard = ({ item }: { item: Order }) => (
+  const renderOrderCard = useCallback(({ item }: { item: Order }) => (
     <TouchableOpacity
       style={[styles.orderCard, !item.is_read && styles.orderCardUnread]}
       onPress={() => router.push(`/order/${item.id}`)}
@@ -155,48 +155,35 @@ export default function HomeScreen() {
         <Text style={styles.totalText}>{formatCLP(item.total_amount)}</Text>
       </View>
     </TouchableOpacity>
-  );
+  ), []);
 
-  const renderHeader = () => (
-    <View style={styles.headerContent}>
-      <View style={styles.searchContainer}>
-        <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar pedidos..."
-          placeholderTextColor={colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
-      <FlatList
-        horizontal
-        data={STATUS_FILTERS}
-        keyExtractor={(item) => item.value}
-        renderItem={({ item }) => (
-          <TouchableOpacity
+  const renderFilterList = useCallback(() => (
+    <FlatList
+      horizontal
+      data={STATUS_FILTERS}
+      keyExtractor={(item) => item.value}
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          style={[
+            styles.filterChip,
+            statusFilter === item.value && styles.filterChipActive,
+          ]}
+          onPress={() => setStatusFilter(item.value)}
+        >
+          <Text
             style={[
-              styles.filterChip,
-              statusFilter === item.value && styles.filterChipActive,
+              styles.filterChipText,
+              statusFilter === item.value && styles.filterChipTextActive,
             ]}
-            onPress={() => setStatusFilter(item.value)}
           >
-            <Text
-              style={[
-                styles.filterChipText,
-                statusFilter === item.value && styles.filterChipTextActive,
-              ]}
-            >
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        )}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterList}
-      />
-    </View>
-  );
+            {item.label}
+          </Text>
+        </TouchableOpacity>
+      )}
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.filterList}
+    />
+  ), [statusFilter]);
 
   const renderHeaderRight = () => (
     <TouchableOpacity
@@ -228,11 +215,29 @@ export default function HomeScreen() {
         />
       )}
       <View style={styles.container}>
+        {/* Search and Filter Section - Outside FlatList */}
+        <View style={styles.headerContent}>
+          <View style={styles.searchContainer}>
+            <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar pedidos..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCorrect={false}
+              autoCapitalize="none"
+            />
+          </View>
+
+          {renderFilterList()}
+        </View>
+
+        {/* Orders List */}
         <FlatList
           data={filteredOrders}
           renderItem={renderOrderCard}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={renderHeader}
           contentContainerStyle={[
             styles.listContent,
             Platform.OS !== 'ios' && styles.listContentWithTabBar,
@@ -288,6 +293,7 @@ const styles = StyleSheet.create({
   headerContent: {
     padding: 16,
     paddingBottom: 8,
+    backgroundColor: colors.background,
   },
   searchContainer: {
     flexDirection: 'row',
