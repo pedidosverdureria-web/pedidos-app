@@ -135,11 +135,37 @@ export default function PrinterSettingsScreen() {
 
     try {
       setTesting(true);
-      await testPrint(config.auto_cut_enabled);
+      console.log('[PrinterSettings] Testing print with config:', config);
+      
+      // Generate test receipt with current config
+      const testContent = `
+=================================
+   IMPRESIÓN DE PRUEBA
+=================================
+
+Tamaño de texto: ${config.text_size}
+Tamaño de papel: ${config.paper_size}
+Formato WhatsApp: ${config.use_webhook_format ? 'Sí' : 'No'}
+
+Esta es una prueba de impresión.
+
+Si puedes leer esto, tu 
+impresora funciona correctamente.
+
+Fecha: ${new Date().toLocaleString('es-ES')}
+
+=================================
+`;
+      
+      await printReceipt(testContent, config.auto_cut_enabled, config.text_size);
       Alert.alert('Éxito', 'Impresión de prueba enviada correctamente');
     } catch (error) {
-      console.error('Error testing print:', error);
-      Alert.alert('Error', 'No se pudo imprimir. Verifica que la impresora esté encendida y cerca del dispositivo.');
+      console.error('[PrinterSettings] Error testing print:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      Alert.alert(
+        'Error de Impresión',
+        `No se pudo imprimir.\n\nDetalles: ${errorMessage}\n\nVerifica que la impresora esté encendida y cerca del dispositivo.`
+      );
     } finally {
       setTesting(false);
     }

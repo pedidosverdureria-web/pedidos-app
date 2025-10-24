@@ -12,6 +12,7 @@ let globalPrinterCharacteristic: {
   serviceUUID: string;
   characteristicUUID: string;
 } | null = null;
+let keepAliveInterval: NodeJS.Timeout | null = null;
 
 const getBleManager = () => {
   if (!bleManager) {
@@ -35,9 +36,9 @@ const COMMANDS = {
   ALIGN_RIGHT: ESC + 'a' + '\x02',
   BOLD_ON: ESC + 'E' + '\x01',
   BOLD_OFF: ESC + 'E' + '\x00',
-  FONT_SIZE_NORMAL: GS + '!' + '\x00',
-  FONT_SIZE_DOUBLE: GS + '!' + '\x11',
-  FONT_SIZE_TRIPLE: GS + '!' + '\x22',
+  FONT_SIZE_SMALL: GS + '!' + '\x00',      // Normal size
+  FONT_SIZE_MEDIUM: GS + '!' + '\x11',     // Double height and width
+  FONT_SIZE_LARGE: GS + '!' + '\x22',      // Triple height and width
 };
 
 // Generic printer service UUID (commonly used by thermal printers)
@@ -56,6 +57,48 @@ const ALTERNATIVE_CHARACTERISTIC_UUIDS = [
 ];
 
 const SAVED_PRINTER_KEY = '@saved_printer_device';
+const KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
+
+// Keep-alive mechanism to prevent Bluetooth disconnection
+const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; characteristicUUID: string }) => {
+  console.log('[usePrinter] Starting keep-alive mechanism');
+  
+  // Clear any existing interval
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+  
+  // Send a small command periodically to keep the connection alive
+  keepAliveInterval = setInterval(async () => {
+    try {
+      if (device && characteristic) {
+        console.log('[usePrinter] Sending keep-alive ping');
+        // Send a simple status request command (ESC v - doesn't print anything)
+        const keepAliveCommand = ESC + 'v';
+        const base64Data = Buffer.from(keepAliveCommand, 'utf-8').toString('base64');
+        
+        await device.writeCharacteristicWithResponseForService(
+          characteristic.serviceUUID,
+          characteristic.characteristicUUID,
+          base64Data
+        );
+        console.log('[usePrinter] Keep-alive ping sent successfully');
+      }
+    } catch (error) {
+      console.error('[usePrinter] Keep-alive ping failed:', error);
+      // If keep-alive fails, the connection might be lost
+      // We'll let the next print attempt handle reconnection
+    }
+  }, KEEP_ALIVE_INTERVAL);
+};
+
+const stopKeepAlive = () => {
+  console.log('[usePrinter] Stopping keep-alive mechanism');
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+  }
+};
 
 export const usePrinter = () => {
   const [devices, setDevices] = useState<Device[]>([]);
@@ -87,7 +130,7 @@ export const usePrinter = () => {
           return granted === PermissionsAndroid.RESULTS.GRANTED;
         }
       } catch (error) {
-        console.error('usePrinter: Error requesting permissions:', error);
+        console.error('[usePrinter] Error requesting permissions:', error);
         return false;
       }
     }
@@ -99,31 +142,35 @@ export const usePrinter = () => {
       const savedPrinter = await AsyncStorage.getItem(SAVED_PRINTER_KEY);
       if (savedPrinter) {
         const printerData = JSON.parse(savedPrinter);
-        console.log('usePrinter: Found saved printer:', printerData.name);
+        console.log('[usePrinter] Found saved printer:', printerData.name);
         
         // If we already have a global connection, use it
         if (globalConnectedDevice && globalPrinterCharacteristic) {
-          console.log('usePrinter: Using existing global connection');
+          console.log('[usePrinter] Using existing global connection');
           setConnectedDevice(globalConnectedDevice);
           setPrinterCharacteristic(globalPrinterCharacteristic);
+          
+          // Start keep-alive for existing connection
+          startKeepAlive(globalConnectedDevice, globalPrinterCharacteristic);
         }
       }
     } catch (error) {
-      console.error('usePrinter: Error loading saved printer:', error);
+      console.error('[usePrinter] Error loading saved printer:', error);
     }
   }, []);
 
   // Load saved printer on mount and try to reconnect
   useEffect(() => {
-    console.log('usePrinter: Initializing');
+    console.log('[usePrinter] Initializing');
     isMounted.current = true;
     requestPermissions();
     loadAndReconnectSavedPrinter();
     
     return () => {
-      console.log('usePrinter: Component unmounting, but keeping connection alive');
+      console.log('[usePrinter] Component unmounting, but keeping connection alive');
       isMounted.current = false;
       // DO NOT disconnect here - keep the connection alive
+      // DO NOT stop keep-alive here - let it continue
     };
   }, [requestPermissions, loadAndReconnectSavedPrinter]);
 
@@ -134,9 +181,9 @@ export const usePrinter = () => {
         name: device.name,
       };
       await AsyncStorage.setItem(SAVED_PRINTER_KEY, JSON.stringify(printerData));
-      console.log('usePrinter: Printer saved:', device.name);
+      console.log('[usePrinter] Printer saved:', device.name);
     } catch (error) {
-      console.error('usePrinter: Error saving printer:', error);
+      console.error('[usePrinter] Error saving printer:', error);
     }
   };
 
@@ -148,14 +195,14 @@ export const usePrinter = () => {
         return;
       }
 
-      console.log('usePrinter: Starting device scan');
+      console.log('[usePrinter] Starting device scan');
       setScanning(true);
       setDevices([]);
 
       const manager = getBleManager();
       manager.startDeviceScan(null, null, (error, device) => {
         if (error) {
-          console.error('usePrinter: Scan error:', error);
+          console.error('[usePrinter] Scan error:', error);
           setScanning(false);
           Alert.alert('Error', 'Error al escanear dispositivos Bluetooth');
           return;
@@ -165,7 +212,7 @@ export const usePrinter = () => {
           setDevices((prevDevices) => {
             const exists = prevDevices.find((d) => d.id === device.id);
             if (!exists) {
-              console.log('usePrinter: Found device:', device.name);
+              console.log('[usePrinter] Found device:', device.name);
               return [...prevDevices, device];
             }
             return prevDevices;
@@ -174,12 +221,12 @@ export const usePrinter = () => {
       });
 
       setTimeout(() => {
-        console.log('usePrinter: Stopping device scan after timeout');
+        console.log('[usePrinter] Stopping device scan after timeout');
         manager.stopDeviceScan();
         setScanning(false);
       }, 10000);
     } catch (error) {
-      console.error('usePrinter: Error in scanForDevices:', error);
+      console.error('[usePrinter] Error in scanForDevices:', error);
       setScanning(false);
       Alert.alert('Error', 'Error al buscar dispositivos');
     }
@@ -187,21 +234,21 @@ export const usePrinter = () => {
 
   const findPrinterCharacteristic = async (device: Device) => {
     try {
-      console.log('usePrinter: Discovering services and characteristics...');
+      console.log('[usePrinter] Discovering services and characteristics...');
       await device.discoverAllServicesAndCharacteristics();
       
       const services = await device.services();
-      console.log('usePrinter: Found services:', services.map(s => s.uuid));
+      console.log('[usePrinter] Found services:', services.map(s => s.uuid));
 
       // Try to find the printer service and characteristic
       for (const service of services) {
         const characteristics = await service.characteristics();
-        console.log(`usePrinter: Service ${service.uuid} has characteristics:`, characteristics.map(c => c.uuid));
+        console.log(`[usePrinter] Service ${service.uuid} has characteristics:`, characteristics.map(c => c.uuid));
         
         for (const characteristic of characteristics) {
           // Check if characteristic is writable
           if (characteristic.isWritableWithResponse || characteristic.isWritableWithoutResponse) {
-            console.log('usePrinter: Found writable characteristic:', characteristic.uuid);
+            console.log('[usePrinter] Found writable characteristic:', characteristic.uuid);
             return {
               serviceUUID: service.uuid,
               characteristicUUID: characteristic.uuid,
@@ -210,17 +257,17 @@ export const usePrinter = () => {
         }
       }
 
-      console.log('usePrinter: No suitable characteristic found');
+      console.log('[usePrinter] No suitable characteristic found');
       return null;
     } catch (error) {
-      console.error('usePrinter: Error finding characteristic:', error);
+      console.error('[usePrinter] Error finding characteristic:', error);
       return null;
     }
   };
 
   const connectToDevice = async (device: Device) => {
     try {
-      console.log('usePrinter: Connecting to device:', device.name);
+      console.log('[usePrinter] Connecting to device:', device.name);
       const connected = await device.connect();
       
       // Find the printer characteristic
@@ -238,9 +285,13 @@ export const usePrinter = () => {
       setPrinterCharacteristic(characteristic);
       setConnectedDevice(connected);
       await savePrinter(connected);
-      console.log('usePrinter: Connected successfully');
+      
+      // Start keep-alive mechanism
+      startKeepAlive(connected, characteristic);
+      
+      console.log('[usePrinter] Connected successfully with keep-alive enabled');
     } catch (error) {
-      console.error('usePrinter: Connection error:', error);
+      console.error('[usePrinter] Connection error:', error);
       throw error;
     }
   };
@@ -248,7 +299,11 @@ export const usePrinter = () => {
   const disconnectDevice = async () => {
     if (connectedDevice || globalConnectedDevice) {
       try {
-        console.log('usePrinter: Disconnecting device');
+        console.log('[usePrinter] Disconnecting device');
+        
+        // Stop keep-alive
+        stopKeepAlive();
+        
         const deviceToDisconnect = connectedDevice || globalConnectedDevice;
         if (deviceToDisconnect) {
           await deviceToDisconnect.cancelConnection();
@@ -263,7 +318,7 @@ export const usePrinter = () => {
         // Clear saved printer
         await AsyncStorage.removeItem(SAVED_PRINTER_KEY);
       } catch (error) {
-        console.error('usePrinter: Error disconnecting:', error);
+        console.error('[usePrinter] Error disconnecting:', error);
         throw error;
       }
     }
@@ -278,7 +333,14 @@ export const usePrinter = () => {
     }
 
     try {
-      console.log('usePrinter: Sending data to printer...');
+      console.log('[usePrinter] Sending data to printer, length:', data.length);
+      
+      // Check if device is still connected
+      const isConnected = await device.isConnected();
+      if (!isConnected) {
+        console.log('[usePrinter] Device disconnected, attempting to reconnect...');
+        throw new Error('La impresora se desconectó. Por favor, reconecta la impresora.');
+      }
       
       // Convert string to base64
       const base64Data = Buffer.from(data, 'utf-8').toString('base64');
@@ -290,14 +352,31 @@ export const usePrinter = () => {
         base64Data
       );
       
-      console.log('usePrinter: Data sent successfully');
+      console.log('[usePrinter] Data sent successfully');
     } catch (error) {
-      console.error('usePrinter: Error sending data:', error);
+      console.error('[usePrinter] Error sending data:', error);
       throw error;
     }
   };
 
-  const printReceipt = async (content: string, autoCut: boolean = true) => {
+  const getFontSizeCommand = (textSize: 'small' | 'medium' | 'large'): string => {
+    switch (textSize) {
+      case 'small':
+        return COMMANDS.FONT_SIZE_SMALL;
+      case 'medium':
+        return COMMANDS.FONT_SIZE_MEDIUM;
+      case 'large':
+        return COMMANDS.FONT_SIZE_LARGE;
+      default:
+        return COMMANDS.FONT_SIZE_MEDIUM;
+    }
+  };
+
+  const printReceipt = async (
+    content: string, 
+    autoCut: boolean = true, 
+    textSize: 'small' | 'medium' | 'large' = 'medium'
+  ) => {
     const device = connectedDevice || globalConnectedDevice;
     
     if (!device) {
@@ -305,16 +384,14 @@ export const usePrinter = () => {
     }
 
     try {
-      console.log('usePrinter: Printing receipt...');
+      console.log('[usePrinter] Printing receipt with text size:', textSize);
       
       // Build the print command
       let printData = COMMANDS.INIT; // Initialize printer
-      printData += COMMANDS.ALIGN_CENTER;
-      printData += COMMANDS.BOLD_ON;
-      printData += COMMANDS.FONT_SIZE_DOUBLE;
+      printData += COMMANDS.ALIGN_LEFT; // Align left for better readability
+      printData += getFontSizeCommand(textSize); // Set font size based on config
       printData += content;
-      printData += COMMANDS.BOLD_OFF;
-      printData += COMMANDS.FONT_SIZE_NORMAL;
+      printData += COMMANDS.FONT_SIZE_SMALL; // Reset to normal size
       printData += COMMANDS.LINE_FEED;
       printData += COMMANDS.LINE_FEED;
       printData += COMMANDS.LINE_FEED;
@@ -325,9 +402,9 @@ export const usePrinter = () => {
       }
       
       await sendDataToPrinter(printData);
-      console.log('usePrinter: Print completed');
+      console.log('[usePrinter] Print completed successfully');
     } catch (error) {
-      console.error('usePrinter: Print error:', error);
+      console.error('[usePrinter] Print error:', error);
       throw error;
     }
   };
@@ -349,15 +426,15 @@ Fecha: ${new Date().toLocaleString('es-ES')}
 `;
     
     try {
-      await printReceipt(testContent, autoCut);
+      await printReceipt(testContent, autoCut, 'medium');
     } catch (error) {
-      console.error('usePrinter: Test print error:', error);
+      console.error('[usePrinter] Test print error:', error);
       throw error;
     }
   };
 
   const stopScanFunc = useCallback(() => {
-    console.log('usePrinter: Stopping scan manually');
+    console.log('[usePrinter] Stopping scan manually');
     const manager = getBleManager();
     manager.stopDeviceScan();
     setScanning(false);

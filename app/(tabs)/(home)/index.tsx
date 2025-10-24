@@ -32,6 +32,20 @@ const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
 const PRINTER_CONFIG_KEY = '@printer_config';
 const POLLING_INTERVAL = 20000; // 20 seconds
 
+type TextSize = 'small' | 'medium' | 'large';
+type PaperSize = '58mm' | '80mm';
+
+interface PrinterConfig {
+  auto_print_enabled?: boolean;
+  auto_cut_enabled?: boolean;
+  text_size?: TextSize;
+  paper_size?: PaperSize;
+  include_logo?: boolean;
+  include_customer_info?: boolean;
+  include_totals?: boolean;
+  use_webhook_format?: boolean;
+}
+
 const getStatusColor = (status: OrderStatus) => {
   switch (status) {
     case 'pending':
@@ -65,6 +79,18 @@ const formatCLP = (amount: number): string => {
   return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
+// Extract unit from notes
+const getUnitFromNotes = (notes?: string): string => {
+  if (!notes) return 'unidades';
+  
+  const unitMatch = notes.match(/Unidad:\s*(.+)/i);
+  if (unitMatch && unitMatch[1]) {
+    return unitMatch[1].trim();
+  }
+  
+  return 'unidades';
+};
+
 export default function HomeScreen() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
@@ -73,8 +99,13 @@ export default function HomeScreen() {
     statusFilter === 'all' ? undefined : statusFilter
   );
   const { printReceipt, isConnected } = usePrinter();
-  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
-  const [autoCutEnabled, setAutoCutEnabled] = useState(true);
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig>({
+    auto_print_enabled: false,
+    auto_cut_enabled: true,
+    text_size: 'medium',
+    paper_size: '80mm',
+    use_webhook_format: true,
+  });
   const previousOrderIdsRef = useRef<Set<string>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -84,76 +115,128 @@ export default function HomeScreen() {
       const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       if (savedConfig) {
         const config = JSON.parse(savedConfig);
-        setAutoPrintEnabled(config.auto_print_enabled ?? false);
-        setAutoCutEnabled(config.auto_cut_enabled ?? true);
-        console.log('Auto-print enabled:', config.auto_print_enabled);
+        setPrinterConfig({
+          auto_print_enabled: config.auto_print_enabled ?? false,
+          auto_cut_enabled: config.auto_cut_enabled ?? true,
+          text_size: config.text_size ?? 'medium',
+          paper_size: config.paper_size ?? '80mm',
+          include_logo: config.include_logo ?? true,
+          include_customer_info: config.include_customer_info ?? true,
+          include_totals: config.include_totals ?? true,
+          use_webhook_format: config.use_webhook_format ?? true,
+        });
+        console.log('[HomeScreen] Loaded printer config:', config);
       }
     } catch (error) {
-      console.error('Error loading printer config:', error);
+      console.error('[HomeScreen] Error loading printer config:', error);
     }
   }, []);
 
   // Generate receipt text for printing
   const generateReceiptText = useCallback((order: Order): string => {
-    const width = 32; // Characters per line for 80mm paper
+    const paperSize = printerConfig.paper_size || '80mm';
+    const useWebhookFormat = printerConfig.use_webhook_format ?? true;
+    const maxWidth = paperSize === '58mm' ? 32 : 48;
+    
     const centerText = (text: string) => {
-      const padding = Math.max(0, Math.floor((width - text.length) / 2));
+      const padding = Math.max(0, Math.floor((maxWidth - text.length) / 2));
       return ' '.repeat(padding) + text;
+    };
+
+    const wrapText = (text: string, width: number): string => {
+      if (text.length <= width) return text;
+      
+      const words = text.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+      
+      for (const word of words) {
+        if ((currentLine + ' ' + word).trim().length <= width) {
+          currentLine = (currentLine + ' ' + word).trim();
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      
+      if (currentLine) lines.push(currentLine);
+      
+      return lines.join('\n');
     };
 
     let receipt = '\n';
     receipt += centerText('PEDIDO') + '\n';
     receipt += centerText(`#${order.order_number}`) + '\n';
-    receipt += '='.repeat(width) + '\n\n';
+    receipt += '='.repeat(maxWidth) + '\n\n';
 
-    receipt += `Cliente: ${order.customer_name}\n`;
-    if (order.customer_phone) {
-      receipt += `Tel: ${order.customer_phone}\n`;
+    if (printerConfig.include_customer_info !== false) {
+      receipt += `Cliente: ${order.customer_name}\n`;
+      if (order.customer_phone) {
+        receipt += `Tel: ${order.customer_phone}\n`;
+      }
+      if (order.customer_address) {
+        receipt += `Dir: ${order.customer_address}\n`;
+      }
+      receipt += '\n';
     }
-    if (order.customer_address) {
-      receipt += `Dir: ${order.customer_address}\n`;
-    }
-    receipt += '\n';
 
-    receipt += '-'.repeat(width) + '\n';
+    receipt += '-'.repeat(maxWidth) + '\n';
     receipt += 'PRODUCTOS\n';
-    receipt += '-'.repeat(width) + '\n';
+    receipt += '-'.repeat(maxWidth) + '\n';
 
     if (order.items && order.items.length > 0) {
       order.items.forEach((item) => {
-        const unit = item.notes || 'unidad';
-        const line = `${item.quantity} ${unit} de ${item.product_name}`;
-        receipt += line + '\n';
-        receipt += `  ${formatCLP(item.unit_price)}\n`;
+        if (useWebhookFormat) {
+          // Use WhatsApp format: "2 kilos de papas $3000"
+          const unit = getUnitFromNotes(item.notes);
+          const productLine = `${item.quantity} ${unit} de ${item.product_name}`;
+          const priceLine = formatCLP(item.total_price);
+          const fullLine = `${productLine} ${priceLine}`;
+          receipt += wrapText(fullLine, maxWidth) + '\n';
+        } else {
+          // Use traditional format
+          receipt += wrapText(item.product_name, maxWidth) + '\n';
+          receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
+          if (item.notes) {
+            receipt += `  Nota: ${wrapText(item.notes, maxWidth - 8)}\n`;
+          }
+        }
+        receipt += '\n';
       });
     }
 
-    receipt += '-'.repeat(width) + '\n';
-    receipt += `TOTAL: ${formatCLP(order.total_amount)}\n`;
-    receipt += '='.repeat(width) + '\n\n';
+    if (printerConfig.include_totals !== false) {
+      receipt += '-'.repeat(maxWidth) + '\n';
+      receipt += `TOTAL: ${formatCLP(order.total_amount)}\n`;
+      receipt += '='.repeat(maxWidth) + '\n\n';
+    }
 
     const date = new Date(order.created_at).toLocaleString('es-ES');
     receipt += centerText(date) + '\n';
 
     return receipt;
-  }, []);
+  }, [printerConfig]);
 
   // Auto-print new orders
   const autoPrintOrder = useCallback(async (order: Order) => {
-    if (!autoPrintEnabled || !isConnected) {
-      console.log('Auto-print skipped:', { autoPrintEnabled, isConnected });
+    if (!printerConfig.auto_print_enabled || !isConnected) {
+      console.log('[HomeScreen] Auto-print skipped:', { 
+        autoPrintEnabled: printerConfig.auto_print_enabled, 
+        isConnected 
+      });
       return;
     }
 
     try {
-      console.log('Auto-printing order:', order.order_number);
+      console.log('[HomeScreen] Auto-printing order:', order.order_number);
       const receiptText = generateReceiptText(order);
-      await printReceipt(receiptText, autoCutEnabled);
-      console.log('Order printed successfully:', order.order_number);
+      const textSize = printerConfig.text_size || 'medium';
+      await printReceipt(receiptText, printerConfig.auto_cut_enabled ?? true, textSize);
+      console.log('[HomeScreen] Order printed successfully:', order.order_number);
     } catch (error) {
-      console.error('Error auto-printing order:', error);
+      console.error('[HomeScreen] Error auto-printing order:', error);
     }
-  }, [autoPrintEnabled, isConnected, generateReceiptText, printReceipt, autoCutEnabled]);
+  }, [printerConfig, isConnected, generateReceiptText, printReceipt]);
 
   // Check for new orders and auto-print them
   const checkForNewOrders = useCallback((currentOrders: Order[]) => {
@@ -168,7 +251,7 @@ export default function HomeScreen() {
     if (newOrderIds.length > 0 && previousOrderIdsRef.current.size > 0) {
       const newOrders = currentOrders.filter(order => newOrderIds.includes(order.id));
       
-      console.log(`Found ${newOrders.length} new order(s)`);
+      console.log(`[HomeScreen] Found ${newOrders.length} new order(s)`);
       
       // Auto-print each new order
       newOrders.forEach(order => {
@@ -193,7 +276,7 @@ export default function HomeScreen() {
     }
 
     pollingIntervalRef.current = setInterval(() => {
-      console.log('Polling for new orders...');
+      console.log('[HomeScreen] Polling for new orders...');
       refetch();
     }, POLLING_INTERVAL);
 
@@ -304,11 +387,11 @@ export default function HomeScreen() {
   ), []);
 
   useEffect(() => {
-    console.log('HomeScreen: Auth state -', { isAuthenticated, authLoading });
+    console.log('[HomeScreen] Auth state -', { isAuthenticated, authLoading });
     
     // Only redirect if auth is not loading and user is not authenticated
     if (!authLoading && !isAuthenticated) {
-      console.log('HomeScreen: User not authenticated, redirecting to login');
+      console.log('[HomeScreen] User not authenticated, redirecting to login');
       router.replace('/login');
     }
   }, [isAuthenticated, authLoading]);
@@ -375,10 +458,12 @@ export default function HomeScreen() {
           {renderFilterList()}
 
           {/* Auto-print indicator */}
-          {autoPrintEnabled && isConnected && (
+          {printerConfig.auto_print_enabled && isConnected && (
             <View style={styles.autoPrintBanner}>
               <IconSymbol name="printer.fill" size={16} color={colors.success} />
-              <Text style={styles.autoPrintText}>Impresión automática activada</Text>
+              <Text style={styles.autoPrintText}>
+                Impresión automática activada (Tamaño: {printerConfig.text_size})
+              </Text>
             </View>
           )}
         </View>

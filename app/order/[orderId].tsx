@@ -398,6 +398,7 @@ function formatCLP(amount: number): string {
 function getUnitFromNotes(notes?: string): string {
   if (!notes) return 'unidades';
   
+  // Try to extract unit from "Unidad: xxx" format
   const unitMatch = notes.match(/Unidad:\s*(.+)/i);
   if (unitMatch && unitMatch[1]) {
     return unitMatch[1].trim();
@@ -467,18 +468,28 @@ export default function OrderDetailScreen() {
 
   const loadPrinterConfig = useCallback(async () => {
     try {
-      console.log('Loading printer config from AsyncStorage...');
+      console.log('[OrderDetail] Loading printer config from AsyncStorage...');
       const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       
       if (savedConfig) {
         const parsedConfig = JSON.parse(savedConfig);
-        console.log('Loaded printer config:', parsedConfig);
+        console.log('[OrderDetail] Loaded printer config:', parsedConfig);
         setPrinterConfig(parsedConfig);
       } else {
-        console.log('No saved printer config found');
+        console.log('[OrderDetail] No saved printer config found, using defaults');
+        setPrinterConfig({
+          auto_print_enabled: false,
+          auto_cut_enabled: true,
+          text_size: 'medium',
+          paper_size: '80mm',
+          include_logo: true,
+          include_customer_info: true,
+          include_totals: true,
+          use_webhook_format: true,
+        });
       }
     } catch (error) {
-      console.error('Error loading printer config:', error);
+      console.error('[OrderDetail] Error loading printer config:', error);
     }
   }, []);
 
@@ -836,14 +847,26 @@ export default function OrderDetailScreen() {
     }
 
     try {
+      console.log('[OrderDetail] Starting print...');
       setPrinting(true);
+      
       const receipt = generateReceiptText(order);
+      console.log('[OrderDetail] Generated receipt text, length:', receipt.length);
+      
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
-      await printReceipt(receipt, autoCut);
+      console.log('[OrderDetail] Auto-cut enabled:', autoCut);
+      
+      await printReceipt(receipt, autoCut, printerConfig?.text_size || 'medium');
+      console.log('[OrderDetail] Print completed successfully');
+      
       Alert.alert('Éxito', 'Pedido impreso correctamente');
     } catch (error) {
-      console.error('Error printing:', error);
-      Alert.alert('Error', 'No se pudo imprimir el pedido. Verifica que la impresora esté encendida y cerca del dispositivo.');
+      console.error('[OrderDetail] Error printing:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      Alert.alert(
+        'Error de Impresión', 
+        `No se pudo imprimir el pedido.\n\nDetalles: ${errorMessage}\n\nVerifica que la impresora esté encendida y cerca del dispositivo.`
+      );
     } finally {
       setPrinting(false);
     }
@@ -853,6 +876,12 @@ export default function OrderDetailScreen() {
     const config = printerConfig || {};
     const paperSize = config.paper_size || '80mm';
     const useWebhookFormat = config.use_webhook_format ?? true;
+    
+    console.log('[OrderDetail] Generating receipt with config:', {
+      paperSize,
+      useWebhookFormat,
+      textSize: config.text_size,
+    });
     
     const maxWidth = paperSize === '58mm' ? 32 : 48;
     
@@ -882,10 +911,23 @@ export default function OrderDetailScreen() {
 
     order.items?.forEach((item) => {
       if (useWebhookFormat) {
+        // Use WhatsApp format: "2 kilos de papas $3000"
         const unit = getUnitFromNotes(item.notes);
-        const line = `${item.quantity} ${unit} de ${item.product_name} ${formatCLP(item.total_price)}`;
-        receipt += wrapText(line, maxWidth) + `\n`;
+        const productLine = `${item.quantity} ${unit} de ${item.product_name}`;
+        const priceLine = formatCLP(item.total_price);
+        const fullLine = `${productLine} ${priceLine}`;
+        
+        console.log('[OrderDetail] Formatting item with WhatsApp format:', {
+          product: item.product_name,
+          quantity: item.quantity,
+          unit,
+          notes: item.notes,
+          formattedLine: fullLine,
+        });
+        
+        receipt += wrapText(fullLine, maxWidth) + `\n`;
       } else {
+        // Use traditional format
         receipt += wrapText(item.product_name, maxWidth) + `\n`;
         receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
         if (item.notes) {
@@ -907,6 +949,7 @@ export default function OrderDetailScreen() {
     receipt += `\n`;
     receipt += `=`.repeat(maxWidth) + `\n`;
 
+    console.log('[OrderDetail] Generated receipt preview:', receipt.substring(0, 200) + '...');
     return receipt;
   };
 
