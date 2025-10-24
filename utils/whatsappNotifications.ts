@@ -14,7 +14,7 @@ const formatCLP = (amount: number): string => {
 };
 
 /**
- * Formats items list for messages (without enumeration)
+ * Formats items list for messages (plain text without bullets or numbers)
  */
 function formatItemsList(items: OrderItem[], showPrices: boolean = false): string {
   return items.map((item) => {
@@ -22,7 +22,7 @@ function formatItemsList(items: OrderItem[], showPrices: boolean = false): strin
       ? item.notes.replace('Unidad:', '').trim() 
       : 'unidades';
     const priceText = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    return `• ${item.quantity} ${unit} de ${item.product_name}${priceText}`;
+    return `${item.quantity} ${unit} de ${item.product_name}${priceText}`;
   }).join('\n');
 }
 
@@ -111,7 +111,7 @@ Hola ${customerName}, se ha agregado un producto a tu pedido.
 📋 *Número de pedido:* ${orderNumber}
 
 ✨ *Producto agregado:*
-• ${addedProduct.quantity} ${unit} de ${addedProduct.product_name}
+${addedProduct.quantity} ${unit} de ${addedProduct.product_name}
 
 📦 *Lista completa de productos:*
 ${itemsList}
@@ -141,7 +141,7 @@ Hola ${customerName}, se ha eliminado un producto de tu pedido.
 📋 *Número de pedido:* ${orderNumber}
 
 ❌ *Producto eliminado:*
-• ${removedProduct.quantity} ${unit} de ${removedProduct.product_name}
+${removedProduct.quantity} ${unit} de ${removedProduct.product_name}
 
 📦 *Lista actualizada de productos:*
 ${itemsList}

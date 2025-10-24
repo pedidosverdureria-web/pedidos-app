@@ -431,12 +431,12 @@ function formatCLP(amount: number): string {
 }
 
 /**
- * Formats items list for messages (without enumeration)
+ * Formats items list for messages (plain text without bullets or numbers)
  */
 function formatItemsList(items: any[], showPrices: boolean = false): string {
   return items.map((item) => {
     const priceText = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    return `• ${item.quantity} ${item.unit} de ${item.product}${priceText}`;
+    return `${item.quantity} ${item.unit} de ${item.product}${priceText}`;
   }).join('\n');
 }
 
@@ -471,23 +471,23 @@ function createHelpMessage(customerName: string): string {
 Hola ${customerName}! No pude identificar productos en tu mensaje.
 
 📝 *Formato sugerido:*
-• 3 kilos de tomates
-• 2 kilos de palta
-• 1 kg de papas
-• 5 pepinos
-• 1 cilantro
+3 kilos de tomates
+2 kilos de palta
+1 kg de papas
+5 pepinos
+1 cilantro
 
 También puedes escribir:
-• tomates 3 kilos
-• 3k de tomates
-• tres kilos de tomates
-• 3kilos de papas
-• papas 3k
-• 1/4 de ají
-• 1/2 kilo de papas
-• 2 saco de papa, un cajón de tomate
-• 2 kilos de tomates 1 kilo de papa
-• 3kilos tomates 2kilos paltas 3 pepinos
+tomates 3 kilos
+3k de tomates
+tres kilos de tomates
+3kilos de papas
+papas 3k
+1/4 de ají
+1/2 kilo de papas
+2 saco de papa, un cajón de tomate
+2 kilos de tomates 1 kilo de papa
+3kilos tomates 2kilos paltas 3 pepinos
 
 ¡Gracias por tu comprensión! 😊`;
 }
@@ -503,20 +503,20 @@ Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de p
 📝 *Ejemplos de cómo hacer tu pedido:*
 
 *Formato vertical:*
-• 3 kilos de tomates
-• 2 kilos de paltas
-• 5 pepinos
-• 1 cilantro
+3 kilos de tomates
+2 kilos de paltas
+5 pepinos
+1 cilantro
 
 *Formato horizontal:*
-• 3 kilos de tomates, 2 kilos de paltas, 5 pepinos
+3 kilos de tomates, 2 kilos de paltas, 5 pepinos
 
 *Otros formatos válidos:*
-• 3k de tomates
-• tomates 3 kilos
-• 1/4 de ají
-• 2 saco de papa
-• 3kilos tomates 2kilos paltas
+3k de tomates
+tomates 3 kilos
+1/4 de ají
+2 saco de papa
+3kilos tomates 2kilos paltas
 
 💡 *Tip:* Puedes escribir los productos como prefieras, nosotros entenderemos tu pedido.
 
@@ -588,7 +588,7 @@ Hola ${customerName}, se ha agregado un producto a tu pedido.
 📋 *Número de pedido:* ${orderNumber}
 
 ✨ *Producto agregado:*
-• ${addedProduct.quantity} ${addedProduct.unit} de ${addedProduct.product}
+${addedProduct.quantity} ${addedProduct.unit} de ${addedProduct.product}
 
 📦 *Lista completa de productos:*
 ${itemsList}
@@ -724,14 +724,14 @@ serve(async (req) => {
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
         console.log('Message text:', messageText);
 
-        // Check for Manual #customer name# special order format
-        // Pattern: Manual #customer name# followed by order details
-        // The regex captures everything between # symbols as the customer name
-        const manualPattern = /^Manual\s+#([^#]+)#\s*(.+)$/is;
+        // Check for Manual keyword (case-insensitive, flexible format)
+        // Supports: "Manual #name#", "manual #name#", "MANUAL #name#"
+        // Also supports variations like "Manual: name" or just "Manual name"
+        const manualPattern = /^\s*manual\s*[:#]?\s*([^#\n]+?)(?:[#\n]|\s{2,})\s*(.+)$/is;
         const manualMatch = messageText.match(manualPattern);
         
         if (manualMatch) {
-          console.log('Detected Manual #name# special order format');
+          console.log('Detected Manual keyword with custom name format');
           
           // Extract custom customer name and order text
           const customCustomerName = manualMatch[1].trim();
