@@ -34,6 +34,7 @@ export default function PrinterSettingsScreen() {
     connectToDevice,
     disconnect,
     testPrint,
+    printReceipt,
   } = usePrinter();
 
   const [loading, setLoading] = useState(true);
