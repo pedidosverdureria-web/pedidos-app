@@ -1101,6 +1101,7 @@ export default function OrderDetailScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen options={{ headerShown: true, title: 'Cargando...' }} />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -1109,6 +1110,7 @@ export default function OrderDetailScreen() {
   if (!order) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen options={{ headerShown: true, title: 'Error' }} />
         <Text style={{ color: colors.text }}>Pedido no encontrado</Text>
       </View>
     );
@@ -1121,11 +1123,12 @@ export default function OrderDetailScreen() {
     <>
       <Stack.Screen
         options={{
+          headerShown: true,
           title: `Pedido #${order.order_number}`,
           headerBackTitle: 'Atrás',
           headerRight: () => (
             <View style={styles.headerRightContainer}>
-              <TouchableOpacity onPress={handlePrint} disabled={printing}>
+              <TouchableOpacity onPress={handlePrint} disabled={printing || !isConnected}>
                 {printing ? (
                   <ActivityIndicator size="small" color={colors.primary} />
                 ) : (

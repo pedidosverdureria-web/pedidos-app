@@ -49,7 +49,7 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
   'cancelled',
 ];
 
-const PRINTER_CONFIG_KEY = 'printer_config';
+const PRINTER_CONFIG_KEY = '@printer_config';
 const POLLING_INTERVAL = 20000; // 20 seconds
 
 const styles = StyleSheet.create({
@@ -61,12 +61,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
     backgroundColor: colors.primary,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -272,19 +266,22 @@ export default function HomeScreen() {
     statusFilter === 'all' ? undefined : statusFilter
   );
 
-  const { isConnected, print } = usePrinter();
+  const { isConnected, printReceipt } = usePrinter();
 
   // Load printer configuration
   const loadPrinterConfig = useCallback(async () => {
     try {
+      console.log('[HomeScreen] Loading printer config...');
       const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       if (configStr) {
         const config = JSON.parse(configStr);
         setPrinterConfig(config);
-        console.log('Printer config loaded:', config);
+        console.log('[HomeScreen] Printer config loaded:', config);
+      } else {
+        console.log('[HomeScreen] No printer config found');
       }
     } catch (error) {
-      console.error('Error loading printer config:', error);
+      console.error('[HomeScreen] Error loading printer config:', error);
     }
   }, []);
 
@@ -345,6 +342,10 @@ export default function HomeScreen() {
   // Auto-print new orders
   useEffect(() => {
     if (!printerConfig?.auto_print_enabled || !isConnected) {
+      console.log('[HomeScreen] Auto-print disabled or printer not connected', {
+        autoPrintEnabled: printerConfig?.auto_print_enabled,
+        isConnected,
+      });
       return;
     }
 
@@ -352,28 +353,30 @@ export default function HomeScreen() {
       for (const order of orders) {
         // Only auto-print pending orders that haven't been printed yet
         if (order.status === 'pending' && !printedOrderIds.has(order.id)) {
-          console.log('Auto-printing new order:', order.order_number);
+          console.log('[HomeScreen] Auto-printing new order:', order.order_number);
           
           try {
             // Generate receipt text
             const receiptText = generateReceiptText(order);
             
             // Print the receipt
-            await print(receiptText);
+            const autoCut = printerConfig?.auto_cut_enabled ?? true;
+            const textSize = printerConfig?.text_size || 'medium';
+            await printReceipt(receiptText, autoCut, textSize);
             
             // Mark as printed
             setPrintedOrderIds(prev => new Set(prev).add(order.id));
             
-            console.log('Order auto-printed successfully:', order.order_number);
+            console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
           } catch (error) {
-            console.error('Error auto-printing order:', error);
+            console.error('[HomeScreen] Error auto-printing order:', error);
           }
         }
       }
     };
 
     autoPrintNewOrders();
-  }, [orders, printerConfig, isConnected, printedOrderIds, print]);
+  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt]);
 
   const generateReceiptText = (order: Order): string => {
     const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
@@ -521,8 +524,6 @@ export default function HomeScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Pedidos</Text>
-        
         <View style={styles.searchContainer}>
           <IconSymbol name="magnifyingglass" size={20} color="#fff" style={styles.searchIcon} />
           <TextInput
