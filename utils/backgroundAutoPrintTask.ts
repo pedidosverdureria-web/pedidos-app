@@ -35,12 +35,12 @@ interface Order {
   status: string;
   created_at: string;
   amount_paid: number;
-  items?: Array<{
+  items?: {
     product_name: string;
     quantity: number;
     unit_price: number;
     notes?: string;
-  }>;
+  }[];
 }
 
 /**
