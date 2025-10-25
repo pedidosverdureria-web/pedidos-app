@@ -341,8 +341,24 @@ function getUnitFromNotes(notes: string | null | undefined): string {
 
 function formatProductDisplay(item: OrderItem): string {
   const unit = getUnitFromNotes(item.notes);
-  const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
-  return `${quantityStr} ${item.product_name}`;
+  
+  // Determine the unit text
+  let unitText = '';
+  if (unit === 'kg' || unit === 'kilo') {
+    unitText = item.quantity === 1 ? 'kilo' : 'kilos';
+  } else if (unit === 'gr' || unit === 'gramo') {
+    unitText = item.quantity === 1 ? 'gramo' : 'gramos';
+  } else if (unit === 'lt' || unit === 'litro') {
+    unitText = item.quantity === 1 ? 'litro' : 'litros';
+  } else if (unit === 'ml') {
+    unitText = 'ml';
+  } else if (unit === 'un' || unit === 'unidad') {
+    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  } else {
+    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  }
+  
+  return `${item.quantity} ${unitText} de ${item.product_name}`;
 }
 
 function formatDate(dateString: string): string {
@@ -1081,7 +1097,7 @@ export default function OrderDetailScreen() {
               {order?.items?.map((item) => (
                 <View key={item.id} style={styles.priceInputRow}>
                   <Text style={styles.priceInputLabel} numberOfLines={2}>
-                    {item.product_name}
+                    {formatProductDisplay(item)}
                   </Text>
                   <TextInput
                     style={styles.priceInputField}
