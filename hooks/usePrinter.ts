@@ -68,35 +68,35 @@ const MAX_CHUNK_SIZE = 180; // Maximum bytes per write operation (safe for most 
 // Complete CP850 character mapping for Spanish and special characters
 const CP850_MAP: { [key: string]: number } = {
   // Lowercase vowels with accents
-  'á': 0xA0, 'é': 0x82, 'í': 0xA1, 'ó': 0xA2, 'ú': 0xA3,
+  'á': 160, 'é': 130, 'í': 161, 'ó': 162, 'ú': 163,
   // Uppercase vowels with accents
-  'Á': 0xB5, 'É': 0x90, 'Í': 0xD6, 'Ó': 0xE0, 'Ú': 0xE9,
+  'Á': 181, 'É': 144, 'Í': 214, 'Ó': 224, 'Ú': 233,
   // Ñ and ñ
-  'ñ': 0xA4, 'Ñ': 0xA5,
+  'ñ': 164, 'Ñ': 165,
   // Ü and ü
-  'ü': 0x81, 'Ü': 0x9A,
+  'ü': 129, 'Ü': 154,
   // Special Spanish punctuation
-  '¿': 0xA8, '¡': 0xAD,
+  '¿': 168, '¡': 173,
   // Other special characters
-  '°': 0xF8, '€': 0xEE, '£': 0x9C, '¥': 0x9D,
-  'ç': 0x87, 'Ç': 0x80,
-  'à': 0x85, 'è': 0x8A, 'ì': 0x8D, 'ò': 0x95, 'ù': 0x97,
-  'À': 0xB7, 'È': 0xD4, 'Ì': 0xDE, 'Ò': 0xE3, 'Ù': 0xEB,
+  '°': 248, '€': 238, '£': 156, '¥': 157,
+  'ç': 135, 'Ç': 128,
+  'à': 133, 'è': 138, 'ì': 141, 'ò': 149, 'ù': 151,
+  'À': 183, 'È': 212, 'Ì': 222, 'Ò': 227, 'Ù': 235,
   // Box drawing and line characters
-  '─': 0xC4, '│': 0xB3, '┌': 0xDA, '┐': 0xBF, '└': 0xC0, '┘': 0xD9,
-  '├': 0xC3, '┤': 0xB4, '┬': 0xC2, '┴': 0xC1, '┼': 0xC5,
-  '═': 0xCD, '║': 0xBA, '╔': 0xC9, '╗': 0xBB, '╚': 0xC8, '╝': 0xBC,
-  '╠': 0xCC, '╣': 0xB9, '╦': 0xCB, '╩': 0xCA, '╬': 0xCE,
+  '─': 196, '│': 179, '┌': 218, '┐': 191, '└': 192, '┘': 217,
+  '├': 195, '┤': 180, '┬': 194, '┴': 193, '┼': 197,
+  '═': 205, '║': 186, '╔': 201, '╗': 187, '╚': 200, '╝': 188,
+  '╠': 204, '╣': 185, '╦': 203, '╩': 202, '╬': 206,
 };
 
 // ISO-8859-1 (Latin-1) character mapping
 const ISO_8859_1_MAP: { [key: string]: number } = {
-  'á': 0xE1, 'é': 0xE9, 'í': 0xED, 'ó': 0xF3, 'ú': 0xFA,
-  'Á': 0xC1, 'É': 0xC9, 'Í': 0xCD, 'Ó': 0xD3, 'Ú': 0xDA,
-  'ñ': 0xF1, 'Ñ': 0xD1,
-  'ü': 0xFC, 'Ü': 0xDC,
-  '¿': 0xBF, '¡': 0xA1,
-  '°': 0xB0, '€': 0x80,
+  'á': 225, 'é': 233, 'í': 237, 'ó': 243, 'ú': 250,
+  'Á': 193, 'É': 201, 'Í': 205, 'Ó': 211, 'Ú': 218,
+  'ñ': 241, 'Ñ': 209,
+  'ü': 252, 'Ü': 220,
+  '¿': 191, '¡': 161,
+  '°': 176, '€': 128,
 };
 
 type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
@@ -124,6 +124,7 @@ const convertToEncoding = (text: string, encoding: Encoding): Uint8Array => {
 
 /**
  * Convert text with Spanish characters to CP850 encoding
+ * This function properly handles ñ, accented characters, and special symbols
  */
 const convertToCP850 = (text: string): Uint8Array => {
   const bytes: number[] = [];
@@ -134,19 +135,37 @@ const convertToCP850 = (text: string): Uint8Array => {
     
     // Check if character has a CP850 mapping
     if (CP850_MAP[char] !== undefined) {
-      bytes.push(CP850_MAP[char]);
+      const mappedValue = CP850_MAP[char];
+      bytes.push(mappedValue);
+      console.log(`[usePrinter] Mapped '${char}' (U+${charCode.toString(16).toUpperCase()}) to CP850: ${mappedValue}`);
     } 
     // ASCII characters (0-127) can be used directly
     else if (charCode < 128) {
       bytes.push(charCode);
     }
-    // For unmapped characters, use a safe replacement
+    // For unmapped characters, try to find a reasonable substitute
     else {
-      console.warn(`[usePrinter] Unmapped character in CP850: ${char} (code: ${charCode}), using '?'`);
-      bytes.push(0x3F); // '?' character
+      // Try to decompose accented characters
+      const normalized = char.normalize('NFD');
+      if (normalized.length > 1) {
+        // Use the base character without accent
+        const baseChar = normalized[0];
+        const baseCharCode = baseChar.charCodeAt(0);
+        if (baseCharCode < 128) {
+          console.warn(`[usePrinter] Unmapped character '${char}', using base character '${baseChar}'`);
+          bytes.push(baseCharCode);
+        } else {
+          console.warn(`[usePrinter] Unmapped character '${char}' (code: ${charCode}), using space`);
+          bytes.push(32); // Space character
+        }
+      } else {
+        console.warn(`[usePrinter] Unmapped character '${char}' (code: ${charCode}), using space`);
+        bytes.push(32); // Space character
+      }
     }
   }
   
+  console.log(`[usePrinter] CP850 conversion complete: ${text.length} chars -> ${bytes.length} bytes`);
   return new Uint8Array(bytes);
 };
 
@@ -176,10 +195,10 @@ const convertToISO88591 = (text: string): Uint8Array => {
     else if (charCode < 256) {
       bytes.push(charCode);
     }
-    // For unmapped characters, use a safe replacement
+    // For unmapped characters, use space
     else {
-      console.warn(`[usePrinter] Unmapped character in ISO-8859-1: ${char} (code: ${charCode}), using '?'`);
-      bytes.push(0x3F); // '?' character
+      console.warn(`[usePrinter] Unmapped character in ISO-8859-1: ${char} (code: ${charCode}), using space`);
+      bytes.push(32); // Space character
     }
   }
   
@@ -205,10 +224,10 @@ const convertToWindows1252 = (text: string): Uint8Array => {
     else if (charCode < 256) {
       bytes.push(charCode);
     }
-    // For unmapped characters, use a safe replacement
+    // For unmapped characters, use space
     else {
-      console.warn(`[usePrinter] Unmapped character in Windows-1252: ${char} (code: ${charCode}), using '?'`);
-      bytes.push(0x3F); // '?' character
+      console.warn(`[usePrinter] Unmapped character in Windows-1252: ${char} (code: ${charCode}), using space`);
+      bytes.push(32); // Space character
     }
   }
   
@@ -567,7 +586,7 @@ export const usePrinter = () => {
     try {
       console.log('[usePrinter] Printing receipt with settings:', { textSize, encoding, autoCut });
       console.log('[usePrinter] Original content length:', content.length);
-      console.log('[usePrinter] Original content preview:', content.substring(0, 100));
+      console.log('[usePrinter] Original content preview:', content.substring(0, 200));
       
       // Build the print command as a string first
       let printCommand = COMMANDS.INIT; // Initialize printer

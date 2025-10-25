@@ -71,6 +71,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 12,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   orderNumber: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -149,6 +155,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  bulkPriceButton: {
+    backgroundColor: colors.secondary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   totalRow: {
     flexDirection: 'row',
@@ -848,11 +864,8 @@ export default function OrderDetailScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Productos</Text>
-            <TouchableOpacity onPress={openPriceModal}>
-              <IconSymbol name="dollarsign.circle" size={24} color={colors.primary} />
-            </TouchableOpacity>
           </View>
 
           {order.items?.map((item, index) => (
@@ -962,6 +975,11 @@ export default function OrderDetailScreen() {
               />
               <TouchableOpacity style={styles.addButton} onPress={addProduct}>
                 <Text style={styles.addButtonText}>Agregar Producto</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.bulkPriceButton} onPress={openPriceModal}>
+                <IconSymbol name="dollarsign.circle" size={20} color="#fff" />
+                <Text style={styles.addButtonText}>Aplicar Precio a Todos</Text>
               </TouchableOpacity>
             </>
           )}
