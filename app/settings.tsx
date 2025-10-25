@@ -17,10 +17,10 @@ export default function SettingsScreen() {
   const { user, signOut } = useAuth();
 
   const handleSignOut = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert('Cerrar Sesión', '¿Estás seguro que deseas cerrar sesión?', [
+      { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Sign Out',
+        text: 'Cerrar Sesión',
         style: 'destructive',
         onPress: async () => {
           await signOut();
@@ -32,36 +32,30 @@ export default function SettingsScreen() {
 
   const settingsSections = [
     {
-      title: 'Configuration',
+      title: 'Configuración',
       items: [
         {
           icon: 'message.fill',
-          label: 'WhatsApp Integration',
+          label: 'Integración WhatsApp',
           route: '/settings/whatsapp',
           color: colors.success,
         },
         {
           icon: 'printer.fill',
-          label: 'Printer Settings',
+          label: 'Configuración de Impresora',
           route: '/settings/printer',
           color: colors.primary,
         },
       ],
     },
     {
-      title: 'Account',
+      title: 'Cuenta',
       items: [
-        {
-          icon: 'person.circle.fill',
-          label: 'Profile',
-          route: '/settings/profile',
-          color: colors.accent,
-        },
         ...(user?.role === 'admin'
           ? [
               {
                 icon: 'person.2.fill',
-                label: 'User Management',
+                label: 'Gestión de Usuarios',
                 route: '/settings/users',
                 color: colors.secondary,
               },
@@ -70,17 +64,17 @@ export default function SettingsScreen() {
       ],
     },
     {
-      title: 'App',
+      title: 'Aplicación',
       items: [
         {
           icon: 'bell.fill',
-          label: 'Notifications',
+          label: 'Notificaciones',
           route: '/settings/notifications',
           color: colors.warning,
         },
         {
           icon: 'info.circle.fill',
-          label: 'About',
+          label: 'Acerca de',
           route: '/settings/about',
           color: colors.info,
         },
@@ -92,8 +86,8 @@ export default function SettingsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Settings',
-          headerBackTitle: 'Back',
+          title: 'Configuración',
+          headerBackTitle: 'Atrás',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -104,43 +98,47 @@ export default function SettingsScreen() {
             </View>
             <View style={styles.userInfo}>
               <Text style={styles.userName}>{user.full_name || user.email}</Text>
-              <Text style={styles.userRole}>{user.role.toUpperCase()}</Text>
+              <Text style={styles.userRole}>
+                {user.role === 'admin' ? 'ADMINISTRADOR' : 'TRABAJADOR'}
+              </Text>
             </View>
           </View>
         )}
 
         {settingsSections.map((section, sectionIndex) => (
-          <View key={sectionIndex} style={styles.section}>
-            <Text style={styles.sectionTitle}>{section.title}</Text>
-            <View style={styles.sectionCard}>
-              {section.items.map((item, itemIndex) => (
-                <TouchableOpacity
-                  key={itemIndex}
-                  style={[
-                    styles.settingItem,
-                    itemIndex < section.items.length - 1 && styles.settingItemBorder,
-                  ]}
-                  onPress={() => router.push(item.route as any)}
-                >
-                  <View style={styles.settingLeft}>
-                    <View style={[styles.settingIcon, { backgroundColor: item.color }]}>
-                      <IconSymbol name={item.icon as any} size={20} color="#FFFFFF" />
+          section.items.length > 0 && (
+            <View key={sectionIndex} style={styles.section}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              <View style={styles.sectionCard}>
+                {section.items.map((item, itemIndex) => (
+                  <TouchableOpacity
+                    key={itemIndex}
+                    style={[
+                      styles.settingItem,
+                      itemIndex < section.items.length - 1 && styles.settingItemBorder,
+                    ]}
+                    onPress={() => router.push(item.route as any)}
+                  >
+                    <View style={styles.settingLeft}>
+                      <View style={[styles.settingIcon, { backgroundColor: item.color }]}>
+                        <IconSymbol name={item.icon as any} size={20} color="#FFFFFF" />
+                      </View>
+                      <Text style={styles.settingLabel}>{item.label}</Text>
                     </View>
-                    <Text style={styles.settingLabel}>{item.label}</Text>
-                  </View>
-                  <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
-              ))}
+                    <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
-          </View>
+          )
         ))}
 
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
           <IconSymbol name="arrow.right.square.fill" size={20} color={colors.error} />
-          <Text style={styles.signOutText}>Sign Out</Text>
+          <Text style={styles.signOutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>Version 1.0.0</Text>
+        <Text style={styles.version}>Versión 1.0.0</Text>
       </ScrollView>
     </>
   );

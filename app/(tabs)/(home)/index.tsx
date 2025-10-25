@@ -57,8 +57,8 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
 ];
 
 const PRINTER_CONFIG_KEY = '@printer_config';
-const POLLING_INTERVAL = 20000; // 20 seconds
 const ORDERS_TO_PRINT_KEY = '@orders_to_print';
+const PRINTED_ORDERS_KEY = '@printed_orders';
 
 const styles = StyleSheet.create({
   container: {
@@ -180,6 +180,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 2,
   },
+  orderDate: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   orderTotal: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -279,15 +285,27 @@ function getUnitFromNotes(notes: string | null | undefined): string {
   return '';
 }
 
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('es-CL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 export default function HomeScreen() {
   const { user, session, isAuthenticated, authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
-  const [printedOrderIds, setPrintedOrderIds] = useState<Set<string>>(new Set());
+  const [printedOrderIds, setPrintedOrderIds] = useState<string[]>([]);
   const notificationListenerRef = useRef<any>(null);
   const responseListenerRef = useRef<any>(null);
+  const isPrintingRef = useRef(false);
 
   const { orders, loading, error, refetch } = useOrders(
     statusFilter === 'all' ? undefined : statusFilter
@@ -296,11 +314,10 @@ export default function HomeScreen() {
   const { isConnected, printReceipt } = usePrinter();
 
   // Keep the device awake when auto-print is enabled
-  // Always call the hook unconditionally
   const shouldKeepAwake = printerConfig?.auto_print_enabled && isConnected;
   useKeepAwake('auto-print', { suppressDeactivateWarnings: !shouldKeepAwake });
 
-  // Load printer configuration
+  // Load printer configuration and printed orders
   const loadPrinterConfig = useCallback(async () => {
     try {
       console.log('[HomeScreen] Loading printer config...');
@@ -311,6 +328,14 @@ export default function HomeScreen() {
         console.log('[HomeScreen] Printer config loaded:', config);
       } else {
         console.log('[HomeScreen] No printer config found');
+      }
+
+      // Load printed orders list
+      const printedStr = await AsyncStorage.getItem(PRINTED_ORDERS_KEY);
+      if (printedStr) {
+        const printed: string[] = JSON.parse(printedStr);
+        setPrintedOrderIds(printed);
+        console.log('[HomeScreen] Loaded printed orders:', printed.length);
       }
     } catch (error) {
       console.error('[HomeScreen] Error loading printer config:', error);
@@ -350,7 +375,6 @@ export default function HomeScreen() {
 
     const setupNotifications = async () => {
       try {
-        // Check if permissions are already granted
         const hasPermissions = await checkNotificationPermissions();
         
         if (!hasPermissions) {
@@ -365,10 +389,8 @@ export default function HomeScreen() {
 
         console.log('Notification permissions granted');
         
-        // Register for push notifications
         await registerForPushNotificationsAsync(user.id);
         
-        // Setup notification response handler (when user taps notification)
         responseListenerRef.current = setupNotificationResponseHandler((response) => {
           console.log('Notification tapped:', response);
           const orderId = response.notification.request.content.data?.orderId;
@@ -383,7 +405,6 @@ export default function HomeScreen() {
 
     setupNotifications();
 
-    // Cleanup - copy ref values to variables inside effect
     return () => {
       const notificationListener = notificationListenerRef.current;
       const responseListener = responseListenerRef.current;
@@ -403,19 +424,16 @@ export default function HomeScreen() {
     
     let receipt = '';
     
-    // Header
     if (printerConfig?.include_logo !== false) {
       receipt += centerText('PEDIDO', width) + '\n';
       receipt += '='.repeat(width) + '\n\n';
     }
     
-    // Order info
     receipt += `Pedido: ${order.order_number}\n`;
     receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-    receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-CL')}\n`;
+    receipt += `Fecha: ${formatDate(order.created_at)}\n`;
     receipt += '-'.repeat(width) + '\n\n';
     
-    // Customer info
     if (printerConfig?.include_customer_info !== false) {
       receipt += `Cliente: ${order.customer_name}\n`;
       if (order.customer_phone) {
@@ -427,7 +445,6 @@ export default function HomeScreen() {
       receipt += '-'.repeat(width) + '\n\n';
     }
     
-    // Items
     receipt += 'PRODUCTOS:\n\n';
     for (const item of order.items || []) {
       const unit = getUnitFromNotes(item.notes);
@@ -448,7 +465,6 @@ export default function HomeScreen() {
       receipt += '\n';
     }
     
-    // Totals
     if (printerConfig?.include_totals !== false) {
       receipt += '-'.repeat(width) + '\n';
       const total = order.items?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
@@ -474,32 +490,60 @@ export default function HomeScreen() {
     return ' '.repeat(padding) + text;
   };
 
-  // Check for orders that need printing (from background task)
+  // Save printed orders to AsyncStorage
+  const savePrintedOrders = useCallback(async (orderIds: string[]) => {
+    try {
+      await AsyncStorage.setItem(PRINTED_ORDERS_KEY, JSON.stringify(orderIds));
+      console.log('[HomeScreen] Saved printed orders:', orderIds.length);
+    } catch (error) {
+      console.error('[HomeScreen] Error saving printed orders:', error);
+    }
+  }, []);
+
+  // Auto-print new orders
   useEffect(() => {
-    const checkOrdersToPrint = async () => {
+    if (!printerConfig?.auto_print_enabled || !isConnected || isPrintingRef.current) {
+      return;
+    }
+
+    const autoPrintNewOrders = async () => {
+      // Check for orders from background task
       try {
         const ordersToPrintStr = await AsyncStorage.getItem(ORDERS_TO_PRINT_KEY);
         if (ordersToPrintStr) {
           const ordersToPrint: string[] = JSON.parse(ordersToPrintStr);
           console.log('[HomeScreen] Found orders to print from background:', ordersToPrint);
           
-          // Clear the list
+          // Clear the list immediately to prevent re-printing
           await AsyncStorage.removeItem(ORDERS_TO_PRINT_KEY);
           
-          // Print each order
+          // Add to the list of orders to process
           for (const orderId of ordersToPrint) {
-            const order = orders.find(o => o.id === orderId);
-            if (order && !printedOrderIds.has(orderId)) {
-              console.log('[HomeScreen] Printing order from background queue:', order.order_number);
-              try {
-                const receiptText = generateReceiptText(order);
-                const autoCut = printerConfig?.auto_cut_enabled ?? true;
-                const textSize = printerConfig?.text_size || 'medium';
-                const encoding = printerConfig?.encoding || 'CP850';
-                await printReceipt(receiptText, autoCut, textSize, encoding);
-                setPrintedOrderIds(prev => new Set(prev).add(orderId));
-              } catch (error) {
-                console.error('[HomeScreen] Error printing order from background queue:', error);
+            if (!printedOrderIds.includes(orderId)) {
+              const order = orders.find(o => o.id === orderId);
+              if (order && order.status === 'pending') {
+                isPrintingRef.current = true;
+                
+                try {
+                  console.log('[HomeScreen] Auto-printing order:', order.order_number);
+                  const receiptText = generateReceiptText(order);
+                  const autoCut = printerConfig?.auto_cut_enabled ?? true;
+                  const textSize = printerConfig?.text_size || 'medium';
+                  const encoding = printerConfig?.encoding || 'CP850';
+                  
+                  await printReceipt(receiptText, autoCut, textSize, encoding);
+                  
+                  // Mark as printed
+                  const newPrintedIds = [...printedOrderIds, orderId];
+                  setPrintedOrderIds(newPrintedIds);
+                  await savePrintedOrders(newPrintedIds);
+                  
+                  console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
+                } catch (error) {
+                  console.error('[HomeScreen] Error auto-printing order:', error);
+                } finally {
+                  isPrintingRef.current = false;
+                }
               }
             }
           }
@@ -507,52 +551,41 @@ export default function HomeScreen() {
       } catch (error) {
         console.error('[HomeScreen] Error checking orders to print:', error);
       }
-    };
 
-    if (printerConfig?.auto_print_enabled && isConnected && orders.length > 0) {
-      checkOrdersToPrint();
-    }
-  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, generateReceiptText]);
-
-  // Auto-print new orders (foreground)
-  useEffect(() => {
-    if (!printerConfig?.auto_print_enabled || !isConnected) {
-      console.log('[HomeScreen] Auto-print disabled or printer not connected', {
-        autoPrintEnabled: printerConfig?.auto_print_enabled,
-        isConnected,
-      });
-      return;
-    }
-
-    const autoPrintNewOrders = async () => {
+      // Check for new pending orders in the current list
       for (const order of orders) {
-        // Only auto-print pending orders that haven't been printed yet
-        if (order.status === 'pending' && !printedOrderIds.has(order.id)) {
-          console.log('[HomeScreen] Auto-printing new order:', order.order_number);
+        if (order.status === 'pending' && !printedOrderIds.includes(order.id) && !isPrintingRef.current) {
+          isPrintingRef.current = true;
           
           try {
-            // Generate receipt text
+            console.log('[HomeScreen] Auto-printing new order:', order.order_number);
             const receiptText = generateReceiptText(order);
-            
-            // Print the receipt
             const autoCut = printerConfig?.auto_cut_enabled ?? true;
             const textSize = printerConfig?.text_size || 'medium';
             const encoding = printerConfig?.encoding || 'CP850';
+            
             await printReceipt(receiptText, autoCut, textSize, encoding);
             
             // Mark as printed
-            setPrintedOrderIds(prev => new Set(prev).add(order.id));
+            const newPrintedIds = [...printedOrderIds, order.id];
+            setPrintedOrderIds(newPrintedIds);
+            await savePrintedOrders(newPrintedIds);
             
             console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
           } catch (error) {
             console.error('[HomeScreen] Error auto-printing order:', error);
+          } finally {
+            isPrintingRef.current = false;
           }
+          
+          // Only print one order at a time
+          break;
         }
       }
     };
 
     autoPrintNewOrders();
-  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, generateReceiptText]);
+  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, generateReceiptText, savePrintedOrders]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -593,12 +626,12 @@ export default function HomeScreen() {
             {item.items.length} {item.items.length === 1 ? 'producto' : 'productos'}
           </Text>
         )}
+        <Text style={styles.orderDate}>📅 {formatDate(item.created_at)}</Text>
         {total > 0 && <Text style={styles.orderTotal}>{formatCLP(total)}</Text>}
       </TouchableOpacity>
     );
   };
 
-  // Determine auto-print status
   const autoPrintWorking = printerConfig?.auto_print_enabled && isConnected;
   const showAutoPrintBanner = printerConfig?.auto_print_enabled !== undefined;
 
@@ -626,7 +659,6 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       
-      {/* Auto-print status banner */}
       {showAutoPrintBanner && (
         <TouchableOpacity
           style={[

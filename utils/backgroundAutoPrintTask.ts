@@ -7,7 +7,6 @@ import { getSupabase } from '@/lib/supabase';
 
 export const BACKGROUND_AUTO_PRINT_TASK = 'BACKGROUND-AUTO-PRINT-TASK';
 const PRINTER_CONFIG_KEY = '@printer_config';
-const LAST_CHECKED_ORDER_KEY = '@last_checked_order_id';
 const PRINTED_ORDERS_KEY = '@printed_orders';
 
 type TextSize = 'small' | 'medium' | 'large';
@@ -60,7 +59,13 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   // Order info
   receipt += `Pedido: ${order.order_number}\n`;
   receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-  receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-CL')}\n`;
+  receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-CL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}\n`;
   receipt += '-'.repeat(width) + '\n\n';
   
   // Customer info
@@ -180,12 +185,9 @@ TaskManager.defineTask(BACKGROUND_AUTO_PRINT_TASK, async () => {
       return BackgroundFetch.BackgroundFetchResult.NoData;
     }
     
-    // Get the last checked order ID
-    const lastCheckedOrderId = await AsyncStorage.getItem(LAST_CHECKED_ORDER_KEY);
-    
     // Get printed orders set
     const printedOrdersStr = await AsyncStorage.getItem(PRINTED_ORDERS_KEY);
-    const printedOrders = printedOrdersStr ? JSON.parse(printedOrdersStr) : [];
+    const printedOrders: string[] = printedOrdersStr ? JSON.parse(printedOrdersStr) : [];
     
     // Query for new pending orders
     const supabase = getSupabase();
@@ -218,19 +220,10 @@ TaskManager.defineTask(BACKGROUND_AUTO_PRINT_TASK, async () => {
     
     console.log(`[BackgroundAutoPrint] Found ${newOrders.length} new orders to print`);
     
-    // Import the printer hook dynamically
-    // Note: In a background task, we need to use the printer directly
-    // This is a simplified version - in production, you'd need to handle Bluetooth in background
-    
-    // For now, we'll store the orders that need printing and let the foreground app handle it
+    // Store the orders that need printing for the foreground app to handle
     // This is because Bluetooth operations in background are restricted on mobile platforms
     const ordersToPrint = newOrders.map(order => order.id);
     await AsyncStorage.setItem('@orders_to_print', JSON.stringify(ordersToPrint));
-    
-    // Update the last checked order
-    if (orders.length > 0) {
-      await AsyncStorage.setItem(LAST_CHECKED_ORDER_KEY, orders[0].id);
-    }
     
     console.log('[BackgroundAutoPrint] Task completed successfully');
     return BackgroundFetch.BackgroundFetchResult.NewData;

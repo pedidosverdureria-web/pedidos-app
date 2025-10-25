@@ -1,6 +1,12 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { IconSymbol } from '@/components/IconSymbol';
+import { 
+  sendOrderStatusUpdate, 
+  sendProductAddedNotification, 
+  sendProductRemovedNotification,
+  sendOrderDeletedNotification 
+} from '@/utils/whatsappNotifications';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePrinter } from '@/hooks/usePrinter';
 import {
   View,
   Text,
@@ -13,22 +19,14 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { usePrinter } from '@/hooks/usePrinter';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Order, OrderStatus, OrderItem } from '@/types';
-import { colors } from '@/styles/commonStyles';
-import { 
-  sendOrderStatusUpdate, 
-  sendProductAddedNotification, 
-  sendProductRemovedNotification,
-  sendOrderDeletedNotification 
-} from '@/utils/whatsappNotifications';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createInAppNotification, sendLocalNotification } from '@/utils/pushNotifications';
+import { colors } from '@/styles/commonStyles';
+import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const PRINTER_CONFIG_KEY = '@printer_config';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
@@ -46,6 +44,8 @@ interface PrinterConfig {
   encoding?: Encoding;
 }
 
+const PRINTER_CONFIG_KEY = '@printer_config';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -55,181 +55,137 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
   },
   content: {
     padding: 16,
-    paddingBottom: 32,
   },
   section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-  },
-  card: {
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 16,
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 12,
   },
-  statusText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  orderNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 8,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  infoLabel: {
+  orderDate: {
     fontSize: 14,
     color: colors.textSecondary,
-    marginLeft: 8,
-    flex: 1,
+    marginBottom: 12,
   },
-  infoValue: {
+  statusContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 2,
+  },
+  statusButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
   },
   input: {
     backgroundColor: colors.background,
     borderRadius: 8,
     padding: 12,
-    fontSize: 14,
+    marginBottom: 12,
+    fontSize: 16,
     color: colors.text,
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: 8,
   },
-  itemCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  itemHeader: {
+  productItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  itemName: {
+  productItemLast: {
+    borderBottomWidth: 0,
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productName: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    flex: 1,
+    marginBottom: 4,
   },
-  itemPrice: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  itemDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  itemQuantity: {
+  productDetails: {
     fontSize: 14,
     color: colors.textSecondary,
   },
-  itemNotes: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    marginTop: 4,
+  productActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  iconButton: {
+    padding: 8,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  addButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: 8,
+    paddingVertical: 8,
   },
   totalLabel: {
     fontSize: 16,
-    fontWeight: '600',
     color: colors.text,
   },
   totalValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  totalFinal: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: colors.primary,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 16,
+    alignItems: 'center',
     marginBottom: 12,
   },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
+  actionButtonSecondary: {
+    backgroundColor: colors.secondary,
   },
-  deleteButton: {
+  actionButtonDanger: {
     backgroundColor: colors.error,
   },
-  whatsappButton: {
-    backgroundColor: '#25D366',
-  },
-  printButton: {
-    backgroundColor: colors.warning,
-  },
-  addProductButton: {
-    backgroundColor: colors.success,
-  },
-  applyPriceButton: {
-    backgroundColor: colors.info,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  statusButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-  },
-  statusButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  statusButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-    marginLeft: 6,
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -239,15 +195,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: colors.card,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 24,
-    width: '90%',
+    width: '80%',
     maxWidth: 400,
-    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: colors.text,
     marginBottom: 16,
   },
@@ -272,85 +227,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  itemActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  itemActionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  itemActionButtonText: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 4,
-  },
-  headerRightContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginRight: 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  priceModalScrollView: {
-    maxHeight: 400,
-  },
-  priceModalItem: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  priceModalItemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  priceModalItemQuantity: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  priceModalInput: {
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
 });
 
 function getStatusColor(status: OrderStatus): string {
   switch (status) {
     case 'pending':
-      return colors.warning;
+      return '#F59E0B';
     case 'preparing':
-      return colors.info;
+      return '#3B82F6';
     case 'ready':
-      return colors.success;
+      return '#10B981';
     case 'delivered':
-      return colors.textSecondary;
+      return '#6B7280';
     case 'cancelled':
-      return colors.error;
+      return '#EF4444';
     default:
-      return colors.textSecondary;
+      return '#6B7280';
   }
 }
 
@@ -392,65 +284,72 @@ function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', {
     style: 'currency',
     currency: 'CLP',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
   }).format(amount);
 }
 
-function getUnitFromNotes(notes?: string): string {
-  if (!notes) return 'unidades';
-  
-  // Try to extract unit from "Unidad: xxx" format
-  const unitMatch = notes.match(/Unidad:\s*(.+)/i);
-  if (unitMatch && unitMatch[1]) {
-    return unitMatch[1].trim();
-  }
-  
-  return 'unidades';
+function getUnitFromNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  const lowerNotes = notes.toLowerCase();
+  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
+  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
+  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
+  if (lowerNotes.includes('ml')) return 'ml';
+  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
+  return '';
 }
 
 function formatProductDisplay(item: OrderItem): string {
   const unit = getUnitFromNotes(item.notes);
-  return `${item.quantity} ${unit} de ${item.product_name}`;
+  const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+  return `${quantityStr} ${item.product_name}`;
+}
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('es-CL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export default function OrderDetailScreen() {
-  const { orderId } = useLocalSearchParams();
+  const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { user } = useAuth();
+  const { printReceipt, isConnected } = usePrinter();
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [printing, setPrinting] = useState(false);
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
+
+  // Customer info editing
   const [editingCustomer, setEditingCustomer] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [showAddProductModal, setShowAddProductModal] = useState(false);
-  const [newProductName, setNewProductName] = useState('');
-  const [newProductQuantity, setNewProductQuantity] = useState('1');
-  const [newProductPrice, setNewProductPrice] = useState('');
-  const [newProductNotes, setNewProductNotes] = useState('');
-  const [editingItem, setEditingItem] = useState<OrderItem | null>(null);
-  const [editItemName, setEditItemName] = useState('');
-  const [editItemQuantity, setEditItemQuantity] = useState('');
-  const [editItemPrice, setEditItemPrice] = useState('');
-  const [editItemNotes, setEditItemNotes] = useState('');
-  const [showPriceModal, setShowPriceModal] = useState(false);
-  const [bulkPrices, setBulkPrices] = useState<{ [key: string]: string }>({});
-  const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
 
-  const { printReceipt, isConnected } = usePrinter();
+  // Product editing
+  const [editingProduct, setEditingProduct] = useState<OrderItem | null>(null);
+  const [productName, setProductName] = useState('');
+  const [productQuantity, setProductQuantity] = useState('');
+  const [productPrice, setProductPrice] = useState('');
+  const [productNotes, setProductNotes] = useState('');
+
+  // Price modal
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [bulkPrice, setBulkPrice] = useState('');
 
   const loadOrder = useCallback(async () => {
+    if (!orderId) return;
+
     try {
       setLoading(true);
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('orders')
-        .select(`
-          *,
-          items:order_items(*)
-        `)
+        .select('*, items:order_items(*)')
         .eq('id', orderId)
         .single();
 
@@ -461,7 +360,7 @@ export default function OrderDetailScreen() {
       setCustomerPhone(data.customer_phone || '');
       setCustomerAddress(data.customer_address || '');
     } catch (error) {
-      console.error('Error loading order:', error);
+      console.error('[OrderDetail] Error loading order:', error);
       Alert.alert('Error', 'No se pudo cargar el pedido');
     } finally {
       setLoading(false);
@@ -470,25 +369,9 @@ export default function OrderDetailScreen() {
 
   const loadPrinterConfig = useCallback(async () => {
     try {
-      console.log('[OrderDetail] Loading printer config from AsyncStorage...');
-      const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
-      
-      if (savedConfig) {
-        const parsedConfig = JSON.parse(savedConfig);
-        console.log('[OrderDetail] Loaded printer config:', parsedConfig);
-        setPrinterConfig(parsedConfig);
-      } else {
-        console.log('[OrderDetail] No saved printer config found, using defaults');
-        setPrinterConfig({
-          auto_print_enabled: false,
-          auto_cut_enabled: true,
-          text_size: 'medium',
-          paper_size: '80mm',
-          include_logo: true,
-          include_customer_info: true,
-          include_totals: true,
-          use_webhook_format: true,
-        });
+      const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      if (configStr) {
+        setPrinterConfig(JSON.parse(configStr));
       }
     } catch (error) {
       console.error('[OrderDetail] Error loading printer config:', error);
@@ -504,7 +387,6 @@ export default function OrderDetailScreen() {
     if (!order) return;
 
     try {
-      setSaving(true);
       const supabase = getSupabase();
       const { error } = await supabase
         .from('orders')
@@ -512,7 +394,6 @@ export default function OrderDetailScreen() {
           customer_name: customerName,
           customer_phone: customerPhone,
           customer_address: customerAddress,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', order.id);
 
@@ -522,10 +403,8 @@ export default function OrderDetailScreen() {
       await loadOrder();
       Alert.alert('Éxito', 'Información del cliente actualizada');
     } catch (error) {
-      console.error('Error updating customer info:', error);
+      console.error('[OrderDetail] Error updating customer:', error);
       Alert.alert('Error', 'No se pudo actualizar la información');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -533,171 +412,105 @@ export default function OrderDetailScreen() {
     if (!order) return;
 
     try {
-      setSaving(true);
       const supabase = getSupabase();
       const { error } = await supabase
         .from('orders')
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ status: newStatus })
         .eq('id', order.id);
 
       if (error) throw error;
 
       await sendOrderStatusUpdate(order.id, newStatus);
-
       await createInAppNotification(
-        null,
-        'Estado de pedido actualizado',
-        `Pedido #${order.order_number} cambió a ${getStatusLabel(newStatus)}`,
-        'order',
-        order.id
-      );
-
-      await sendLocalNotification(
-        'Estado de pedido actualizado',
-        `Pedido #${order.order_number} cambió a ${getStatusLabel(newStatus)}`,
+        user?.id || '',
+        'order_status_changed',
+        `Pedido ${order.order_number} cambió a ${getStatusLabel(newStatus)}`,
         { orderId: order.id }
       );
 
       await loadOrder();
-      Alert.alert('Éxito', 'Estado actualizado correctamente');
+      Alert.alert('Éxito', 'Estado actualizado');
     } catch (error) {
-      console.error('Error updating status:', error);
+      console.error('[OrderDetail] Error updating status:', error);
       Alert.alert('Error', 'No se pudo actualizar el estado');
-    } finally {
-      setSaving(false);
     }
   };
 
   const addProduct = async () => {
-    if (!order || !newProductName || !newProductPrice) {
-      Alert.alert('Error', 'Por favor completa todos los campos requeridos');
+    if (!order || !productName || !productQuantity) {
+      Alert.alert('Error', 'Completa todos los campos requeridos');
       return;
     }
 
     try {
-      setSaving(true);
       const supabase = getSupabase();
-      
-      const quantity = parseInt(newProductQuantity) || 1;
-      const unitPrice = parseFloat(newProductPrice) || 0;
-      const totalPrice = quantity * unitPrice;
-
-      const { data: newItem, error } = await supabase
+      const { data, error } = await supabase
         .from('order_items')
-        .insert([
-          {
-            order_id: order.id,
-            product_name: newProductName,
-            quantity,
-            unit_price: unitPrice,
-            total_price: totalPrice,
-            notes: newProductNotes || null,
-          },
-        ])
+        .insert({
+          order_id: order.id,
+          product_name: productName,
+          quantity: parseFloat(productQuantity),
+          unit_price: parseFloat(productPrice) || 0,
+          notes: productNotes,
+        })
         .select()
         .single();
 
       if (error) throw error;
 
-      const newTotal = (order.total_amount || 0) + totalPrice;
-      await supabase
-        .from('orders')
-        .update({
-          total_amount: newTotal,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
-
-      await sendProductAddedNotification(order.id, newItem.id);
-
-      await createInAppNotification(
-        null,
-        'Producto agregado',
-        `Se agregó ${newProductName} al pedido #${order.order_number}`,
-        'order',
-        order.id
-      );
-
-      setShowAddProductModal(false);
-      setNewProductName('');
-      setNewProductQuantity('1');
-      setNewProductPrice('');
-      setNewProductNotes('');
+      await sendProductAddedNotification(order.id, data.id);
       await loadOrder();
-      Alert.alert('Éxito', 'Producto agregado correctamente');
+
+      setProductName('');
+      setProductQuantity('');
+      setProductPrice('');
+      setProductNotes('');
+
+      Alert.alert('Éxito', 'Producto agregado');
     } catch (error) {
-      console.error('Error adding product:', error);
+      console.error('[OrderDetail] Error adding product:', error);
       Alert.alert('Error', 'No se pudo agregar el producto');
-    } finally {
-      setSaving(false);
     }
   };
 
   const updateProduct = async (itemId: string) => {
-    if (!order || !editItemName || !editItemPrice) {
-      Alert.alert('Error', 'Por favor completa todos los campos requeridos');
+    if (!productName || !productQuantity) {
+      Alert.alert('Error', 'Completa todos los campos requeridos');
       return;
     }
 
     try {
-      setSaving(true);
       const supabase = getSupabase();
-      
-      const quantity = parseInt(editItemQuantity) || 1;
-      const unitPrice = parseFloat(editItemPrice) || 0;
-      const totalPrice = quantity * unitPrice;
-
       const { error } = await supabase
         .from('order_items')
         .update({
-          product_name: editItemName,
-          quantity,
-          unit_price: unitPrice,
-          total_price: totalPrice,
-          notes: editItemNotes || null,
-          updated_at: new Date().toISOString(),
+          product_name: productName,
+          quantity: parseFloat(productQuantity),
+          unit_price: parseFloat(productPrice) || 0,
+          notes: productNotes,
         })
         .eq('id', itemId);
 
       if (error) throw error;
 
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('total_price')
-        .eq('order_id', order.id);
-
-      const newTotal = items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0;
-      await supabase
-        .from('orders')
-        .update({
-          total_amount: newTotal,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
-
-      setEditingItem(null);
+      setEditingProduct(null);
       await loadOrder();
-      Alert.alert('Éxito', 'Producto actualizado correctamente');
+      Alert.alert('Éxito', 'Producto actualizado');
     } catch (error) {
-      console.error('Error updating product:', error);
+      console.error('[OrderDetail] Error updating product:', error);
       Alert.alert('Error', 'No se pudo actualizar el producto');
-    } finally {
-      setSaving(false);
     }
   };
 
   const deleteProduct = async (itemId: string) => {
     if (!order) return;
 
-    const item = order.items?.find((i) => i.id === itemId);
+    const item = order.items?.find(i => i.id === itemId);
     if (!item) return;
 
     Alert.alert(
-      'Confirmar eliminación',
-      `¿Estás seguro de que quieres eliminar "${item.product_name}"?`,
+      'Eliminar Producto',
+      `¿Eliminar ${item.product_name}?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -705,9 +518,7 @@ export default function OrderDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              setSaving(true);
               const supabase = getSupabase();
-
               const { error } = await supabase
                 .from('order_items')
                 .delete()
@@ -715,32 +526,12 @@ export default function OrderDetailScreen() {
 
               if (error) throw error;
 
-              const newTotal = (order.total_amount || 0) - (item.total_price || 0);
-              await supabase
-                .from('orders')
-                .update({
-                  total_amount: newTotal,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', order.id);
-
               await sendProductRemovedNotification(order.id, item);
-
-              await createInAppNotification(
-                null,
-                'Producto eliminado',
-                `Se eliminó ${item.product_name} del pedido #${order.order_number}`,
-                'order',
-                order.id
-              );
-
               await loadOrder();
-              Alert.alert('Éxito', 'Producto eliminado correctamente');
+              Alert.alert('Éxito', 'Producto eliminado');
             } catch (error) {
-              console.error('Error deleting product:', error);
+              console.error('[OrderDetail] Error deleting product:', error);
               Alert.alert('Error', 'No se pudo eliminar el producto');
-            } finally {
-              setSaving(false);
             }
           },
         },
@@ -749,315 +540,180 @@ export default function OrderDetailScreen() {
   };
 
   const startEditingProduct = (item: OrderItem) => {
-    setEditingItem(item);
-    setEditItemName(item.product_name);
-    setEditItemQuantity(item.quantity.toString());
-    setEditItemPrice(item.unit_price.toString());
-    setEditItemNotes(item.notes || '');
+    setEditingProduct(item);
+    setProductName(item.product_name);
+    setProductQuantity(item.quantity.toString());
+    setProductPrice(item.unit_price.toString());
+    setProductNotes(item.notes || '');
   };
 
   const openPriceModal = () => {
-    if (!order || !order.items || order.items.length === 0) {
-      Alert.alert('Error', 'No hay productos en este pedido');
-      return;
-    }
-
-    const initialPrices: { [key: string]: string } = {};
-    order.items.forEach((item) => {
-      initialPrices[item.id] = item.unit_price.toString();
-    });
-    setBulkPrices(initialPrices);
+    setBulkPrice('');
     setShowPriceModal(true);
   };
 
   const applyPriceToAll = async () => {
-    if (!order || !order.items || order.items.length === 0) {
-      Alert.alert('Error', 'No hay productos en este pedido');
-      return;
-    }
+    if (!order || !bulkPrice) return;
 
-    const hasEmptyPrice = Object.values(bulkPrices).some((price) => !price || price.trim() === '');
-    if (hasEmptyPrice) {
-      Alert.alert('Error', 'Por favor ingresa un precio para todos los productos');
+    const price = parseFloat(bulkPrice);
+    if (isNaN(price)) {
+      Alert.alert('Error', 'Precio inválido');
       return;
     }
 
     try {
-      setSaving(true);
       const supabase = getSupabase();
-
-      for (const item of order.items) {
-        const newUnitPrice = parseFloat(bulkPrices[item.id]) || 0;
-        const newTotalPrice = item.quantity * newUnitPrice;
-
-        const { error } = await supabase
+      
+      for (const item of order.items || []) {
+        await supabase
           .from('order_items')
-          .update({
-            unit_price: newUnitPrice,
-            total_price: newTotalPrice,
-            updated_at: new Date().toISOString(),
-          })
+          .update({ unit_price: price })
           .eq('id', item.id);
-
-        if (error) throw error;
       }
-
-      const { data: items } = await supabase
-        .from('order_items')
-        .select('total_price')
-        .eq('order_id', order.id);
-
-      const newTotal = items?.reduce((sum, item) => sum + (item.total_price || 0), 0) || 0;
-      await supabase
-        .from('orders')
-        .update({
-          total_amount: newTotal,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id);
 
       setShowPriceModal(false);
       await loadOrder();
-      Alert.alert('Éxito', 'Precios aplicados a todos los productos');
+      Alert.alert('Éxito', 'Precio aplicado a todos los productos');
     } catch (error) {
-      console.error('Error applying prices:', error);
-      Alert.alert('Error', 'No se pudieron aplicar los precios');
-    } finally {
-      setSaving(false);
+      console.error('[OrderDetail] Error applying price:', error);
+      Alert.alert('Error', 'No se pudo aplicar el precio');
     }
   };
 
   const handlePrint = async () => {
-    if (!order) {
-      Alert.alert('Error', 'No hay pedido para imprimir');
-      return;
-    }
+    if (!order) return;
 
     if (!isConnected) {
-      Alert.alert(
-        'Impresora no conectada',
-        'No hay una impresora conectada. Por favor conecta una impresora en la configuración.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Ir a Configuración',
-            onPress: () => router.push('/settings/printer'),
-          },
-        ]
-      );
+      Alert.alert('Error', 'No hay impresora conectada');
       return;
     }
 
     try {
-      console.log('[OrderDetail] Starting print...');
-      setPrinting(true);
-      
-      const receipt = generateReceiptText(order);
-      console.log('[OrderDetail] Generated receipt text, length:', receipt.length);
-      console.log('[OrderDetail] Receipt preview:', receipt.substring(0, 200));
-      
+      const receiptText = generateReceiptText(order);
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
       const textSize = printerConfig?.text_size || 'medium';
       const encoding = printerConfig?.encoding || 'CP850';
-      console.log('[OrderDetail] Print settings:', { autoCut, textSize, encoding });
-      
-      await printReceipt(receipt, autoCut, textSize, encoding);
-      console.log('[OrderDetail] Print completed successfully');
-      
-      Alert.alert('Éxito', 'Pedido impreso correctamente');
+
+      await printReceipt(receiptText, autoCut, textSize, encoding);
+      Alert.alert('Éxito', 'Pedido impreso');
     } catch (error) {
-      console.error('[OrderDetail] Error printing:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      Alert.alert(
-        'Error de Impresión', 
-        `No se pudo imprimir el pedido.\n\nDetalles: ${errorMessage}\n\nVerifica que la impresora esté encendida y cerca del dispositivo.`
-      );
-    } finally {
-      setPrinting(false);
+      console.error('[OrderDetail] Print error:', error);
+      Alert.alert('Error', 'No se pudo imprimir el pedido');
     }
   };
 
   const generateReceiptText = (order: Order): string => {
-    const config = printerConfig || {};
-    const paperSize = config.paper_size || '80mm';
-    const useWebhookFormat = config.use_webhook_format ?? true;
-    
-    console.log('[OrderDetail] Generating receipt with config:', {
-      paperSize,
-      useWebhookFormat,
-      textSize: config.text_size,
-      status: order.status,
-      itemCount: order.items?.length || 0,
-    });
-    
-    // Calculate max width based on paper size
-    const maxWidth = paperSize === '58mm' ? 32 : 48;
+    const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
     
     let receipt = '';
-
-    // Header
-    receipt += '\n';
-    receipt += '='.repeat(maxWidth) + '\n';
-    receipt += centerText('TICKET DE PEDIDO', maxWidth) + '\n';
-    receipt += centerText('#' + order.order_number, maxWidth) + '\n';
-    receipt += '='.repeat(maxWidth) + '\n';
-    receipt += '\n';
-
-    // Show order status prominently
-    const statusText = 'ESTADO: ' + getStatusLabel(order.status).toUpperCase();
-    receipt += centerText(statusText, maxWidth) + '\n';
-    receipt += '\n';
-
-    // Customer information
-    if (config.include_customer_info !== false) {
-      receipt += 'Cliente: ' + order.customer_name + '\n';
+    
+    if (printerConfig?.include_logo !== false) {
+      receipt += centerText('PEDIDO', width) + '\n';
+      receipt += '='.repeat(width) + '\n\n';
+    }
+    
+    receipt += `Pedido: ${order.order_number}\n`;
+    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+    receipt += `Fecha: ${formatDate(order.created_at)}\n`;
+    receipt += '-'.repeat(width) + '\n\n';
+    
+    if (printerConfig?.include_customer_info !== false) {
+      receipt += `Cliente: ${order.customer_name}\n`;
       if (order.customer_phone) {
-        receipt += 'Telefono: ' + order.customer_phone + '\n';
+        receipt += `Telefono: ${order.customer_phone}\n`;
       }
       if (order.customer_address) {
-        // Wrap long addresses
-        const addressLines = wrapText('Direccion: ' + order.customer_address, maxWidth);
-        receipt += addressLines + '\n';
+        receipt += `Direccion: ${order.customer_address}\n`;
+      }
+      receipt += '-'.repeat(width) + '\n\n';
+    }
+    
+    receipt += 'PRODUCTOS:\n\n';
+    for (const item of order.items || []) {
+      const unit = getUnitFromNotes(item.notes);
+      const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+      
+      receipt += `${quantityStr} ${item.product_name}\n`;
+      
+      if (item.notes) {
+        const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
+        if (cleanNotes) {
+          receipt += `  ${cleanNotes}\n`;
+        }
+      }
+      
+      if (item.unit_price > 0) {
+        receipt += `  ${formatCLP(item.unit_price * item.quantity)}\n`;
       }
       receipt += '\n';
     }
-
-    // Products section
-    receipt += '-'.repeat(maxWidth) + '\n';
-    receipt += 'PRODUCTOS\n';
-    receipt += '-'.repeat(maxWidth) + '\n';
-    receipt += '\n';
-
-    if (order.items && order.items.length > 0) {
-      order.items.forEach((item, index) => {
-        console.log(`[OrderDetail] Formatting item ${index + 1}/${order.items.length}:`, {
-          name: item.product_name,
-          quantity: item.quantity,
-          price: item.total_price,
-          notes: item.notes,
-        });
-        
-        if (useWebhookFormat) {
-          // Use WhatsApp format: "2 kilos de papas $3000"
-          const unit = getUnitFromNotes(item.notes);
-          const productLine = `${item.quantity} ${unit} de ${item.product_name}`;
-          const priceText = formatCLP(item.total_price);
-          const fullLine = `${productLine} ${priceText}`;
-          
-          // Wrap long lines
-          const wrappedLine = wrapText(fullLine, maxWidth);
-          receipt += wrappedLine + '\n';
-        } else {
-          // Use traditional format
-          const productName = wrapText(item.product_name, maxWidth);
-          receipt += productName + '\n';
-          receipt += `  ${item.quantity} x ${formatCLP(item.unit_price)} = ${formatCLP(item.total_price)}\n`;
-          if (item.notes) {
-            const wrappedNotes = wrapText(`  Nota: ${item.notes}`, maxWidth);
-            receipt += wrappedNotes + '\n';
-          }
+    
+    if (printerConfig?.include_totals !== false) {
+      receipt += '-'.repeat(width) + '\n';
+      const total = order.items?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
+      receipt += `TOTAL: ${formatCLP(total)}\n`;
+      
+      if (order.amount_paid > 0) {
+        receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
+        const pending = total - order.amount_paid;
+        if (pending > 0) {
+          receipt += `Pendiente: ${formatCLP(pending)}\n`;
         }
-        receipt += '\n';
-      });
-    } else {
-      receipt += centerText('Sin productos', maxWidth) + '\n';
-      receipt += '\n';
+      }
     }
-
-    // Total
-    if (config.include_totals !== false) {
-      receipt += '-'.repeat(maxWidth) + '\n';
-      const totalLine = 'TOTAL: ' + formatCLP(order.total_amount);
-      receipt += totalLine + '\n';
-      receipt += '-'.repeat(maxWidth) + '\n';
-      receipt += '\n';
-    }
-
-    // Footer
-    const date = new Date(order.created_at).toLocaleString('es-ES', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    receipt += 'Fecha: ' + date + '\n';
-    receipt += '\n';
-    receipt += '='.repeat(maxWidth) + '\n';
-    receipt += centerText('Gracias por su pedido', maxWidth) + '\n';
-    receipt += '='.repeat(maxWidth) + '\n';
-
-    console.log('[OrderDetail] Generated receipt, total length:', receipt.length);
-    console.log('[OrderDetail] Receipt lines:', receipt.split('\n').length);
+    
+    receipt += '\n' + '='.repeat(width) + '\n';
+    receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
     
     return receipt;
   };
 
   const centerText = (text: string, width: number): string => {
-    if (text.length >= width) return text;
-    const padding = Math.floor((width - text.length) / 2);
+    const padding = Math.max(0, Math.floor((width - text.length) / 2));
     return ' '.repeat(padding) + text;
   };
 
   const wrapText = (text: string, width: number): string => {
-    if (text.length <= width) return text;
-    
     const words = text.split(' ');
     const lines: string[] = [];
     let currentLine = '';
-    
+
     for (const word of words) {
-      const testLine = currentLine ? currentLine + ' ' + word : word;
-      
-      if (testLine.length <= width) {
-        currentLine = testLine;
+      if ((currentLine + word).length <= width) {
+        currentLine += (currentLine ? ' ' : '') + word;
       } else {
-        // If current line has content, push it
-        if (currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          // Word is longer than width, split it
-          if (word.length > width) {
-            let remaining = word;
-            while (remaining.length > width) {
-              lines.push(remaining.substring(0, width));
-              remaining = remaining.substring(width);
-            }
-            currentLine = remaining;
-          } else {
-            currentLine = word;
-          }
-        }
+        if (currentLine) lines.push(currentLine);
+        currentLine = word;
       }
     }
-    
-    if (currentLine) {
-      lines.push(currentLine);
-    }
-    
+    if (currentLine) lines.push(currentLine);
+
     return lines.join('\n');
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsApp = async () => {
     if (!order?.customer_phone) {
-      Alert.alert('Error', 'No hay número de teléfono registrado');
+      Alert.alert('Error', 'No hay número de teléfono');
       return;
     }
 
-    const message = `Hola ${order.customer_name}, tu pedido #${order.order_number} está ${getStatusLabel(order.status).toLowerCase()}.`;
-    const url = `whatsapp://send?phone=${order.customer_phone}&text=${encodeURIComponent(message)}`;
-    Linking.openURL(url).catch(() => {
+    const phone = order.customer_phone.replace(/\D/g, '');
+    const url = `https://wa.me/${phone}`;
+
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      console.error('[OrderDetail] Error opening WhatsApp:', error);
       Alert.alert('Error', 'No se pudo abrir WhatsApp');
-    });
+    }
   };
 
   const handleDelete = () => {
     if (!order) return;
 
     Alert.alert(
-      'Confirmar eliminación',
-      `¿Estás seguro de que quieres eliminar el pedido #${order.order_number}? Esta acción no se puede deshacer.`,
+      'Eliminar Pedido',
+      '¿Estás seguro de eliminar este pedido?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -1065,35 +721,18 @@ export default function OrderDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              setSaving(true);
               const supabase = getSupabase();
-
+              
               await supabase.from('order_items').delete().eq('order_id', order.id);
-
-              const { error } = await supabase.from('orders').delete().eq('id', order.id);
-
-              if (error) throw error;
+              await supabase.from('orders').delete().eq('id', order.id);
 
               await sendOrderDeletedNotification(order.id);
 
-              await createInAppNotification(
-                null,
-                'Pedido eliminado',
-                `El pedido #${order.order_number} ha sido eliminado`,
-                'warning'
-              );
-
-              Alert.alert('Éxito', 'Pedido eliminado correctamente', [
-                {
-                  text: 'OK',
-                  onPress: () => router.back(),
-                },
-              ]);
+              router.back();
+              Alert.alert('Éxito', 'Pedido eliminado');
             } catch (error) {
-              console.error('Error deleting order:', error);
+              console.error('[OrderDetail] Error deleting order:', error);
               Alert.alert('Error', 'No se pudo eliminar el pedido');
-            } finally {
-              setSaving(false);
             }
           },
         },
@@ -1104,7 +743,6 @@ export default function OrderDetailScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Stack.Screen options={{ headerShown: true, title: 'Cargando...' }} />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -1113,375 +751,260 @@ export default function OrderDetailScreen() {
   if (!order) {
     return (
       <View style={styles.loadingContainer}>
-        <Stack.Screen options={{ headerShown: true, title: 'Error' }} />
         <Text style={{ color: colors.text }}>Pedido no encontrado</Text>
       </View>
     );
   }
 
-  const canEditProducts = order.status !== 'delivered' && order.status !== 'cancelled';
-  const availableTransitions = getAvailableStatusTransitions(order.status);
+  const total = order.items?.reduce((sum, item) => sum + item.unit_price * item.quantity, 0) || 0;
+  const pending = total - order.amount_paid;
 
   return (
-    <>
+    <View style={styles.container}>
       <Stack.Screen
         options={{
+          title: 'Detalle del Pedido',
           headerShown: true,
-          title: `Pedido #${order.order_number}`,
-          headerBackTitle: 'Atrás',
-          headerRight: () => (
-            <View style={styles.headerRightContainer}>
-              <TouchableOpacity onPress={handlePrint} disabled={printing || !isConnected}>
-                {printing ? (
-                  <ActivityIndicator size="small" color={colors.primary} />
-                ) : (
-                  <IconSymbol
-                    name="printer.fill"
-                    size={24}
-                    color={isConnected ? colors.primary : colors.textSecondary}
-                  />
-                )}
-              </TouchableOpacity>
-            </View>
-          ),
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#fff',
         }}
       />
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.content}>
         <View style={styles.section}>
+          <Text style={styles.orderNumber}>{order.order_number}</Text>
+          <Text style={styles.orderDate}>📅 {formatDate(order.created_at)}</Text>
+          
           <Text style={styles.sectionTitle}>Estado</Text>
-          <View style={styles.card}>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}>
-              <Text style={styles.statusText}>{getStatusLabel(order.status)}</Text>
-            </View>
-
-            {availableTransitions.length > 0 && (
-              <View style={styles.statusButtonsContainer}>
-                {availableTransitions.map((status) => (
-                  <TouchableOpacity
-                    key={status}
-                    style={styles.statusButton}
-                    onPress={() => updateStatus(status)}
-                    disabled={saving}
-                  >
-                    <IconSymbol
-                      name="arrow.right.circle.fill"
-                      size={16}
-                      color={getStatusColor(status)}
-                    />
-                    <Text style={[styles.statusButtonText, { color: getStatusColor(status) }]}>
-                      {getStatusLabel(status)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+          <View style={styles.statusContainer}>
+            {getAvailableStatusTransitions(order.status).map((status) => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.statusButton,
+                  { borderColor: getStatusColor(status) },
+                ]}
+                onPress={() => updateStatus(status)}
+              >
+                <Text
+                  style={[
+                    styles.statusButtonText,
+                    { color: getStatusColor(status) },
+                  ]}
+                >
+                  {getStatusLabel(status)}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Información del Cliente</Text>
-            <TouchableOpacity onPress={() => setEditingCustomer(!editingCustomer)}>
-              <IconSymbol
-                name={editingCustomer ? 'xmark.circle.fill' : 'pencil.circle.fill'}
-                size={24}
-                color={colors.primary}
+          <Text style={styles.sectionTitle}>Cliente</Text>
+          {editingCustomer ? (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Nombre"
+                value={customerName}
+                onChangeText={setCustomerName}
               />
+              <TextInput
+                style={styles.input}
+                placeholder="Teléfono"
+                value={customerPhone}
+                onChangeText={setCustomerPhone}
+                keyboardType="phone-pad"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Dirección"
+                value={customerAddress}
+                onChangeText={setCustomerAddress}
+              />
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={updateCustomerInfo}
+              >
+                <Text style={styles.addButtonText}>Guardar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.productName}>{order.customer_name}</Text>
+              {order.customer_phone && (
+                <Text style={styles.productDetails}>📞 {order.customer_phone}</Text>
+              )}
+              {order.customer_address && (
+                <Text style={styles.productDetails}>📍 {order.customer_address}</Text>
+              )}
+              <TouchableOpacity
+                style={[styles.addButton, { marginTop: 12 }]}
+                onPress={() => setEditingCustomer(true)}
+              >
+                <Text style={styles.addButtonText}>Editar</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.sectionTitle}>Productos</Text>
+            <TouchableOpacity onPress={openPriceModal}>
+              <IconSymbol name="dollarsign.circle" size={24} color={colors.primary} />
             </TouchableOpacity>
           </View>
-          <View style={styles.card}>
-            {editingCustomer ? (
-              <>
-                <TextInput
-                  style={styles.input}
-                  value={customerName}
-                  onChangeText={setCustomerName}
-                  placeholder="Nombre del cliente"
-                  placeholderTextColor={colors.textSecondary}
-                />
-                <TextInput
-                  style={styles.input}
-                  value={customerPhone}
-                  onChangeText={setCustomerPhone}
-                  placeholder="Teléfono"
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="phone-pad"
-                />
-                <TextInput
-                  style={styles.input}
-                  value={customerAddress}
-                  onChangeText={setCustomerAddress}
-                  placeholder="Dirección"
-                  placeholderTextColor={colors.textSecondary}
-                  multiline
-                />
+
+          {order.items?.map((item, index) => (
+            <View
+              key={item.id}
+              style={[
+                styles.productItem,
+                index === (order.items?.length || 0) - 1 && styles.productItemLast,
+              ]}
+            >
+              <View style={styles.productInfo}>
+                <Text style={styles.productName}>{formatProductDisplay(item)}</Text>
+                {item.notes && (
+                  <Text style={styles.productDetails}>{item.notes}</Text>
+                )}
+                {item.unit_price > 0 && (
+                  <Text style={styles.productDetails}>
+                    {formatCLP(item.unit_price * item.quantity)}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.productActions}>
                 <TouchableOpacity
-                  style={[styles.actionButton, saving && styles.buttonDisabled]}
-                  onPress={updateCustomerInfo}
-                  disabled={saving}
+                  style={styles.iconButton}
+                  onPress={() => startEditingProduct(item)}
                 >
-                  {saving ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <IconSymbol name="checkmark.circle.fill" size={20} color="#FFFFFF" />
-                      <Text style={styles.actionButtonText}>Guardar</Text>
-                    </>
-                  )}
+                  <IconSymbol name="pencil" size={20} color={colors.primary} />
                 </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <View style={styles.infoRow}>
-                  <IconSymbol name="person.fill" size={20} color={colors.primary} />
-                  <Text style={styles.infoLabel}>Nombre:</Text>
-                  <Text style={styles.infoValue}>{order.customer_name}</Text>
-                </View>
-                {order.customer_phone && (
-                  <View style={styles.infoRow}>
-                    <IconSymbol name="phone.fill" size={20} color={colors.success} />
-                    <Text style={styles.infoLabel}>Teléfono:</Text>
-                    <Text style={styles.infoValue}>{order.customer_phone}</Text>
-                  </View>
-                )}
-                {order.customer_address && (
-                  <View style={styles.infoRow}>
-                    <IconSymbol name="location.fill" size={20} color={colors.error} />
-                    <Text style={styles.infoLabel}>Dirección:</Text>
-                    <Text style={styles.infoValue}>{order.customer_address}</Text>
-                  </View>
-                )}
-              </>
-            )}
-          </View>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => deleteProduct(item.id)}
+                >
+                  <IconSymbol name="trash" size={20} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+
+          {editingProduct ? (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Nombre del producto"
+                value={productName}
+                onChangeText={setProductName}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Cantidad"
+                value={productQuantity}
+                onChangeText={setProductQuantity}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Precio unitario"
+                value={productPrice}
+                onChangeText={setProductPrice}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Notas"
+                value={productNotes}
+                onChangeText={setProductNotes}
+              />
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => updateProduct(editingProduct.id)}
+              >
+                <Text style={styles.addButtonText}>Actualizar Producto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.addButton, styles.actionButtonSecondary]}
+                onPress={() => setEditingProduct(null)}
+              >
+                <Text style={styles.addButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TextInput
+                style={styles.input}
+                placeholder="Nombre del producto"
+                value={productName}
+                onChangeText={setProductName}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Cantidad"
+                value={productQuantity}
+                onChangeText={setProductQuantity}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Precio unitario"
+                value={productPrice}
+                onChangeText={setProductPrice}
+                keyboardType="numeric"
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Notas"
+                value={productNotes}
+                onChangeText={setProductNotes}
+              />
+              <TouchableOpacity style={styles.addButton} onPress={addProduct}>
+                <Text style={styles.addButtonText}>Agregar Producto</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Productos</Text>
-            {canEditProducts && (
-              <TouchableOpacity onPress={() => setShowAddProductModal(true)}>
-                <IconSymbol name="plus.circle.fill" size={28} color={colors.success} />
-              </TouchableOpacity>
-            )}
+          <Text style={styles.sectionTitle}>Totales</Text>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Subtotal:</Text>
+            <Text style={styles.totalValue}>{formatCLP(total)}</Text>
           </View>
-          <View style={styles.card}>
-            {order.items && order.items.length > 0 ? (
-              <>
-                {order.items.map((item) => (
-                  <View key={item.id}>
-                    {editingItem?.id === item.id ? (
-                      <View style={styles.itemCard}>
-                        <TextInput
-                          style={styles.input}
-                          value={editItemName}
-                          onChangeText={setEditItemName}
-                          placeholder="Nombre del producto"
-                          placeholderTextColor={colors.textSecondary}
-                        />
-                        <TextInput
-                          style={styles.input}
-                          value={editItemQuantity}
-                          onChangeText={setEditItemQuantity}
-                          placeholder="Cantidad"
-                          placeholderTextColor={colors.textSecondary}
-                          keyboardType="numeric"
-                        />
-                        <TextInput
-                          style={styles.input}
-                          value={editItemPrice}
-                          onChangeText={setEditItemPrice}
-                          placeholder="Precio unitario"
-                          placeholderTextColor={colors.textSecondary}
-                          keyboardType="numeric"
-                        />
-                        <TextInput
-                          style={styles.input}
-                          value={editItemNotes}
-                          onChangeText={setEditItemNotes}
-                          placeholder="Notas (opcional)"
-                          placeholderTextColor={colors.textSecondary}
-                          multiline
-                        />
-                        <View style={styles.itemActions}>
-                          <TouchableOpacity
-                            style={[styles.itemActionButton, { borderColor: colors.success }]}
-                            onPress={() => updateProduct(item.id)}
-                            disabled={saving}
-                          >
-                            <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
-                            <Text style={[styles.itemActionButtonText, { color: colors.success }]}>
-                              Guardar
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.itemActionButton, { borderColor: colors.error }]}
-                            onPress={() => setEditingItem(null)}
-                          >
-                            <IconSymbol name="xmark.circle.fill" size={16} color={colors.error} />
-                            <Text style={[styles.itemActionButtonText, { color: colors.error }]}>
-                              Cancelar
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={styles.itemCard}>
-                        <View style={styles.itemHeader}>
-                          <Text style={styles.itemName}>{formatProductDisplay(item)}</Text>
-                          <Text style={styles.itemPrice}>{formatCLP(item.total_price)}</Text>
-                        </View>
-                        <View style={styles.itemDetails}>
-                          <Text style={styles.itemQuantity}>
-                            Precio unitario: {formatCLP(item.unit_price)}
-                          </Text>
-                        </View>
-                        {item.notes && <Text style={styles.itemNotes}>{item.notes}</Text>}
-                        {canEditProducts && (
-                          <View style={styles.itemActions}>
-                            <TouchableOpacity
-                              style={[styles.itemActionButton, { borderColor: colors.primary }]}
-                              onPress={() => startEditingProduct(item)}
-                            >
-                              <IconSymbol name="pencil" size={16} color={colors.primary} />
-                              <Text style={[styles.itemActionButtonText, { color: colors.primary }]}>
-                                Editar
-                              </Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={[styles.itemActionButton, { borderColor: colors.error }]}
-                              onPress={() => deleteProduct(item.id)}
-                            >
-                              <IconSymbol name="trash" size={16} color={colors.error} />
-                              <Text style={[styles.itemActionButtonText, { color: colors.error }]}>
-                                Eliminar
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                ))}
-
-                {canEditProducts && order.items.length > 0 && (
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.applyPriceButton, { marginTop: 12 }]}
-                    onPress={openPriceModal}
-                    disabled={saving}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                      <>
-                        <IconSymbol name="dollarsign.circle.fill" size={20} color="#FFFFFF" />
-                        <Text style={styles.actionButtonText}>Aplicar Precio a Todos</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </>
-            ) : (
-              <Text style={{ color: colors.textSecondary, textAlign: 'center', padding: 16 }}>
-                No hay productos en este pedido
-              </Text>
-            )}
-
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total:</Text>
-              <Text style={styles.totalValue}>{formatCLP(order.total_amount)}</Text>
-            </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Pagado:</Text>
+            <Text style={styles.totalValue}>{formatCLP(order.amount_paid)}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Pendiente:</Text>
+            <Text style={[styles.totalValue, styles.totalFinal]}>
+              {formatCLP(pending)}
+            </Text>
           </View>
         </View>
+
+        <TouchableOpacity style={styles.actionButton} onPress={handlePrint}>
+          <Text style={styles.actionButtonText}>Imprimir Pedido</Text>
+        </TouchableOpacity>
 
         {order.customer_phone && (
           <TouchableOpacity
-            style={[styles.actionButton, styles.whatsappButton]}
+            style={[styles.actionButton, styles.actionButtonSecondary]}
             onPress={handleWhatsApp}
           >
-            <IconSymbol name="message.fill" size={20} color="#FFFFFF" />
             <Text style={styles.actionButtonText}>Enviar WhatsApp</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
+          style={[styles.actionButton, styles.actionButtonDanger]}
           onPress={handleDelete}
-          disabled={saving}
         >
-          {saving ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <IconSymbol name="trash.fill" size={20} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Eliminar Pedido</Text>
-            </>
-          )}
+          <Text style={styles.actionButtonText}>Eliminar Pedido</Text>
         </TouchableOpacity>
       </ScrollView>
-
-      <Modal
-        visible={showAddProductModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowAddProductModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Agregar Producto</Text>
-            <TextInput
-              style={styles.input}
-              value={newProductName}
-              onChangeText={setNewProductName}
-              placeholder="Nombre del producto"
-              placeholderTextColor={colors.textSecondary}
-            />
-            <TextInput
-              style={styles.input}
-              value={newProductQuantity}
-              onChangeText={setNewProductQuantity}
-              placeholder="Cantidad"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              value={newProductPrice}
-              onChangeText={setNewProductPrice}
-              placeholder="Precio unitario"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              value={newProductNotes}
-              onChangeText={setNewProductNotes}
-              placeholder="Notas (opcional)"
-              placeholderTextColor={colors.textSecondary}
-              multiline
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setShowAddProductModal(false)}
-              >
-                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={addProduct}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Agregar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showPriceModal}
@@ -1492,51 +1015,32 @@ export default function OrderDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Aplicar Precio a Todos</Text>
-            <Text style={{ color: colors.textSecondary, marginBottom: 16, fontSize: 14 }}>
-              Ingresa el precio unitario para cada producto:
-            </Text>
-            <ScrollView style={styles.priceModalScrollView}>
-              {order?.items?.map((item) => (
-                <View key={item.id} style={styles.priceModalItem}>
-                  <Text style={styles.priceModalItemName}>{formatProductDisplay(item)}</Text>
-                  <TextInput
-                    style={styles.priceModalInput}
-                    value={bulkPrices[item.id] || ''}
-                    onChangeText={(text) => {
-                      setBulkPrices((prev) => ({
-                        ...prev,
-                        [item.id]: text,
-                      }));
-                    }}
-                    placeholder="Precio unitario"
-                    placeholderTextColor={colors.textSecondary}
-                    keyboardType="numeric"
-                  />
-                </View>
-              ))}
-            </ScrollView>
+            <TextInput
+              style={styles.input}
+              placeholder="Precio"
+              value={bulkPrice}
+              onChangeText={setBulkPrice}
+              keyboardType="numeric"
+            />
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => setShowPriceModal(false)}
               >
-                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancelar</Text>
+                <Text style={styles.modalButtonText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
                 onPress={applyPriceToAll}
-                disabled={saving}
               >
-                {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Aplicar</Text>
-                )}
+                <Text style={[styles.modalButtonText, { color: '#fff' }]}>
+                  Aplicar
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 }
