@@ -1,0 +1,331 @@
+
+import * as TaskManager from 'expo-task-manager';
+import * as BackgroundFetch from 'expo-background-fetch';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import { getSupabase } from '@/lib/supabase';
+
+export const BACKGROUND_AUTO_PRINT_TASK = 'BACKGROUND-AUTO-PRINT-TASK';
+const PRINTER_CONFIG_KEY = '@printer_config';
+const LAST_CHECKED_ORDER_KEY = '@last_checked_order_id';
+const PRINTED_ORDERS_KEY = '@printed_orders';
+
+type TextSize = 'small' | 'medium' | 'large';
+type PaperSize = '58mm' | '80mm';
+type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
+
+interface PrinterConfig {
+  auto_print_enabled?: boolean;
+  auto_cut_enabled?: boolean;
+  text_size?: TextSize;
+  paper_size?: PaperSize;
+  include_logo?: boolean;
+  include_customer_info?: boolean;
+  include_totals?: boolean;
+  use_webhook_format?: boolean;
+  encoding?: Encoding;
+}
+
+interface Order {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_phone?: string;
+  customer_address?: string;
+  status: string;
+  created_at: string;
+  amount_paid: number;
+  items?: Array<{
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    notes?: string;
+  }>;
+}
+
+/**
+ * Generate receipt text for an order
+ */
+function generateReceiptText(order: Order, printerConfig: PrinterConfig): string {
+  const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
+  
+  let receipt = '';
+  
+  // Header
+  if (printerConfig?.include_logo !== false) {
+    receipt += centerText('PEDIDO', width) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+  }
+  
+  // Order info
+  receipt += `Pedido: ${order.order_number}\n`;
+  receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+  receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-CL')}\n`;
+  receipt += '-'.repeat(width) + '\n\n';
+  
+  // Customer info
+  if (printerConfig?.include_customer_info !== false) {
+    receipt += `Cliente: ${order.customer_name}\n`;
+    if (order.customer_phone) {
+      receipt += `Telefono: ${order.customer_phone}\n`;
+    }
+    if (order.customer_address) {
+      receipt += `Direccion: ${order.customer_address}\n`;
+    }
+    receipt += '-'.repeat(width) + '\n\n';
+  }
+  
+  // Items
+  receipt += 'PRODUCTOS:\n\n';
+  for (const item of order.items || []) {
+    const unit = getUnitFromNotes(item.notes);
+    const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+    
+    receipt += `${quantityStr} ${item.product_name}\n`;
+    
+    if (item.notes) {
+      const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
+      if (cleanNotes) {
+        receipt += `  ${cleanNotes}\n`;
+      }
+    }
+    
+    if (item.unit_price > 0) {
+      receipt += `  ${formatCLP(item.unit_price * item.quantity)}\n`;
+    }
+    receipt += '\n';
+  }
+  
+  // Totals
+  if (printerConfig?.include_totals !== false) {
+    receipt += '-'.repeat(width) + '\n';
+    const total = order.items?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
+    receipt += `TOTAL: ${formatCLP(total)}\n`;
+    
+    if (order.amount_paid > 0) {
+      receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
+      const pending = total - order.amount_paid;
+      if (pending > 0) {
+        receipt += `Pendiente: ${formatCLP(pending)}\n`;
+      }
+    }
+  }
+  
+  receipt += '\n' + '='.repeat(width) + '\n';
+  receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
+  
+  return receipt;
+}
+
+function centerText(text: string, width: number): string {
+  const padding = Math.max(0, Math.floor((width - text.length) / 2));
+  return ' '.repeat(padding) + text;
+}
+
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'preparing':
+      return 'Preparando';
+    case 'ready':
+      return 'Listo';
+    case 'delivered':
+      return 'Entregado';
+    case 'cancelled':
+      return 'Cancelado';
+    default:
+      return status;
+  }
+}
+
+function formatCLP(amount: number): string {
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+  }).format(amount);
+}
+
+function getUnitFromNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  const lowerNotes = notes.toLowerCase();
+  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
+  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
+  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
+  if (lowerNotes.includes('ml')) return 'ml';
+  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
+  return '';
+}
+
+/**
+ * Define the background auto-print task
+ * This task runs periodically to check for new orders and print them
+ */
+TaskManager.defineTask(BACKGROUND_AUTO_PRINT_TASK, async () => {
+  console.log('[BackgroundAutoPrint] Task triggered');
+  
+  try {
+    // Load printer configuration
+    const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+    if (!configStr) {
+      console.log('[BackgroundAutoPrint] No printer config found');
+      return BackgroundFetch.BackgroundFetchResult.NoData;
+    }
+    
+    const printerConfig: PrinterConfig = JSON.parse(configStr);
+    
+    // Check if auto-print is enabled
+    if (!printerConfig.auto_print_enabled) {
+      console.log('[BackgroundAutoPrint] Auto-print is disabled');
+      return BackgroundFetch.BackgroundFetchResult.NoData;
+    }
+    
+    // Get the last checked order ID
+    const lastCheckedOrderId = await AsyncStorage.getItem(LAST_CHECKED_ORDER_KEY);
+    
+    // Get printed orders set
+    const printedOrdersStr = await AsyncStorage.getItem(PRINTED_ORDERS_KEY);
+    const printedOrders = printedOrdersStr ? JSON.parse(printedOrdersStr) : [];
+    
+    // Query for new pending orders
+    const supabase = getSupabase();
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select('*, items:order_items(*)')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    
+    if (error) {
+      console.error('[BackgroundAutoPrint] Error fetching orders:', error);
+      return BackgroundFetch.BackgroundFetchResult.Failed;
+    }
+    
+    if (!orders || orders.length === 0) {
+      console.log('[BackgroundAutoPrint] No pending orders found');
+      return BackgroundFetch.BackgroundFetchResult.NoData;
+    }
+    
+    console.log(`[BackgroundAutoPrint] Found ${orders.length} pending orders`);
+    
+    // Filter out already printed orders
+    const newOrders = orders.filter(order => !printedOrders.includes(order.id));
+    
+    if (newOrders.length === 0) {
+      console.log('[BackgroundAutoPrint] No new orders to print');
+      return BackgroundFetch.BackgroundFetchResult.NoData;
+    }
+    
+    console.log(`[BackgroundAutoPrint] Found ${newOrders.length} new orders to print`);
+    
+    // Import the printer hook dynamically
+    // Note: In a background task, we need to use the printer directly
+    // This is a simplified version - in production, you'd need to handle Bluetooth in background
+    
+    // For now, we'll store the orders that need printing and let the foreground app handle it
+    // This is because Bluetooth operations in background are restricted on mobile platforms
+    const ordersToPrint = newOrders.map(order => order.id);
+    await AsyncStorage.setItem('@orders_to_print', JSON.stringify(ordersToPrint));
+    
+    // Update the last checked order
+    if (orders.length > 0) {
+      await AsyncStorage.setItem(LAST_CHECKED_ORDER_KEY, orders[0].id);
+    }
+    
+    console.log('[BackgroundAutoPrint] Task completed successfully');
+    return BackgroundFetch.BackgroundFetchResult.NewData;
+  } catch (error) {
+    console.error('[BackgroundAutoPrint] Task error:', error);
+    return BackgroundFetch.BackgroundFetchResult.Failed;
+  }
+});
+
+/**
+ * Register the background auto-print task
+ * This should be called when auto-print is enabled
+ */
+export async function registerBackgroundAutoPrintTask() {
+  if (Platform.OS === 'web') {
+    console.log('[BackgroundAutoPrint] Not supported on web');
+    return;
+  }
+
+  try {
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_AUTO_PRINT_TASK);
+    
+    if (!isRegistered) {
+      console.log('[BackgroundAutoPrint] Registering background task...');
+      
+      await BackgroundFetch.registerTaskAsync(BACKGROUND_AUTO_PRINT_TASK, {
+        minimumInterval: 60, // Check every 60 seconds (minimum allowed)
+        stopOnTerminate: false, // Continue running after app is closed
+        startOnBoot: true, // Start when device boots
+      });
+      
+      console.log('[BackgroundAutoPrint] Background task registered successfully');
+    } else {
+      console.log('[BackgroundAutoPrint] Background task already registered');
+    }
+  } catch (error) {
+    console.error('[BackgroundAutoPrint] Error registering background task:', error);
+    throw error;
+  }
+}
+
+/**
+ * Unregister the background auto-print task
+ * This should be called when auto-print is disabled
+ */
+export async function unregisterBackgroundAutoPrintTask() {
+  if (Platform.OS === 'web') {
+    return;
+  }
+
+  try {
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_AUTO_PRINT_TASK);
+    
+    if (isRegistered) {
+      console.log('[BackgroundAutoPrint] Unregistering background task...');
+      await BackgroundFetch.unregisterTaskAsync(BACKGROUND_AUTO_PRINT_TASK);
+      console.log('[BackgroundAutoPrint] Background task unregistered successfully');
+    }
+  } catch (error) {
+    console.error('[BackgroundAutoPrint] Error unregistering background task:', error);
+  }
+}
+
+/**
+ * Check the status of the background task
+ */
+export async function getBackgroundTaskStatus() {
+  if (Platform.OS === 'web') {
+    return null;
+  }
+
+  try {
+    const status = await BackgroundFetch.getStatusAsync();
+    const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_AUTO_PRINT_TASK);
+    
+    return {
+      status,
+      isRegistered,
+      statusText: getStatusText(status),
+    };
+  } catch (error) {
+    console.error('[BackgroundAutoPrint] Error getting task status:', error);
+    return null;
+  }
+}
+
+function getStatusText(status: BackgroundFetch.BackgroundFetchStatus): string {
+  switch (status) {
+    case BackgroundFetch.BackgroundFetchStatus.Available:
+      return 'Disponible';
+    case BackgroundFetch.BackgroundFetchStatus.Denied:
+      return 'Denegado';
+    case BackgroundFetch.BackgroundFetchStatus.Restricted:
+      return 'Restringido';
+    default:
+      return 'Desconocido';
+  }
+}

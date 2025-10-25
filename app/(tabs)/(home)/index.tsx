@@ -6,6 +6,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Stack, router } from 'expo-router';
 import { usePrinter } from '@/hooks/usePrinter';
+import { useKeepAwake } from 'expo-keep-awake';
 import {
   View,
   Text,
@@ -25,6 +26,10 @@ import {
   checkNotificationPermissions,
   requestNotificationPermissions 
 } from '@/utils/pushNotifications';
+import { 
+  registerBackgroundAutoPrintTask, 
+  unregisterBackgroundAutoPrintTask 
+} from '@/utils/backgroundAutoPrintTask';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
@@ -53,6 +58,7 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 const POLLING_INTERVAL = 20000; // 20 seconds
+const ORDERS_TO_PRINT_KEY = '@orders_to_print';
 
 const styles = StyleSheet.create({
   container: {
@@ -289,6 +295,12 @@ export default function HomeScreen() {
 
   const { isConnected, printReceipt } = usePrinter();
 
+  // Keep the device awake when auto-print is enabled
+  const shouldKeepAwake = printerConfig?.auto_print_enabled && isConnected;
+  if (shouldKeepAwake) {
+    useKeepAwake();
+  }
+
   // Load printer configuration
   const loadPrinterConfig = useCallback(async () => {
     try {
@@ -309,6 +321,29 @@ export default function HomeScreen() {
   useEffect(() => {
     loadPrinterConfig();
   }, [loadPrinterConfig]);
+
+  // Register/unregister background task based on auto-print setting
+  useEffect(() => {
+    const manageBackgroundTask = async () => {
+      if (printerConfig?.auto_print_enabled && isConnected) {
+        console.log('[HomeScreen] Registering background auto-print task');
+        try {
+          await registerBackgroundAutoPrintTask();
+        } catch (error) {
+          console.error('[HomeScreen] Error registering background task:', error);
+        }
+      } else {
+        console.log('[HomeScreen] Unregistering background auto-print task');
+        try {
+          await unregisterBackgroundAutoPrintTask();
+        } catch (error) {
+          console.error('[HomeScreen] Error unregistering background task:', error);
+        }
+      }
+    };
+
+    manageBackgroundTask();
+  }, [printerConfig?.auto_print_enabled, isConnected]);
 
   // Setup notification permissions and handlers
   useEffect(() => {
@@ -360,7 +395,47 @@ export default function HomeScreen() {
     };
   }, [isAuthenticated, user]);
 
-  // Auto-print new orders
+  // Check for orders that need printing (from background task)
+  useEffect(() => {
+    const checkOrdersToPrint = async () => {
+      try {
+        const ordersToPrintStr = await AsyncStorage.getItem(ORDERS_TO_PRINT_KEY);
+        if (ordersToPrintStr) {
+          const ordersToPrint: string[] = JSON.parse(ordersToPrintStr);
+          console.log('[HomeScreen] Found orders to print from background:', ordersToPrint);
+          
+          // Clear the list
+          await AsyncStorage.removeItem(ORDERS_TO_PRINT_KEY);
+          
+          // Print each order
+          for (const orderId of ordersToPrint) {
+            const order = orders.find(o => o.id === orderId);
+            if (order && !printedOrderIds.has(orderId)) {
+              console.log('[HomeScreen] Printing order from background queue:', order.order_number);
+              try {
+                const receiptText = generateReceiptText(order);
+                const autoCut = printerConfig?.auto_cut_enabled ?? true;
+                const textSize = printerConfig?.text_size || 'medium';
+                const encoding = printerConfig?.encoding || 'CP850';
+                await printReceipt(receiptText, autoCut, textSize, encoding);
+                setPrintedOrderIds(prev => new Set(prev).add(orderId));
+              } catch (error) {
+                console.error('[HomeScreen] Error printing order from background queue:', error);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[HomeScreen] Error checking orders to print:', error);
+      }
+    };
+
+    if (printerConfig?.auto_print_enabled && isConnected && orders.length > 0) {
+      checkOrdersToPrint();
+    }
+  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt]);
+
+  // Auto-print new orders (foreground)
   useEffect(() => {
     if (!printerConfig?.auto_print_enabled || !isConnected) {
       console.log('[HomeScreen] Auto-print disabled or printer not connected', {
@@ -565,7 +640,7 @@ export default function HomeScreen() {
           />
           <Text style={styles.autoPrintBannerText}>
             {autoPrintWorking
-              ? 'Auto-impresión activa'
+              ? 'Auto-impresión activa (funciona en segundo plano)'
               : isConnected
               ? 'Auto-impresión desactivada'
               : 'Impresora no conectada'}

@@ -1,8 +1,8 @@
 
+import React, { useState, useEffect, useCallback } from 'react';
+import { usePrinter } from '@/hooks/usePrinter';
+import { useAuth } from '@/contexts/AuthContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Stack } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
 import {
   View,
   Text,
@@ -13,9 +13,14 @@ import {
   ActivityIndicator,
   Switch,
 } from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { usePrinter } from '@/hooks/usePrinter';
-import React, { useState, useEffect, useCallback } from 'react';
+import { Stack } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
+import { colors } from '@/styles/commonStyles';
+import { 
+  registerBackgroundAutoPrintTask, 
+  unregisterBackgroundAutoPrintTask,
+  getBackgroundTaskStatus 
+} from '@/utils/backgroundAutoPrintTask';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
@@ -23,27 +28,11 @@ type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
-const ENCODING_OPTIONS: { value: Encoding; label: string; description: string }[] = [
-  { 
-    value: 'CP850', 
-    label: 'CP850 (Recomendado)', 
-    description: 'Estándar para impresoras térmicas, soporta español' 
-  },
-  { 
-    value: 'UTF-8', 
-    label: 'UTF-8', 
-    description: 'Unicode estándar, puede no funcionar en todas las impresoras' 
-  },
-  { 
-    value: 'ISO-8859-1', 
-    label: 'ISO-8859-1 (Latin-1)', 
-    description: 'Codificación europea occidental' 
-  },
-  { 
-    value: 'Windows-1252', 
-    label: 'Windows-1252', 
-    description: 'Codificación Windows para español' 
-  },
+const ENCODING_OPTIONS: { label: string; value: Encoding }[] = [
+  { label: 'CP850 (Recomendado para español)', value: 'CP850' },
+  { label: 'UTF-8', value: 'UTF-8' },
+  { label: 'ISO-8859-1 (Latin-1)', value: 'ISO-8859-1' },
+  { label: 'Windows-1252', value: 'Windows-1252' },
 ];
 
 const styles = StyleSheet.create({
@@ -55,22 +44,16 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 12,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-  },
-  card: {
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 12,
   },
   settingRow: {
     flexDirection: 'row',
@@ -88,187 +71,144 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
   },
-  settingDescription: {
-    fontSize: 12,
+  settingValue: {
+    fontSize: 16,
     color: colors.textSecondary,
-    marginTop: 4,
+    marginRight: 8,
+  },
+  deviceItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  deviceItemLast: {
+    borderBottomWidth: 0,
+  },
+  deviceName: {
+    fontSize: 16,
+    color: colors.text,
+    flex: 1,
+  },
+  connectedBadge: {
+    backgroundColor: colors.success,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 8,
+  },
+  connectedText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
   button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: colors.primary,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
   },
   buttonSecondary: {
-    backgroundColor: colors.info,
+    backgroundColor: colors.secondary,
   },
   buttonDanger: {
     backgroundColor: colors.error,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  statusCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginLeft: 8,
-    flex: 1,
-  },
-  statusValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  deviceCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  deviceName: {
+  buttonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text,
   },
-  deviceId: {
-    fontSize: 12,
+  emptyText: {
+    fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 4,
+    textAlign: 'center',
+    paddingVertical: 16,
   },
-  connectButton: {
-    backgroundColor: colors.success,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  loadingContainer: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 8,
+    marginTop: 8,
   },
-  connectButtonText: {
+  statusBadgeSuccess: {
+    backgroundColor: '#10B981',
+  },
+  statusBadgeWarning: {
+    backgroundColor: '#F59E0B',
+  },
+  statusBadgeError: {
+    backgroundColor: '#EF4444',
+  },
+  statusText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
   },
-  sizeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: 8,
-  },
-  sizeButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  sizeButtonText: {
+  infoText: {
     fontSize: 14,
-    color: colors.text,
-  },
-  sizeButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  sizeButtonsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  encodingOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 8,
-    backgroundColor: colors.background,
-  },
-  encodingOptionActive: {
-    borderColor: colors.primary,
-    borderWidth: 2,
-    backgroundColor: colors.primary + '10',
-  },
-  encodingOptionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  encodingOptionDescription: {
-    fontSize: 12,
     color: colors.textSecondary,
+    marginTop: 8,
+    lineHeight: 20,
   },
 });
 
 export default function PrinterSettingsScreen() {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const {
+    availableDevices,
+    connectedDevice,
+    isScanning,
+    isConnected,
+    scan,
+    stopScan,
+    connect,
+    disconnect,
+    testPrint,
+  } = usePrinter();
+
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(true);
   const [textSize, setTextSize] = useState<TextSize>('medium');
   const [paperSize, setPaperSize] = useState<PaperSize>('80mm');
+  const [encoding, setEncoding] = useState<Encoding>('CP850');
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeCustomerInfo, setIncludeCustomerInfo] = useState(true);
   const [includeTotals, setIncludeTotals] = useState(true);
-  const [useWebhookFormat, setUseWebhookFormat] = useState(true);
-  const [encoding, setEncoding] = useState<Encoding>('CP850');
-
-  const {
-    isConnected,
-    connectedDevice,
-    devices,
-    connectToDevice,
-    disconnectDevice,
-    scanForDevices,
-    printReceipt,
-  } = usePrinter();
+  const [loading, setLoading] = useState(false);
+  const [backgroundTaskStatus, setBackgroundTaskStatus] = useState<any>(null);
 
   const loadConfig = useCallback(async () => {
     try {
-      setLoading(true);
-      console.log('[PrinterSettings] Loading config from AsyncStorage...');
-      const savedConfig = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
-      
-      if (savedConfig) {
-        const config = JSON.parse(savedConfig);
-        console.log('[PrinterSettings] Loaded config:', config);
+      console.log('[PrinterSettings] Loading config...');
+      const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        console.log('[PrinterSettings] Config loaded:', config);
         setAutoPrintEnabled(config.auto_print_enabled ?? false);
         setAutoCutEnabled(config.auto_cut_enabled ?? true);
         setTextSize(config.text_size || 'medium');
         setPaperSize(config.paper_size || '80mm');
+        setEncoding(config.encoding || 'CP850');
         setIncludeLogo(config.include_logo ?? true);
         setIncludeCustomerInfo(config.include_customer_info ?? true);
         setIncludeTotals(config.include_totals ?? true);
-        setUseWebhookFormat(config.use_webhook_format ?? true);
-        setEncoding(config.encoding || 'CP850');
-      } else {
-        console.log('[PrinterSettings] No saved config found, using defaults');
       }
+      
+      // Load background task status
+      const status = await getBackgroundTaskStatus();
+      setBackgroundTaskStatus(status);
+      console.log('[PrinterSettings] Background task status:', status);
     } catch (error) {
       console.error('[PrinterSettings] Error loading config:', error);
-      Alert.alert('Error', 'No se pudo cargar la configuración');
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -278,87 +218,51 @@ export default function PrinterSettingsScreen() {
 
   const handleSaveConfig = async () => {
     try {
-      setSaving(true);
+      setLoading(true);
       const config = {
         auto_print_enabled: autoPrintEnabled,
         auto_cut_enabled: autoCutEnabled,
         text_size: textSize,
         paper_size: paperSize,
+        encoding: encoding,
         include_logo: includeLogo,
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
-        use_webhook_format: useWebhookFormat,
-        encoding: encoding,
       };
       
       console.log('[PrinterSettings] Saving config:', config);
       await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
-      console.log('[PrinterSettings] Config saved successfully');
+      
+      // Register or unregister background task based on auto-print setting
+      if (autoPrintEnabled && isConnected) {
+        console.log('[PrinterSettings] Registering background task');
+        await registerBackgroundAutoPrintTask();
+      } else {
+        console.log('[PrinterSettings] Unregistering background task');
+        await unregisterBackgroundAutoPrintTask();
+      }
+      
+      // Reload status
+      const status = await getBackgroundTaskStatus();
+      setBackgroundTaskStatus(status);
+      
       Alert.alert('Éxito', 'Configuración guardada correctamente');
     } catch (error) {
       console.error('[PrinterSettings] Error saving config:', error);
       Alert.alert('Error', 'No se pudo guardar la configuración');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
   const handleTestPrint = async () => {
-    if (!isConnected) {
-      Alert.alert('Error', 'No hay impresora conectada');
-      return;
-    }
-
     try {
       setLoading(true);
-      console.log('[PrinterSettings] Starting test print with encoding:', encoding);
-      
-      const width = paperSize === '58mm' ? 32 : 48;
-      const centerText = (text: string) => {
-        const padding = Math.max(0, Math.floor((width - text.length) / 2));
-        return ' '.repeat(padding) + text;
-      };
-
-      let testReceipt = '\n';
-      testReceipt += '='.repeat(width) + '\n';
-      testReceipt += centerText('IMPRESION DE PRUEBA') + '\n';
-      testReceipt += '='.repeat(width) + '\n';
-      testReceipt += '\n';
-      testReceipt += 'Configuracion:\n';
-      testReceipt += `- Tamano de papel: ${paperSize}\n`;
-      testReceipt += `- Tamano de texto: ${textSize}\n`;
-      testReceipt += `- Codificacion: ${encoding}\n`;
-      testReceipt += `- Corte automatico: ${autoCutEnabled ? 'Si' : 'No'}\n`;
-      testReceipt += `- Impresion automatica: ${autoPrintEnabled ? 'Si' : 'No'}\n`;
-      testReceipt += '\n';
-      testReceipt += '-'.repeat(width) + '\n';
-      testReceipt += 'Caracteres especiales:\n';
-      testReceipt += 'Vocales: áéíóú ÁÉÍÓÚ\n';
-      testReceipt += 'Enie: ñ Ñ\n';
-      testReceipt += 'U dieresis: ü Ü\n';
-      testReceipt += 'Puntuacion: ¿? ¡!\n';
-      testReceipt += 'Simbolos: $1.000 50% °C\n';
-      testReceipt += '\n';
-      testReceipt += 'Palabras comunes:\n';
-      testReceipt += 'Español, niño, año, señor\n';
-      testReceipt += 'Camión, corazón, canción\n';
-      testReceipt += '\n';
-      testReceipt += '='.repeat(width) + '\n';
-      testReceipt += centerText('Prueba exitosa!') + '\n';
-      testReceipt += '='.repeat(width) + '\n';
-      testReceipt += '\n\n\n';
-
-      console.log('[PrinterSettings] Test receipt generated, length:', testReceipt.length);
-      await printReceipt(testReceipt, autoCutEnabled, textSize, encoding);
-      console.log('[PrinterSettings] Test print completed');
-      Alert.alert(
-        'Éxito', 
-        `Impresión de prueba enviada con codificación ${encoding}.\n\nVerifica que los caracteres especiales (ñ, á, é, etc.) se vean correctamente. Si no, prueba con otra codificación.`
-      );
+      await testPrint(autoCutEnabled, encoding);
+      Alert.alert('Éxito', 'Impresión de prueba enviada');
     } catch (error) {
-      console.error('[PrinterSettings] Error in test print:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      Alert.alert('Error', `No se pudo imprimir: ${errorMessage}`);
+      console.error('[PrinterSettings] Test print error:', error);
+      Alert.alert('Error', 'No se pudo imprimir. Verifica la conexión con la impresora.');
     } finally {
       setLoading(false);
     }
@@ -366,30 +270,30 @@ export default function PrinterSettingsScreen() {
 
   const handleScan = async () => {
     try {
-      setScanning(true);
-      console.log('[PrinterSettings] Starting Bluetooth scan...');
-      await scanForDevices();
-      console.log('[PrinterSettings] Scan completed');
+      await scan();
     } catch (error) {
-      console.error('[PrinterSettings] Error scanning:', error);
-      Alert.alert('Error', 'No se pudo escanear dispositivos Bluetooth');
-    } finally {
-      setScanning(false);
+      console.error('[PrinterSettings] Scan error:', error);
+      Alert.alert('Error', 'No se pudo escanear dispositivos');
     }
   };
 
   const handleConnect = async (deviceId: string) => {
     try {
       setLoading(true);
-      console.log('[PrinterSettings] Connecting to device:', deviceId);
-      const device = devices.find(d => d.id === deviceId);
+      const device = availableDevices?.find((d) => d.id === deviceId);
       if (device) {
-        await connectToDevice(device);
-        console.log('[PrinterSettings] Connected successfully');
-        Alert.alert('Éxito', 'Impresora conectada correctamente');
+        await connect(device);
+        Alert.alert('Éxito', 'Conectado a la impresora');
+        
+        // If auto-print is enabled, register background task
+        if (autoPrintEnabled) {
+          await registerBackgroundAutoPrintTask();
+          const status = await getBackgroundTaskStatus();
+          setBackgroundTaskStatus(status);
+        }
       }
     } catch (error) {
-      console.error('[PrinterSettings] Error connecting:', error);
+      console.error('[PrinterSettings] Connect error:', error);
       Alert.alert('Error', 'No se pudo conectar a la impresora');
     } finally {
       setLoading(false);
@@ -399,368 +303,244 @@ export default function PrinterSettingsScreen() {
   const handleDisconnect = async () => {
     try {
       setLoading(true);
-      console.log('[PrinterSettings] Disconnecting...');
-      await disconnectDevice();
-      console.log('[PrinterSettings] Disconnected successfully');
-      Alert.alert('Éxito', 'Impresora desconectada');
+      await disconnect();
+      
+      // Unregister background task when disconnecting
+      await unregisterBackgroundAutoPrintTask();
+      const status = await getBackgroundTaskStatus();
+      setBackgroundTaskStatus(status);
+      
+      Alert.alert('Éxito', 'Desconectado de la impresora');
     } catch (error) {
-      console.error('[PrinterSettings] Error disconnecting:', error);
-      Alert.alert('Error', 'No se pudo desconectar la impresora');
+      console.error('[PrinterSettings] Disconnect error:', error);
+      Alert.alert('Error', 'No se pudo desconectar');
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading && !scanning) {
-    return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Stack.Screen options={{ title: 'Configuración de Impresora' }} />
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
   return (
-    <ScrollView style={styles.container}>
-      <Stack.Screen options={{ title: 'Configuración de Impresora' }} />
-      
-      <View style={styles.content}>
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: 'Configuración de Impresora',
+          headerShown: true,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#fff',
+        }}
+      />
+      <ScrollView style={styles.content}>
+        {/* Connection Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Estado de Conexión</Text>
-          <View style={styles.card}>
-            <View style={styles.statusCard}>
-              <View style={styles.statusRow}>
-                <IconSymbol
-                  name={isConnected ? 'checkmark.circle.fill' : 'xmark.circle.fill'}
-                  size={20}
-                  color={isConnected ? colors.success : colors.error}
-                />
-                <Text style={styles.statusLabel}>Estado:</Text>
-                <Text style={styles.statusValue}>
-                  {isConnected ? 'Conectada' : 'Desconectada'}
-                </Text>
-              </View>
-              {connectedDevice && (
-                <View style={styles.statusRow}>
-                  <IconSymbol name="printer.fill" size={20} color={colors.primary} />
-                  <Text style={styles.statusLabel}>Dispositivo:</Text>
-                  <Text style={styles.statusValue}>{connectedDevice.name}</Text>
+          <Text style={styles.sectionTitle}>Conexión</Text>
+          
+          {connectedDevice ? (
+            <>
+              <View style={styles.deviceItem}>
+                <Text style={styles.deviceName}>{connectedDevice.name || 'Impresora'}</Text>
+                <View style={styles.connectedBadge}>
+                  <Text style={styles.connectedText}>Conectado</Text>
                 </View>
-              )}
-            </View>
-
-            {isConnected ? (
-              <>
-                <TouchableOpacity
-                  style={[styles.button, styles.buttonSecondary]}
-                  onPress={handleTestPrint}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
-                      <Text style={styles.buttonText}>Imprimir Prueba</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.buttonDanger]}
-                  onPress={handleDisconnect}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <IconSymbol name="xmark.circle.fill" size={20} color="#FFFFFF" />
-                      <Text style={styles.buttonText}>Desconectar</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </>
-            ) : (
+              </View>
               <TouchableOpacity
-                style={styles.button}
-                onPress={handleScan}
-                disabled={scanning}
+                style={[styles.button, styles.buttonDanger]}
+                onPress={handleDisconnect}
+                disabled={loading}
               >
-                {scanning ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <>
-                    <IconSymbol name="magnifyingglass" size={20} color="#FFFFFF" />
-                    <Text style={styles.buttonText}>Buscar Impresoras</Text>
-                  </>
-                )}
+                <Text style={styles.buttonText}>Desconectar</Text>
               </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {devices && devices.length > 0 && !isConnected && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Dispositivos Disponibles</Text>
-            <View style={styles.card}>
-              {devices.map((device) => (
-                <View key={device.id} style={styles.deviceCard}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.deviceName}>{device.name || 'Dispositivo sin nombre'}</Text>
-                    <Text style={styles.deviceId}>{device.id}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.connectButton}
-                    onPress={() => handleConnect(device.id)}
-                    disabled={loading}
-                  >
-                    <Text style={styles.connectButtonText}>Conectar</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Codificación de Caracteres</Text>
-          <View style={styles.card}>
-            <Text style={[styles.settingDescription, { marginBottom: 12 }]}>
-              Selecciona la codificación que mejor muestre los caracteres especiales (ñ, á, é, etc.) en tu impresora. Prueba diferentes opciones hasta encontrar la correcta.
-            </Text>
-            {ENCODING_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.encodingOption,
-                  encoding === option.value && styles.encodingOptionActive,
-                ]}
-                onPress={() => setEncoding(option.value)}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                  <IconSymbol
-                    name={encoding === option.value ? 'checkmark.circle.fill' : 'circle'}
-                    size={20}
-                    color={encoding === option.value ? colors.primary : colors.textSecondary}
-                  />
-                  <Text style={[styles.encodingOptionLabel, { marginLeft: 8, marginBottom: 0 }]}>
-                    {option.label}
-                  </Text>
-                </View>
-                <Text style={[styles.encodingOptionDescription, { marginLeft: 28 }]}>
-                  {option.description}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuración de Impresión</Text>
-          <View style={styles.card}>
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Impresión Automática</Text>
-                <Text style={styles.settingDescription}>
-                  Imprimir automáticamente los pedidos nuevos
-                </Text>
-              </View>
-              <Switch
-                value={autoPrintEnabled}
-                onValueChange={setAutoPrintEnabled}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Corte Automático</Text>
-                <Text style={styles.settingDescription}>
-                  Cortar el papel automáticamente después de imprimir
-                </Text>
-              </View>
-              <Switch
-                value={autoCutEnabled}
-                onValueChange={setAutoCutEnabled}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Incluir Logo</Text>
-                <Text style={styles.settingDescription}>
-                  Mostrar encabezado en el ticket
-                </Text>
-              </View>
-              <Switch
-                value={includeLogo}
-                onValueChange={setIncludeLogo}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Información del Cliente</Text>
-                <Text style={styles.settingDescription}>
-                  Incluir datos del cliente en el ticket
-                </Text>
-              </View>
-              <Switch
-                value={includeCustomerInfo}
-                onValueChange={setIncludeCustomerInfo}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Totales</Text>
-                <Text style={styles.settingDescription}>
-                  Mostrar totales en el ticket
-                </Text>
-              </View>
-              <Switch
-                value={includeTotals}
-                onValueChange={setIncludeTotals}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Formato WhatsApp</Text>
-                <Text style={styles.settingDescription}>
-                  Usar formato de WhatsApp para productos (ej: &quot;2 kilos de papas&quot;)
-                </Text>
-              </View>
-              <Switch
-                value={useWebhookFormat}
-                onValueChange={setUseWebhookFormat}
-                trackColor={{ false: colors.border, true: colors.primary }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            <View style={styles.settingRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Tamaño de Papel</Text>
-                <View style={[styles.sizeButtonsContainer, { marginTop: 8 }]}>
-                  <TouchableOpacity
-                    style={[
-                      styles.sizeButton,
-                      paperSize === '58mm' && styles.sizeButtonActive,
-                    ]}
-                    onPress={() => setPaperSize('58mm')}
-                  >
-                    <Text
-                      style={[
-                        styles.sizeButtonText,
-                        paperSize === '58mm' && styles.sizeButtonTextActive,
-                      ]}
-                    >
-                      58mm
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.sizeButton,
-                      paperSize === '80mm' && styles.sizeButtonActive,
-                    ]}
-                    onPress={() => setPaperSize('80mm')}
-                  >
-                    <Text
-                      style={[
-                        styles.sizeButtonText,
-                        paperSize === '80mm' && styles.sizeButtonTextActive,
-                      ]}
-                    >
-                      80mm
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            <View style={[styles.settingRow, styles.settingRowLast]}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.settingLabel}>Tamaño de Texto</Text>
-                <View style={[styles.sizeButtonsContainer, { marginTop: 8 }]}>
-                  <TouchableOpacity
-                    style={[
-                      styles.sizeButton,
-                      textSize === 'small' && styles.sizeButtonActive,
-                    ]}
-                    onPress={() => setTextSize('small')}
-                  >
-                    <Text
-                      style={[
-                        styles.sizeButtonText,
-                        textSize === 'small' && styles.sizeButtonTextActive,
-                      ]}
-                    >
-                      Pequeño
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.sizeButton,
-                      textSize === 'medium' && styles.sizeButtonActive,
-                    ]}
-                    onPress={() => setTextSize('medium')}
-                  >
-                    <Text
-                      style={[
-                        styles.sizeButtonText,
-                        textSize === 'medium' && styles.sizeButtonTextActive,
-                      ]}
-                    >
-                      Mediano
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.sizeButton,
-                      textSize === 'large' && styles.sizeButtonActive,
-                    ]}
-                    onPress={() => setTextSize('large')}
-                  >
-                    <Text
-                      style={[
-                        styles.sizeButtonText,
-                        textSize === 'large' && styles.sizeButtonTextActive,
-                      ]}
-                    >
-                      Grande
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.button, saving && styles.buttonDisabled]}
-          onPress={handleSaveConfig}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color="#FFFFFF" />
+            </>
           ) : (
             <>
-              <IconSymbol name="checkmark.circle.fill" size={20} color="#FFFFFF" />
-              <Text style={styles.buttonText}>Guardar Configuración</Text>
+              {isScanning ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={colors.primary} />
+                  <Text style={styles.emptyText}>Buscando impresoras...</Text>
+                </View>
+              ) : availableDevices && availableDevices.length > 0 ? (
+                availableDevices.map((device, index) => (
+                  <View
+                    key={device.id}
+                    style={[
+                      styles.deviceItem,
+                      index === availableDevices.length - 1 && styles.deviceItemLast,
+                    ]}
+                  >
+                    <Text style={styles.deviceName}>{device.name || 'Dispositivo sin nombre'}</Text>
+                    <TouchableOpacity
+                      style={[styles.button, { marginTop: 0 }]}
+                      onPress={() => handleConnect(device.id)}
+                      disabled={loading}
+                    >
+                      <Text style={styles.buttonText}>Conectar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyText}>No se encontraron impresoras</Text>
+              )}
+              
+              <TouchableOpacity
+                style={[styles.button, styles.buttonSecondary]}
+                onPress={isScanning ? stopScan : handleScan}
+                disabled={loading}
+              >
+                <Text style={styles.buttonText}>
+                  {isScanning ? 'Detener búsqueda' : 'Buscar impresoras'}
+                </Text>
+              </TouchableOpacity>
             </>
           )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        </View>
+
+        {/* Auto-Print Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Auto-impresión</Text>
+          
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Activar auto-impresión</Text>
+            <Switch
+              value={autoPrintEnabled}
+              onValueChange={setAutoPrintEnabled}
+              trackColor={{ false: colors.border, true: colors.primary }}
+            />
+          </View>
+          
+          {autoPrintEnabled && (
+            <>
+              <Text style={styles.infoText}>
+                La auto-impresión funcionará en segundo plano y con la pantalla apagada. 
+                Los pedidos nuevos se imprimirán automáticamente cuando lleguen.
+              </Text>
+              
+              {backgroundTaskStatus && (
+                <View
+                  style={[
+                    styles.statusBadge,
+                    backgroundTaskStatus.isRegistered
+                      ? styles.statusBadgeSuccess
+                      : styles.statusBadgeWarning,
+                  ]}
+                >
+                  <Text style={styles.statusText}>
+                    {backgroundTaskStatus.isRegistered
+                      ? '✓ Tarea en segundo plano activa'
+                      : '⚠ Tarea en segundo plano no registrada'}
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Print Settings Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Configuración de Impresión</Text>
+          
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Corte automático</Text>
+            <Switch
+              value={autoCutEnabled}
+              onValueChange={setAutoCutEnabled}
+              trackColor={{ false: colors.border, true: colors.primary }}
+            />
+          </View>
+          
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => {
+              const sizes: TextSize[] = ['small', 'medium', 'large'];
+              const currentIndex = sizes.indexOf(textSize);
+              const nextIndex = (currentIndex + 1) % sizes.length;
+              setTextSize(sizes[nextIndex]);
+            }}
+          >
+            <Text style={styles.settingLabel}>Tamaño de texto</Text>
+            <Text style={styles.settingValue}>
+              {textSize === 'small' ? 'Pequeño' : textSize === 'medium' ? 'Mediano' : 'Grande'}
+            </Text>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => {
+              setPaperSize(paperSize === '58mm' ? '80mm' : '58mm');
+            }}
+          >
+            <Text style={styles.settingLabel}>Tamaño de papel</Text>
+            <Text style={styles.settingValue}>{paperSize}</Text>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => {
+              const currentIndex = ENCODING_OPTIONS.findIndex(opt => opt.value === encoding);
+              const nextIndex = (currentIndex + 1) % ENCODING_OPTIONS.length;
+              setEncoding(ENCODING_OPTIONS[nextIndex].value);
+            }}
+          >
+            <Text style={styles.settingLabel}>Codificación</Text>
+            <Text style={styles.settingValue}>
+              {ENCODING_OPTIONS.find(opt => opt.value === encoding)?.label || encoding}
+            </Text>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Incluir logo</Text>
+            <Switch
+              value={includeLogo}
+              onValueChange={setIncludeLogo}
+              trackColor={{ false: colors.border, true: colors.primary }}
+            />
+          </View>
+          
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Incluir info del cliente</Text>
+            <Switch
+              value={includeCustomerInfo}
+              onValueChange={setIncludeCustomerInfo}
+              trackColor={{ false: colors.border, true: colors.primary }}
+            />
+          </View>
+          
+          <View style={[styles.settingRow, styles.settingRowLast]}>
+            <Text style={styles.settingLabel}>Incluir totales</Text>
+            <Switch
+              value={includeTotals}
+              onValueChange={setIncludeTotals}
+              trackColor={{ false: colors.border, true: colors.primary }}
+            />
+          </View>
+        </View>
+
+        {/* Actions Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Acciones</Text>
+          
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleSaveConfig}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Guardando...' : 'Guardar configuración'}
+            </Text>
+          </TouchableOpacity>
+          
+          {isConnected && (
+            <TouchableOpacity
+              style={[styles.button, styles.buttonSecondary]}
+              onPress={handleTestPrint}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>Imprimir prueba</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
