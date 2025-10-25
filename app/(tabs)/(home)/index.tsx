@@ -313,11 +313,9 @@ export default function HomeScreen() {
 
   const { isConnected, printReceipt } = usePrinter();
 
-  // Keep the device awake when auto-print is enabled
+  // Keep the device awake when auto-print is enabled - MUST be called unconditionally
   const shouldKeepAwake = printerConfig?.auto_print_enabled === true && isConnected;
-  if (shouldKeepAwake) {
-    useKeepAwake('auto-print');
-  }
+  useKeepAwake('auto-print', { suppressDeactivateWarnings: !shouldKeepAwake });
 
   // Load printer configuration and printed orders
   const loadPrinterConfig = useCallback(async () => {
@@ -408,6 +406,7 @@ export default function HomeScreen() {
     setupNotifications();
 
     return () => {
+      // Capture current ref values to avoid stale references in cleanup
       const notificationListener = notificationListenerRef.current;
       const responseListener = responseListenerRef.current;
       
