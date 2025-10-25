@@ -213,8 +213,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 12,
     padding: 24,
-    width: '80%',
-    maxWidth: 400,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontSize: 20,
@@ -242,6 +243,30 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalScrollView: {
+    maxHeight: 400,
+  },
+  priceInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  priceInputLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+  },
+  priceInputField: {
+    width: 120,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 8,
+    fontSize: 14,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 });
 
@@ -353,9 +378,9 @@ export default function OrderDetailScreen() {
   const [productPrice, setProductPrice] = useState('');
   const [productNotes, setProductNotes] = useState('');
 
-  // Price modal
+  // Bulk price modal
   const [showPriceModal, setShowPriceModal] = useState(false);
-  const [bulkPrice, setBulkPrice] = useState('');
+  const [bulkPrices, setBulkPrices] = useState<{ [key: string]: string }>({});
 
   const loadOrder = useCallback(async () => {
     if (!orderId) return;
@@ -564,35 +589,48 @@ export default function OrderDetailScreen() {
   };
 
   const openPriceModal = () => {
-    setBulkPrice('');
+    // Initialize bulk prices with current prices
+    const initialPrices: { [key: string]: string } = {};
+    order?.items?.forEach(item => {
+      initialPrices[item.id] = item.unit_price.toString();
+    });
+    setBulkPrices(initialPrices);
     setShowPriceModal(true);
   };
 
-  const applyPriceToAll = async () => {
-    if (!order || !bulkPrice) return;
+  const updateBulkPrice = (itemId: string, price: string) => {
+    setBulkPrices(prev => ({
+      ...prev,
+      [itemId]: price,
+    }));
+  };
 
-    const price = parseFloat(bulkPrice);
-    if (isNaN(price)) {
-      Alert.alert('Error', 'Precio inválido');
-      return;
-    }
+  const applyBulkPrices = async () => {
+    if (!order) return;
 
     try {
       const supabase = getSupabase();
       
+      // Update each product with its individual price
       for (const item of order.items || []) {
-        await supabase
-          .from('order_items')
-          .update({ unit_price: price })
-          .eq('id', item.id);
+        const priceStr = bulkPrices[item.id];
+        if (priceStr) {
+          const price = parseFloat(priceStr);
+          if (!isNaN(price)) {
+            await supabase
+              .from('order_items')
+              .update({ unit_price: price })
+              .eq('id', item.id);
+          }
+        }
       }
 
       setShowPriceModal(false);
       await loadOrder();
-      Alert.alert('Éxito', 'Precio aplicado a todos los productos');
+      Alert.alert('Éxito', 'Precios actualizados');
     } catch (error) {
-      console.error('[OrderDetail] Error applying price:', error);
-      Alert.alert('Error', 'No se pudo aplicar el precio');
+      console.error('[OrderDetail] Error applying prices:', error);
+      Alert.alert('Error', 'No se pudo aplicar los precios');
     }
   };
 
@@ -659,14 +697,14 @@ export default function OrderDetailScreen() {
       }
       
       if (item.unit_price > 0) {
-        receipt += `  ${formatCLP(item.unit_price * item.quantity)}\n`;
+        receipt += `  ${formatCLP(item.unit_price)}\n`;
       }
       receipt += '\n';
     }
     
     if (printerConfig?.include_totals !== false) {
       receipt += '-'.repeat(width) + '\n';
-      const total = order.items?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
+      const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
       receipt += `TOTAL: ${formatCLP(total)}\n`;
       
       if (order.amount_paid > 0) {
@@ -772,7 +810,7 @@ export default function OrderDetailScreen() {
     );
   }
 
-  const total = order.items?.reduce((sum, item) => sum + item.unit_price * item.quantity, 0) || 0;
+  const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
   const pending = total - order.amount_paid;
 
   return (
@@ -883,7 +921,7 @@ export default function OrderDetailScreen() {
                 )}
                 {item.unit_price > 0 && (
                   <Text style={styles.productDetails}>
-                    {formatCLP(item.unit_price * item.quantity)}
+                    {formatCLP(item.unit_price)}
                   </Text>
                 )}
               </View>
@@ -921,7 +959,7 @@ export default function OrderDetailScreen() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Precio unitario"
+                placeholder="Precio"
                 value={productPrice}
                 onChangeText={setProductPrice}
                 keyboardType="numeric"
@@ -962,7 +1000,7 @@ export default function OrderDetailScreen() {
               />
               <TextInput
                 style={styles.input}
-                placeholder="Precio unitario"
+                placeholder="Precio"
                 value={productPrice}
                 onChangeText={setProductPrice}
                 keyboardType="numeric"
@@ -977,10 +1015,12 @@ export default function OrderDetailScreen() {
                 <Text style={styles.addButtonText}>Agregar Producto</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.bulkPriceButton} onPress={openPriceModal}>
-                <IconSymbol name="dollarsign.circle" size={20} color="#fff" />
-                <Text style={styles.addButtonText}>Aplicar Precio a Todos</Text>
-              </TouchableOpacity>
+              {order.items && order.items.length > 0 && (
+                <TouchableOpacity style={styles.bulkPriceButton} onPress={openPriceModal}>
+                  <IconSymbol name="dollarsign.circle" size={20} color="#fff" />
+                  <Text style={styles.addButtonText}>Agregar Precios</Text>
+                </TouchableOpacity>
+              )}
             </>
           )}
         </View>
@@ -1032,14 +1072,28 @@ export default function OrderDetailScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Aplicar Precio a Todos</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Precio"
-              value={bulkPrice}
-              onChangeText={setBulkPrice}
-              keyboardType="numeric"
-            />
+            <Text style={styles.modalTitle}>Agregar Precios a Productos</Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
+              Ingresa el precio para cada producto:
+            </Text>
+            
+            <ScrollView style={styles.modalScrollView}>
+              {order?.items?.map((item) => (
+                <View key={item.id} style={styles.priceInputRow}>
+                  <Text style={styles.priceInputLabel} numberOfLines={2}>
+                    {item.product_name}
+                  </Text>
+                  <TextInput
+                    style={styles.priceInputField}
+                    placeholder="Precio"
+                    value={bulkPrices[item.id] || ''}
+                    onChangeText={(text) => updateBulkPrice(item.id, text)}
+                    keyboardType="numeric"
+                  />
+                </View>
+              ))}
+            </ScrollView>
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
@@ -1049,7 +1103,7 @@ export default function OrderDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonConfirm]}
-                onPress={applyPriceToAll}
+                onPress={applyBulkPrices}
               >
                 <Text style={[styles.modalButtonText, { color: '#fff' }]}>
                   Aplicar
