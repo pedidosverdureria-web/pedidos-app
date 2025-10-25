@@ -20,6 +20,7 @@ import { WhatsAppConfig } from '@/types';
 export default function WhatsAppSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [config, setConfig] = useState<WhatsAppConfig | null>(null);
   const [formData, setFormData] = useState({
     webhook_url: '',
@@ -100,6 +101,87 @@ export default function WhatsAppSettingsScreen() {
     }
   };
 
+  const handleTestWebhook = async () => {
+    if (!formData.webhook_url) {
+      Alert.alert('Error', 'Por favor ingresa la URL del webhook primero');
+      return;
+    }
+
+    try {
+      setTesting(true);
+      console.log('[WhatsApp] Testing webhook:', formData.webhook_url);
+
+      // Create a test message payload similar to what WhatsApp sends
+      const testPayload = {
+        entry: [
+          {
+            changes: [
+              {
+                value: {
+                  messages: [
+                    {
+                      from: '1234567890',
+                      id: 'test_message_' + Date.now(),
+                      timestamp: Math.floor(Date.now() / 1000).toString(),
+                      type: 'text',
+                      text: {
+                        body: '3 kilos de tomates\n2 kilos de papas\n1 lechuga',
+                      },
+                    },
+                  ],
+                  contacts: [
+                    {
+                      profile: {
+                        name: 'Usuario de Prueba',
+                      },
+                      wa_id: '1234567890',
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const response = await fetch(formData.webhook_url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testPayload),
+      });
+
+      console.log('[WhatsApp] Webhook response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('[WhatsApp] Webhook response:', result);
+        
+        Alert.alert(
+          'Éxito',
+          'El webhook respondió correctamente. Revisa la lista de pedidos para ver el pedido de prueba creado.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        const errorText = await response.text();
+        console.error('[WhatsApp] Webhook error:', errorText);
+        Alert.alert(
+          'Error',
+          `El webhook respondió con error (${response.status}). Revisa la configuración.`
+        );
+      }
+    } catch (error) {
+      console.error('[WhatsApp] Error testing webhook:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo conectar con el webhook. Verifica que la URL sea correcta y que el webhook esté activo.'
+      );
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -165,6 +247,21 @@ export default function WhatsAppSettingsScreen() {
                 Esta es la URL que debes configurar en WhatsApp Business API
               </Text>
             </View>
+
+            <TouchableOpacity
+              style={[styles.testButton, testing && styles.buttonDisabled]}
+              onPress={handleTestWebhook}
+              disabled={testing}
+            >
+              {testing ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : (
+                <>
+                  <IconSymbol name="bolt.fill" size={20} color={colors.primary} />
+                  <Text style={styles.testButtonText}>Probar Conexión del Webhook</Text>
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -327,6 +424,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
     fontStyle: 'italic',
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  testButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 8,
   },
   parserTestButton: {
     flexDirection: 'row',

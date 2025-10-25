@@ -167,7 +167,7 @@ function getUnitFromNotes(notes: string | null | undefined): string {
  * This task runs periodically to check for new orders and print them
  */
 TaskManager.defineTask(BACKGROUND_AUTO_PRINT_TASK, async () => {
-  console.log('[BackgroundAutoPrint] Task triggered');
+  console.log('[BackgroundAutoPrint] Task triggered at', new Date().toISOString());
   
   try {
     // Load printer configuration
@@ -188,15 +188,16 @@ TaskManager.defineTask(BACKGROUND_AUTO_PRINT_TASK, async () => {
     // Get printed orders set
     const printedOrdersStr = await AsyncStorage.getItem(PRINTED_ORDERS_KEY);
     const printedOrders: string[] = printedOrdersStr ? JSON.parse(printedOrdersStr) : [];
+    console.log('[BackgroundAutoPrint] Currently printed orders:', printedOrders.length);
     
-    // Query for new pending orders
+    // Query for new pending orders that haven't been printed yet
     const supabase = getSupabase();
     const { data: orders, error } = await supabase
       .from('orders')
       .select('*, items:order_items(*)')
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(20);
     
     if (error) {
       console.error('[BackgroundAutoPrint] Error fetching orders:', error);
@@ -214,18 +215,20 @@ TaskManager.defineTask(BACKGROUND_AUTO_PRINT_TASK, async () => {
     const newOrders = orders.filter(order => !printedOrders.includes(order.id));
     
     if (newOrders.length === 0) {
-      console.log('[BackgroundAutoPrint] No new orders to print');
+      console.log('[BackgroundAutoPrint] No new orders to print (all already printed)');
       return BackgroundFetch.BackgroundFetchResult.NoData;
     }
     
     console.log(`[BackgroundAutoPrint] Found ${newOrders.length} new orders to print`);
+    console.log('[BackgroundAutoPrint] New order IDs:', newOrders.map(o => o.order_number).join(', '));
     
     // Store the orders that need printing for the foreground app to handle
     // This is because Bluetooth operations in background are restricted on mobile platforms
     const ordersToPrint = newOrders.map(order => order.id);
     await AsyncStorage.setItem('@orders_to_print', JSON.stringify(ordersToPrint));
     
-    console.log('[BackgroundAutoPrint] Task completed successfully');
+    console.log('[BackgroundAutoPrint] Queued orders for foreground printing');
+    console.log('[BackgroundAutoPrint] Task completed successfully at', new Date().toISOString());
     return BackgroundFetch.BackgroundFetchResult.NewData;
   } catch (error) {
     console.error('[BackgroundAutoPrint] Task error:', error);
