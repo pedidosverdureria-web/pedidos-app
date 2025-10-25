@@ -20,12 +20,8 @@ import { WhatsAppConfig } from '@/types';
 export default function WhatsAppSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
   const [config, setConfig] = useState<WhatsAppConfig | null>(null);
   const [formData, setFormData] = useState({
-    verify_token: '',
-    access_token: '',
-    phone_number_id: '',
     webhook_url: '',
     is_active: false,
     auto_reply_enabled: true,
@@ -52,9 +48,6 @@ export default function WhatsAppSettingsScreen() {
       if (data) {
         setConfig(data);
         setFormData({
-          verify_token: data.verify_token || '',
-          access_token: data.access_token || '',
-          phone_number_id: data.phone_number_id || '',
           webhook_url: data.webhook_url || '',
           is_active: data.is_active,
           auto_reply_enabled: data.auto_reply_enabled,
@@ -75,9 +68,6 @@ export default function WhatsAppSettingsScreen() {
       const supabase = getSupabase();
 
       const dataToSave = {
-        verify_token: formData.verify_token || null,
-        access_token: formData.access_token || null,
-        phone_number_id: formData.phone_number_id || null,
         webhook_url: formData.webhook_url || null,
         is_active: formData.is_active,
         auto_reply_enabled: formData.auto_reply_enabled,
@@ -110,61 +100,6 @@ export default function WhatsAppSettingsScreen() {
     }
   };
 
-  const handleTestConnection = async () => {
-    if (!formData.access_token || !formData.phone_number_id) {
-      Alert.alert('Error', 'Por favor completa Access Token y Phone Number ID');
-      return;
-    }
-
-    if (!formData.webhook_url) {
-      Alert.alert('Error', 'Por favor completa la URL del Webhook');
-      return;
-    }
-
-    try {
-      setTesting(true);
-      
-      // Call the test-whatsapp-webhook Edge Function
-      const supabase = getSupabase();
-      const { data, error } = await supabase.functions.invoke('test-whatsapp-webhook', {
-        body: {
-          access_token: formData.access_token,
-          phone_number_id: formData.phone_number_id,
-          webhook_url: formData.webhook_url,
-        },
-      });
-
-      if (error) {
-        console.error('Test connection error:', error);
-        Alert.alert(
-          'Error en la Prueba',
-          `No se pudo conectar con WhatsApp: ${error.message}`
-        );
-        return;
-      }
-
-      if (data?.success) {
-        Alert.alert(
-          '✅ Conexión Exitosa',
-          `La conexión con WhatsApp fue exitosa.\n\n${data.message || 'El webhook está configurado correctamente.'}`
-        );
-      } else {
-        Alert.alert(
-          '⚠️ Problema de Conexión',
-          data?.message || 'No se pudo verificar la conexión con WhatsApp'
-        );
-      }
-    } catch (error: any) {
-      console.error('Error testing connection:', error);
-      Alert.alert(
-        'Error',
-        `No se pudo probar la conexión: ${error.message || 'Error desconocido'}`
-      );
-    } finally {
-      setTesting(false);
-    }
-  };
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -186,6 +121,7 @@ export default function WhatsAppSettingsScreen() {
           <IconSymbol name="info.circle.fill" size={24} color={colors.info} />
           <Text style={styles.infoText}>
             Configura la integración con WhatsApp Business API para recibir pedidos automáticamente.
+            Las credenciales se configuran directamente en Supabase Edge Functions.
           </Text>
         </View>
 
@@ -212,45 +148,8 @@ export default function WhatsAppSettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Credenciales</Text>
+          <Text style={styles.sectionTitle}>Configuración del Webhook</Text>
           <View style={styles.card}>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Verify Token</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.verify_token}
-                onChangeText={(text) => setFormData({ ...formData, verify_token: text })}
-                placeholder="Tu verify token"
-                placeholderTextColor={colors.textSecondary}
-                autoCapitalize="none"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Access Token</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.access_token}
-                onChangeText={(text) => setFormData({ ...formData, access_token: text })}
-                placeholder="Tu access token"
-                placeholderTextColor={colors.textSecondary}
-                autoCapitalize="none"
-                secureTextEntry
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Phone Number ID</Text>
-              <TextInput
-                style={styles.input}
-                value={formData.phone_number_id}
-                onChangeText={(text) => setFormData({ ...formData, phone_number_id: text })}
-                placeholder="ID del número de teléfono"
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-              />
-            </View>
-
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Webhook URL</Text>
               <TextInput
@@ -262,6 +161,9 @@ export default function WhatsAppSettingsScreen() {
                 autoCapitalize="none"
                 keyboardType="url"
               />
+              <Text style={styles.helperText}>
+                Esta es la URL que debes configurar en WhatsApp Business API
+              </Text>
             </View>
           </View>
         </View>
@@ -309,21 +211,6 @@ export default function WhatsAppSettingsScreen() {
         >
           <IconSymbol name="text.bubble.fill" size={20} color={colors.primary} />
           <Text style={styles.parserTestButtonText}>Probar Parser de Mensajes</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.testButton, testing && styles.buttonDisabled]}
-          onPress={handleTestConnection}
-          disabled={testing}
-        >
-          {testing ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <IconSymbol name="bolt.fill" size={20} color="#FFFFFF" />
-              <Text style={styles.testButtonText}>Probar Conexión</Text>
-            </>
-          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -435,6 +322,12 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  helperText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
   parserTestButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -450,21 +343,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
-    marginLeft: 8,
-  },
-  testButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.warning,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  testButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
     marginLeft: 8,
   },
   saveButton: {

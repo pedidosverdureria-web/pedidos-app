@@ -314,8 +314,10 @@ export default function HomeScreen() {
   const { isConnected, printReceipt } = usePrinter();
 
   // Keep the device awake when auto-print is enabled
-  const shouldKeepAwake = printerConfig?.auto_print_enabled && isConnected;
-  useKeepAwake('auto-print', { suppressDeactivateWarnings: !shouldKeepAwake });
+  const shouldKeepAwake = printerConfig?.auto_print_enabled === true && isConnected;
+  if (shouldKeepAwake) {
+    useKeepAwake('auto-print');
+  }
 
   // Load printer configuration and printed orders
   const loadPrinterConfig = useCallback(async () => {
@@ -632,8 +634,8 @@ export default function HomeScreen() {
     );
   };
 
-  const autoPrintWorking = printerConfig?.auto_print_enabled && isConnected;
-  const showAutoPrintBanner = printerConfig?.auto_print_enabled !== undefined;
+  const autoPrintWorking = printerConfig?.auto_print_enabled === true && isConnected;
+  const showAutoPrintBanner = printerConfig?.auto_print_enabled === true;
 
   if (authLoading) {
     return (
@@ -674,10 +676,8 @@ export default function HomeScreen() {
           />
           <Text style={styles.autoPrintBannerText}>
             {autoPrintWorking
-              ? 'Auto-impresión activa (funciona en segundo plano)'
-              : isConnected
-              ? 'Auto-impresión desactivada'
-              : 'Impresora no conectada'}
+              ? 'Auto-impresión activa'
+              : 'Impresora no conectada - Toca para configurar'}
           </Text>
         </TouchableOpacity>
       )}
