@@ -725,17 +725,111 @@ serve(async (req) => {
         console.log('Message text:', messageText);
 
         // Check for Manual keyword (case-insensitive, flexible format)
-        // Supports: "Manual #name#", "manual #name#", "MANUAL #name#"
-        // Also supports variations like "Manual: name" or just "Manual name"
-        const manualPattern = /^\s*manual\s*[:#]?\s*([^#\n]+?)(?:[#\n]|\s{2,})\s*(.+)$/is;
-        const manualMatch = messageText.match(manualPattern);
+        // Supports multiple formats:
+        // 1. "Manual #Juan Pérez#\n3 kilos de tomates\n2 kilos de papas"
+        // 2. "Manual: Juan Pérez\n3 kilos de tomates"
+        // 3. "Manual Juan Pérez\n3 kilos de tomates"
+        // 4. "MANUAL #Juan Pérez#\n3 kilos de tomates"
         
-        if (manualMatch) {
-          console.log('Detected Manual keyword with custom name format');
+        // First, check if the message starts with "manual" (case-insensitive)
+        const startsWithManual = /^\s*manual\s*/i.test(messageText);
+        
+        if (startsWithManual) {
+          console.log('Detected Manual keyword');
           
-          // Extract custom customer name and order text
-          const customCustomerName = manualMatch[1].trim();
-          const orderText = manualMatch[2].trim();
+          // Remove the "Manual" keyword and any following delimiter (: or #)
+          const withoutManual = messageText.replace(/^\s*manual\s*[:#]?\s*/i, '');
+          
+          // Now we need to extract the custom name and the order text
+          // The name can be:
+          // - Enclosed in # symbols: #Juan Pérez#
+          // - On the first line before a newline
+          // - Everything before the first line that looks like an order item
+          
+          let customCustomerName = '';
+          let orderText = '';
+          
+          // Try pattern 1: #Name# followed by order
+          const hashPattern = /^#([^#]+)#\s*(.+)$/s;
+          const hashMatch = withoutManual.match(hashPattern);
+          
+          if (hashMatch) {
+            customCustomerName = hashMatch[1].trim();
+            orderText = hashMatch[2].trim();
+            console.log('Extracted name from # pattern:', customCustomerName);
+          } else {
+            // Try pattern 2: Name on first line, order on subsequent lines
+            const lines = withoutManual.split('\n');
+            
+            if (lines.length >= 2) {
+              // First line is the name
+              customCustomerName = lines[0].trim();
+              // Rest is the order
+              orderText = lines.slice(1).join('\n').trim();
+              console.log('Extracted name from first line:', customCustomerName);
+            } else if (lines.length === 1) {
+              // Single line: try to split by detecting order pattern
+              const singleLine = lines[0].trim();
+              
+              // Look for the first occurrence of a quantity pattern (number + optional unit)
+              const orderStartMatch = singleLine.match(/\b(\d+(?:\/\d+)?|\w+)\s+(?:\w+\s+)?(?:de\s+)?[a-zA-Z]/);
+              
+              if (orderStartMatch && orderStartMatch.index !== undefined && orderStartMatch.index > 0) {
+                customCustomerName = singleLine.substring(0, orderStartMatch.index).trim();
+                orderText = singleLine.substring(orderStartMatch.index).trim();
+                console.log('Extracted name from single line split:', customCustomerName);
+              } else {
+                // Can't determine where name ends and order begins
+                console.log('Could not split name and order from single line');
+                customCustomerName = singleLine;
+                orderText = '';
+              }
+            }
+          }
+          
+          // Validate that we have both name and order
+          if (!customCustomerName || !orderText) {
+            console.log('Manual format error: missing name or order text');
+            
+            if (config.access_token && config.phone_number_id) {
+              try {
+                const errorMsg = `❌ *Formato Manual Incorrecto*
+
+Hola! Para usar el formato Manual, debes especificar el nombre del cliente y los productos.
+
+📝 *Formatos válidos:*
+
+*Opción 1 (con #):*
+Manual #Juan Pérez#
+3 kilos de tomates
+2 kilos de papas
+
+*Opción 2 (con salto de línea):*
+Manual: Juan Pérez
+3 kilos de tomates
+2 kilos de papas
+
+*Opción 3 (simple):*
+Manual Juan Pérez
+3 kilos de tomates
+2 kilos de papas
+
+¡Intenta nuevamente! 😊`;
+                
+                await sendWhatsAppMessage(
+                  config.phone_number_id,
+                  config.access_token,
+                  customerPhone,
+                  errorMsg
+                );
+                console.log('Sent Manual format error message to:', customerPhone);
+              } catch (error) {
+                console.error('Error sending Manual format error message:', error);
+              }
+            }
+            
+            continue;
+          }
           
           console.log('Custom customer name:', customCustomerName);
           console.log('Order text:', orderText);
