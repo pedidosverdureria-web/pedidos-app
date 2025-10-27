@@ -172,16 +172,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   totalLabel: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: colors.text,
   },
   totalValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  totalFinal: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.primary,
   },
@@ -827,7 +823,6 @@ export default function OrderDetailScreen() {
   }
 
   const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
-  const pending = total - order.amount_paid;
 
   return (
     <View style={styles.container}>
@@ -1042,20 +1037,9 @@ export default function OrderDetailScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Totales</Text>
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal:</Text>
+            <Text style={styles.totalLabel}>Total:</Text>
             <Text style={styles.totalValue}>{formatCLP(total)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Pagado:</Text>
-            <Text style={styles.totalValue}>{formatCLP(order.amount_paid)}</Text>
-          </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Pendiente:</Text>
-            <Text style={[styles.totalValue, styles.totalFinal]}>
-              {formatCLP(pending)}
-            </Text>
           </View>
         </View>
 

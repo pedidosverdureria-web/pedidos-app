@@ -467,14 +467,14 @@ export default function HomeScreen() {
       }
       
       if (item.unit_price > 0) {
-        receipt += `  ${formatCLP(item.unit_price * item.quantity)}\n`;
+        receipt += `  ${formatCLP(item.unit_price)}\n`;
       }
       receipt += '\n';
     }
     
     if (printerConfig?.include_totals !== false) {
       receipt += '-'.repeat(width) + '\n';
-      const total = order.items?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
+      const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
       receipt += `TOTAL: ${formatCLP(total)}\n`;
       
       if (order.amount_paid > 0) {
@@ -658,8 +658,9 @@ export default function HomeScreen() {
   });
 
   const renderOrderCard = ({ item }: { item: Order }) => {
+    // Fixed: Sum unit_price instead of multiplying by quantity
     const total = item.items?.reduce(
-      (sum, orderItem) => sum + orderItem.unit_price * orderItem.quantity,
+      (sum, orderItem) => sum + orderItem.unit_price,
       0
     ) || 0;
 
