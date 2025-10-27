@@ -7,6 +7,7 @@ import {
 } from '@/utils/whatsappNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrinter } from '@/hooks/usePrinter';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
@@ -477,7 +478,12 @@ export default function OrderDetailScreen() {
       setCustomerAddress(data.customer_address || '');
     } catch (error) {
       console.error('[OrderDetail] Error loading order:', error);
-      Alert.alert('Error', 'No se pudo cargar el pedido');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo cargar el pedido. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
@@ -502,6 +508,12 @@ export default function OrderDetailScreen() {
   const updateCustomerInfo = async () => {
     if (!order) return;
 
+    if (!customerName.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('⚠️ Atención', 'El nombre del cliente es obligatorio');
+      return;
+    }
+
     try {
       const supabase = getSupabase();
       const { error } = await supabase
@@ -517,10 +529,21 @@ export default function OrderDetailScreen() {
 
       setEditingCustomer(false);
       await loadOrder();
-      Alert.alert('Éxito', 'Información del cliente actualizada');
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Éxito',
+        'La información del cliente se actualizó correctamente',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[OrderDetail] Error updating customer:', error);
-      Alert.alert('Error', 'No se pudo actualizar la información');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo actualizar la información del cliente. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -545,16 +568,28 @@ export default function OrderDetailScreen() {
       );
 
       await loadOrder();
-      Alert.alert('Éxito', 'Estado actualizado');
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Estado Actualizado',
+        `El pedido ahora está en estado: ${getStatusLabel(newStatus)}`,
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[OrderDetail] Error updating status:', error);
-      Alert.alert('Error', 'No se pudo actualizar el estado');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo actualizar el estado del pedido. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
   const addProduct = async () => {
     if (!order || !productName || !productQuantity) {
-      Alert.alert('Error', 'Completa todos los campos requeridos');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('⚠️ Atención', 'Por favor completa el nombre y la cantidad del producto');
       return;
     }
 
@@ -582,16 +617,27 @@ export default function OrderDetailScreen() {
       setProductPrice('');
       setProductNotes('');
 
-      Alert.alert('Éxito', 'Producto agregado');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Producto Agregado',
+        `${productName} se agregó correctamente al pedido`,
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[OrderDetail] Error adding product:', error);
-      Alert.alert('Error', 'No se pudo agregar el producto');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo agregar el producto. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
   const updateProduct = async (itemId: string) => {
     if (!productName || !productQuantity) {
-      Alert.alert('Error', 'Completa todos los campos requeridos');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('⚠️ Atención', 'Por favor completa el nombre y la cantidad del producto');
       return;
     }
 
@@ -611,10 +657,21 @@ export default function OrderDetailScreen() {
 
       setEditingProduct(null);
       await loadOrder();
-      Alert.alert('Éxito', 'Producto actualizado');
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Producto Actualizado',
+        'Los cambios se guardaron correctamente',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[OrderDetail] Error updating product:', error);
-      Alert.alert('Error', 'No se pudo actualizar el producto');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo actualizar el producto. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -625,15 +682,20 @@ export default function OrderDetailScreen() {
     if (!item) return;
 
     Alert.alert(
-      'Eliminar Producto',
-      `¿Eliminar ${item.product_name}?`,
+      '🗑️ Eliminar Producto',
+      `¿Estás seguro de que deseas eliminar "${item.product_name}" del pedido?`,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Cancelar', 
+          style: 'cancel',
+          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               const supabase = getSupabase();
               const { error } = await supabase
                 .from('order_items')
@@ -644,10 +706,21 @@ export default function OrderDetailScreen() {
 
               await sendProductRemovedNotification(order.id, item);
               await loadOrder();
-              Alert.alert('Éxito', 'Producto eliminado');
+              
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert(
+                '✅ Producto Eliminado',
+                `${item.product_name} se eliminó del pedido`,
+                [{ text: 'OK' }]
+              );
             } catch (error) {
               console.error('[OrderDetail] Error deleting product:', error);
-              Alert.alert('Error', 'No se pudo eliminar el producto');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert(
+                '❌ Error',
+                'No se pudo eliminar el producto. Por favor intenta nuevamente.',
+                [{ text: 'OK' }]
+              );
             }
           },
         },
@@ -702,10 +775,21 @@ export default function OrderDetailScreen() {
 
       setShowPriceModal(false);
       await loadOrder();
-      Alert.alert('Éxito', 'Precios actualizados');
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Precios Actualizados',
+        'Los precios de los productos se actualizaron correctamente',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[OrderDetail] Error applying prices:', error);
-      Alert.alert('Error', 'No se pudo aplicar los precios');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudieron actualizar los precios. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -713,7 +797,12 @@ export default function OrderDetailScreen() {
     if (!order) return;
 
     if (!isConnected) {
-      Alert.alert('Error', 'No hay impresora conectada');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Impresora No Conectada',
+        'Por favor conecta una impresora antes de imprimir',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -724,10 +813,21 @@ export default function OrderDetailScreen() {
       const encoding = printerConfig?.encoding || 'CP850';
 
       await printReceipt(receiptText, autoCut, textSize, encoding);
-      Alert.alert('Éxito', 'Pedido impreso');
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Impresión Exitosa',
+        'El pedido se imprimió correctamente',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[OrderDetail] Print error:', error);
-      Alert.alert('Error', 'No se pudo imprimir el pedido');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error de Impresión',
+        'No se pudo imprimir el pedido. Verifica la conexión con la impresora.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -821,7 +921,12 @@ export default function OrderDetailScreen() {
 
   const handleWhatsApp = async () => {
     if (!order?.customer_phone) {
-      Alert.alert('Error', 'No hay número de teléfono');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Sin Número de Teléfono',
+        'Este pedido no tiene un número de teléfono asociado',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -830,9 +935,15 @@ export default function OrderDetailScreen() {
 
     try {
       await Linking.openURL(url);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {
       console.error('[OrderDetail] Error opening WhatsApp:', error);
-      Alert.alert('Error', 'No se pudo abrir WhatsApp');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo abrir WhatsApp. Verifica que esté instalado en tu dispositivo.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -840,15 +951,20 @@ export default function OrderDetailScreen() {
     if (!order) return;
 
     Alert.alert(
-      'Eliminar Pedido',
-      '¿Estás seguro de eliminar este pedido?',
+      '🗑️ Eliminar Pedido',
+      `¿Estás seguro de que deseas eliminar el pedido ${order.order_number}? Esta acción no se puede deshacer.`,
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { 
+          text: 'Cancelar', 
+          style: 'cancel',
+          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               const supabase = getSupabase();
               
               await supabase.from('order_items').delete().eq('order_id', order.id);
@@ -856,11 +972,23 @@ export default function OrderDetailScreen() {
 
               await sendOrderDeletedNotification(order.id);
 
-              router.back();
-              Alert.alert('Éxito', 'Pedido eliminado');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert(
+                '✅ Pedido Eliminado',
+                `El pedido ${order.order_number} se eliminó correctamente`,
+                [{ 
+                  text: 'OK',
+                  onPress: () => router.back()
+                }]
+              );
             } catch (error) {
               console.error('[OrderDetail] Error deleting order:', error);
-              Alert.alert('Error', 'No se pudo eliminar el pedido');
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert(
+                '❌ Error',
+                'No se pudo eliminar el pedido. Por favor intenta nuevamente.',
+                [{ text: 'OK' }]
+              );
             }
           },
         },

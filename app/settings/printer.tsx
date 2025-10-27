@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useAuth } from '@/contexts/AuthContext';
+import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
@@ -270,7 +271,12 @@ export default function PrinterSettingsScreen() {
       setLoading(true);
       
       if (!user?.id) {
-        Alert.alert('Error', 'Debes iniciar sesión para guardar la configuración');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          '❌ Error',
+          'Debes iniciar sesión para guardar la configuración',
+          [{ text: 'OK' }]
+        );
         return;
       }
 
@@ -357,10 +363,20 @@ export default function PrinterSettingsScreen() {
       const status = await getBackgroundTaskStatus();
       setBackgroundTaskStatus(status);
       
-      Alert.alert('Éxito', 'Configuración guardada correctamente en la base de datos');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Configuración Guardada',
+        'La configuración de la impresora se guardó correctamente en la base de datos',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[PrinterSettings] Error saving config:', error);
-      Alert.alert('Error', 'No se pudo guardar la configuración: ' + (error as Error).message);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error al Guardar',
+        'No se pudo guardar la configuración: ' + (error as Error).message,
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
@@ -370,10 +386,21 @@ export default function PrinterSettingsScreen() {
     try {
       setLoading(true);
       await testPrint(autoCutEnabled, encoding);
-      Alert.alert('Éxito', 'Impresión de prueba enviada');
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Impresión de Prueba',
+        'La impresión de prueba se envió correctamente',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[PrinterSettings] Test print error:', error);
-      Alert.alert('Error', 'No se pudo imprimir. Verifica la conexión con la impresora.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error de Impresión',
+        'No se pudo imprimir. Verifica la conexión con la impresora.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
@@ -382,9 +409,15 @@ export default function PrinterSettingsScreen() {
   const handleScan = async () => {
     try {
       await scan();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (error) {
       console.error('[PrinterSettings] Scan error:', error);
-      Alert.alert('Error', 'No se pudo escanear dispositivos');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error al Escanear',
+        'No se pudo escanear dispositivos Bluetooth',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -394,7 +427,13 @@ export default function PrinterSettingsScreen() {
       const device = availableDevices?.find((d) => d.id === deviceId);
       if (device) {
         await connect(device);
-        Alert.alert('Éxito', 'Conectado a la impresora');
+        
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '✅ Conectado',
+          `Conectado exitosamente a ${device.name || 'la impresora'}`,
+          [{ text: 'OK' }]
+        );
         
         // If auto-print is enabled, register background task
         if (autoPrintEnabled) {
@@ -405,7 +444,12 @@ export default function PrinterSettingsScreen() {
       }
     } catch (error) {
       console.error('[PrinterSettings] Connect error:', error);
-      Alert.alert('Error', 'No se pudo conectar a la impresora');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error de Conexión',
+        'No se pudo conectar a la impresora. Verifica que esté encendida y cerca.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
@@ -421,10 +465,20 @@ export default function PrinterSettingsScreen() {
       const status = await getBackgroundTaskStatus();
       setBackgroundTaskStatus(status);
       
-      Alert.alert('Éxito', 'Desconectado de la impresora');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Desconectado',
+        'La impresora se desconectó correctamente',
+        [{ text: 'OK' }]
+      );
     } catch (error) {
       console.error('[PrinterSettings] Disconnect error:', error);
-      Alert.alert('Error', 'No se pudo desconectar');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo desconectar la impresora',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }

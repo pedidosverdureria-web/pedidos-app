@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
@@ -57,7 +58,12 @@ export default function WhatsAppSettingsScreen() {
       }
     } catch (error) {
       console.error('Error loading WhatsApp config:', error);
-      Alert.alert('Error', 'No se pudo cargar la configuración de WhatsApp');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo cargar la configuración de WhatsApp',
+        [{ text: 'OK' }]
+      );
     } finally {
       setLoading(false);
     }
@@ -91,11 +97,21 @@ export default function WhatsAppSettingsScreen() {
         if (error) throw error;
       }
 
-      Alert.alert('Éxito', 'Configuración guardada correctamente');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Configuración Guardada',
+        'La configuración de WhatsApp se guardó correctamente',
+        [{ text: 'OK' }]
+      );
       loadConfig();
     } catch (error) {
       console.error('Error saving WhatsApp config:', error);
-      Alert.alert('Error', 'No se pudo guardar la configuración');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error al Guardar',
+        'No se pudo guardar la configuración. Por favor intenta nuevamente.',
+        [{ text: 'OK' }]
+      );
     } finally {
       setSaving(false);
     }
@@ -103,7 +119,12 @@ export default function WhatsAppSettingsScreen() {
 
   const handleTestWebhook = async () => {
     if (!formData.webhook_url) {
-      Alert.alert('Error', 'Por favor ingresa la URL del webhook primero');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ URL Requerida',
+        'Por favor ingresa la URL del webhook primero',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -158,24 +179,30 @@ export default function WhatsAppSettingsScreen() {
         const result = await response.json();
         console.log('[WhatsApp] Webhook response:', result);
         
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          'Éxito',
+          '✅ Webhook Funcionando',
           'El webhook respondió correctamente. Revisa la lista de pedidos para ver el pedido de prueba creado.',
           [{ text: 'OK' }]
         );
       } else {
         const errorText = await response.text();
         console.error('[WhatsApp] Webhook error:', errorText);
+        
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert(
-          'Error',
-          `El webhook respondió con error (${response.status}). Revisa la configuración.`
+          '❌ Error del Webhook',
+          `El webhook respondió con error (${response.status}). Revisa la configuración.`,
+          [{ text: 'OK' }]
         );
       }
     } catch (error) {
       console.error('[WhatsApp] Error testing webhook:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        'Error',
-        'No se pudo conectar con el webhook. Verifica que la URL sea correcta y que el webhook esté activo.'
+        '❌ Error de Conexión',
+        'No se pudo conectar con el webhook. Verifica que la URL sea correcta y que el webhook esté activo.',
+        [{ text: 'OK' }]
       );
     } finally {
       setTesting(false);

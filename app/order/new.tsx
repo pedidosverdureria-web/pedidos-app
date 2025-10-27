@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
@@ -74,7 +75,12 @@ export default function NewOrderScreen() {
 
   const removeItem = (index: number) => {
     if (items.length === 1) {
-      Alert.alert('Error', 'Debe haber al menos un producto en el pedido');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Atención',
+        'Debe haber al menos un producto en el pedido',
+        [{ text: 'OK' }]
+      );
       return;
     }
     setItems(items.filter((_, i) => i !== index));
@@ -150,7 +156,12 @@ export default function NewOrderScreen() {
     });
 
     if (!hasValidItem) {
-      Alert.alert('Error', 'Debe agregar al menos un producto válido con nombre y precio');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error de Validación',
+        'Debe agregar al menos un producto válido con nombre y precio',
+        [{ text: 'OK' }]
+      );
       newErrors.items = itemErrors;
       setErrors(newErrors);
       return false;
@@ -176,7 +187,12 @@ export default function NewOrderScreen() {
     // Check authentication before proceeding
     const supabase = getSupabase();
     if (!supabase) {
-      Alert.alert('Error', 'Supabase no está inicializado. Por favor configura la conexión primero.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'Supabase no está inicializado. Por favor configura la conexión primero.',
+        [{ text: 'OK' }]
+      );
       return;
     }
 
@@ -186,8 +202,9 @@ export default function NewOrderScreen() {
     
     if (sessionError) {
       console.error('Session verification error:', sessionError);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        'Error de Autenticación',
+        '❌ Error de Autenticación',
         'No se pudo verificar tu sesión. Por favor cierra sesión y vuelve a iniciar sesión.',
         [
           {
@@ -201,8 +218,9 @@ export default function NewOrderScreen() {
 
     if (!currentSession || !currentSession.user) {
       console.error('No valid session found');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        'Sesión Expirada',
+        '❌ Sesión Expirada',
         'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
         [
           {
@@ -256,8 +274,9 @@ export default function NewOrderScreen() {
         
         // Provide specific error messages based on error code
         if (orderError.code === '23503') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           Alert.alert(
-            'Error de Autenticación',
+            '❌ Error de Autenticación',
             'Tu sesión no es válida. Por favor cierra sesión y vuelve a iniciar sesión.',
             [
               {
@@ -268,9 +287,11 @@ export default function NewOrderScreen() {
           );
           return;
         } else if (orderError.code === '42501') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           Alert.alert(
-            'Error de Permisos',
+            '❌ Error de Permisos',
             'No tienes permisos para crear pedidos. Por favor contacta al administrador.',
+            [{ text: 'OK' }]
           );
           return;
         }
@@ -318,9 +339,10 @@ export default function NewOrderScreen() {
 
       console.log('=== Order creation completed successfully ===');
 
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        'Éxito',
-        `Pedido #${order.order_number} creado exitosamente`,
+        '✅ Pedido Creado',
+        `El pedido #${order.order_number} se creó exitosamente`,
         [
           {
             text: 'Ver Pedido',
@@ -352,9 +374,11 @@ export default function NewOrderScreen() {
       console.error('Error message:', error.message);
       console.error('Error details:', error);
       
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        'Error',
-        error.message || 'No se pudo crear el pedido. Por favor intenta de nuevo.'
+        '❌ Error al Crear Pedido',
+        error.message || 'No se pudo crear el pedido. Por favor intenta de nuevo.',
+        [{ text: 'OK' }]
       );
     } finally {
       setLoading(false);
