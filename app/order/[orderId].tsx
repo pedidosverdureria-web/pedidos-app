@@ -391,6 +391,14 @@ function formatCLP(amount: number): string {
 function getUnitFromNotes(notes: string | null | undefined): string {
   if (!notes) return '';
   const lowerNotes = notes.toLowerCase();
+  
+  // Extract unit from "Unidad: xxx" format
+  const unitMatch = lowerNotes.match(/unidad:\s*(\w+)/);
+  if (unitMatch) {
+    return unitMatch[1];
+  }
+  
+  // Fallback to old detection method
   if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
   if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
   if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
@@ -404,21 +412,39 @@ function formatProductDisplay(item: OrderItem): string {
   
   // Determine the unit text
   let unitText = '';
-  if (unit === 'kg' || unit === 'kilo') {
+  if (unit === 'kg' || unit === 'kilo' || unit === 'kilos') {
     unitText = item.quantity === 1 ? 'kilo' : 'kilos';
-  } else if (unit === 'gr' || unit === 'gramo') {
+  } else if (unit === 'gr' || unit === 'gramo' || unit === 'gramos') {
     unitText = item.quantity === 1 ? 'gramo' : 'gramos';
-  } else if (unit === 'lt' || unit === 'litro') {
+  } else if (unit === 'lt' || unit === 'litro' || unit === 'litros') {
     unitText = item.quantity === 1 ? 'litro' : 'litros';
   } else if (unit === 'ml') {
     unitText = 'ml';
-  } else if (unit === 'un' || unit === 'unidad') {
+  } else if (unit === 'un' || unit === 'unidad' || unit === 'unidades') {
     unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  } else if (unit) {
+    // For any other unit (like malla, docena, etc.), use it directly
+    // Check if it needs pluralization
+    if (item.quantity === 1) {
+      unitText = unit;
+    } else {
+      // Simple pluralization: add 's' if doesn't end with 's'
+      unitText = unit.endsWith('s') ? unit : unit + 's';
+    }
   } else {
     unitText = item.quantity === 1 ? 'unidad' : 'unidades';
   }
   
   return `${item.quantity} ${unitText} de ${item.product_name}`;
+}
+
+function getAdditionalNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  
+  // Remove the "Unidad: xxx" part from notes
+  const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
+  
+  return cleanNotes;
 }
 
 function formatDate(dateString: string): string {
@@ -863,11 +889,9 @@ export default function OrderDetailScreen() {
       receipt += `${formatProductDisplay(item)}\n`;
       
       // Add additional notes if they exist (excluding unit information)
-      if (item.notes) {
-        const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
-        if (cleanNotes) {
-          receipt += `  ${cleanNotes}\n`;
-        }
+      const additionalNotes = getAdditionalNotes(item.notes);
+      if (additionalNotes) {
+        receipt += `  ${additionalNotes}\n`;
       }
       
       if (item.unit_price > 0) {
@@ -1138,41 +1162,45 @@ export default function OrderDetailScreen() {
             <Text style={styles.sectionTitle}>Productos</Text>
           </View>
 
-          {order.items?.map((item, index) => (
-            <View
-              key={item.id}
-              style={[
-                styles.productItem,
-                index === (order.items?.length || 0) - 1 && styles.productItemLast,
-              ]}
-            >
-              <View style={styles.productInfo}>
-                <Text style={styles.productName}>{formatProductDisplay(item)}</Text>
-                {item.notes && (
-                  <Text style={styles.productDetails}>{item.notes}</Text>
-                )}
-                {item.unit_price > 0 && (
-                  <Text style={styles.productDetails}>
-                    {formatCLP(item.unit_price)}
-                  </Text>
-                )}
+          {order.items?.map((item, index) => {
+            const additionalNotes = getAdditionalNotes(item.notes);
+            
+            return (
+              <View
+                key={item.id}
+                style={[
+                  styles.productItem,
+                  index === (order.items?.length || 0) - 1 && styles.productItemLast,
+                ]}
+              >
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName}>{formatProductDisplay(item)}</Text>
+                  {additionalNotes && (
+                    <Text style={styles.productDetails}>{additionalNotes}</Text>
+                  )}
+                  {item.unit_price > 0 && (
+                    <Text style={styles.productDetails}>
+                      {formatCLP(item.unit_price)}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.productActions}>
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => startEditingProduct(item)}
+                  >
+                    <IconSymbol name="pencil" size={20} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.iconButton}
+                    onPress={() => deleteProduct(item.id)}
+                  >
+                    <IconSymbol name="trash" size={20} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={styles.productActions}>
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={() => startEditingProduct(item)}
-                >
-                  <IconSymbol name="pencil" size={20} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.iconButton}
-                  onPress={() => deleteProduct(item.id)}
-                >
-                  <IconSymbol name="trash" size={20} color={colors.error} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+            );
+          })}
 
           {editingProduct ? (
             <>
