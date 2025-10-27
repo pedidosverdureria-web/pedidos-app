@@ -16,6 +16,7 @@ import {
 import { Stack } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
+import { getSupabase } from '@/lib/supabase';
 import { 
   registerBackgroundAutoPrintTask, 
   unregisterBackgroundAutoPrintTask,
@@ -185,22 +186,70 @@ export default function PrinterSettingsScreen() {
   const [includeTotals, setIncludeTotals] = useState(true);
   const [loading, setLoading] = useState(false);
   const [backgroundTaskStatus, setBackgroundTaskStatus] = useState<any>(null);
+  const [printerConfigId, setPrinterConfigId] = useState<string | null>(null);
 
   const loadConfig = useCallback(async () => {
     try {
       console.log('[PrinterSettings] Loading config...');
+      
+      // First, try to load from Supabase database
+      if (user?.id) {
+        const supabase = getSupabase();
+        const { data: dbConfig, error } = await supabase
+          .from('printer_config')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (error) {
+          console.error('[PrinterSettings] Error loading from database:', error);
+        } else if (dbConfig) {
+          console.log('[PrinterSettings] Config loaded from database:', dbConfig);
+          setPrinterConfigId(dbConfig.id);
+          setAutoPrintEnabled(dbConfig.auto_print_enabled ?? false);
+          setAutoCutEnabled(dbConfig.auto_cut_enabled ?? true);
+          
+          // Map database fields to local state
+          // Note: text_size and paper_size are not in the database schema yet
+          // We'll use defaults or load from AsyncStorage as fallback
+          setIncludeLogo(dbConfig.include_logo ?? true);
+          setIncludeCustomerInfo(dbConfig.include_customer_info ?? true);
+          setIncludeTotals(dbConfig.include_totals ?? true);
+          
+          // Also save to AsyncStorage for quick access
+          const config = {
+            auto_print_enabled: dbConfig.auto_print_enabled ?? false,
+            auto_cut_enabled: dbConfig.auto_cut_enabled ?? true,
+            text_size: textSize, // Keep current value
+            paper_size: paperSize, // Keep current value
+            encoding: encoding, // Keep current value
+            include_logo: dbConfig.include_logo ?? true,
+            include_customer_info: dbConfig.include_customer_info ?? true,
+            include_totals: dbConfig.include_totals ?? true,
+          };
+          await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
+        }
+      }
+      
+      // Also load from AsyncStorage (for fields not in database or as fallback)
       const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       if (configStr) {
         const config = JSON.parse(configStr);
-        console.log('[PrinterSettings] Config loaded:', config);
-        setAutoPrintEnabled(config.auto_print_enabled ?? false);
-        setAutoCutEnabled(config.auto_cut_enabled ?? true);
+        console.log('[PrinterSettings] Config loaded from AsyncStorage:', config);
+        
+        // Only update fields that are not in the database
         setTextSize(config.text_size || 'medium');
         setPaperSize(config.paper_size || '80mm');
         setEncoding(config.encoding || 'CP850');
-        setIncludeLogo(config.include_logo ?? true);
-        setIncludeCustomerInfo(config.include_customer_info ?? true);
-        setIncludeTotals(config.include_totals ?? true);
+        
+        // If no database config was found, use AsyncStorage values
+        if (!printerConfigId) {
+          setAutoPrintEnabled(config.auto_print_enabled ?? false);
+          setAutoCutEnabled(config.auto_cut_enabled ?? true);
+          setIncludeLogo(config.include_logo ?? true);
+          setIncludeCustomerInfo(config.include_customer_info ?? true);
+          setIncludeTotals(config.include_totals ?? true);
+        }
       }
       
       // Load background task status
@@ -210,7 +259,7 @@ export default function PrinterSettingsScreen() {
     } catch (error) {
       console.error('[PrinterSettings] Error loading config:', error);
     }
-  }, []);
+  }, [user?.id, printerConfigId, textSize, paperSize, encoding]);
 
   useEffect(() => {
     loadConfig();
@@ -219,6 +268,12 @@ export default function PrinterSettingsScreen() {
   const handleSaveConfig = async () => {
     try {
       setLoading(true);
+      
+      if (!user?.id) {
+        Alert.alert('Error', 'Debes iniciar sesión para guardar la configuración');
+        return;
+      }
+
       const config = {
         auto_print_enabled: autoPrintEnabled,
         auto_cut_enabled: autoCutEnabled,
@@ -231,7 +286,63 @@ export default function PrinterSettingsScreen() {
       };
       
       console.log('[PrinterSettings] Saving config:', config);
+      
+      // Save to AsyncStorage for quick local access
       await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
+      console.log('[PrinterSettings] Config saved to AsyncStorage');
+      
+      // Save to Supabase database for persistence
+      const supabase = getSupabase();
+      
+      // Prepare database record (only fields that exist in the schema)
+      const dbConfig = {
+        user_id: user.id,
+        printer_name: connectedDevice?.name || null,
+        printer_address: connectedDevice?.id || null,
+        is_default: true,
+        auto_print_enabled: autoPrintEnabled,
+        auto_cut_enabled: autoCutEnabled,
+        include_logo: includeLogo,
+        include_customer_info: includeCustomerInfo,
+        include_totals: includeTotals,
+        updated_at: new Date().toISOString(),
+      };
+      
+      let savedConfigId = printerConfigId;
+      
+      if (printerConfigId) {
+        // Update existing config
+        console.log('[PrinterSettings] Updating existing config in database:', printerConfigId);
+        const { error } = await supabase
+          .from('printer_config')
+          .update(dbConfig)
+          .eq('id', printerConfigId);
+        
+        if (error) {
+          console.error('[PrinterSettings] Error updating database:', error);
+          throw error;
+        }
+        console.log('[PrinterSettings] Config updated in database');
+      } else {
+        // Insert new config
+        console.log('[PrinterSettings] Inserting new config in database');
+        const { data, error } = await supabase
+          .from('printer_config')
+          .insert([dbConfig])
+          .select()
+          .single();
+        
+        if (error) {
+          console.error('[PrinterSettings] Error inserting into database:', error);
+          throw error;
+        }
+        
+        if (data) {
+          savedConfigId = data.id;
+          setPrinterConfigId(data.id);
+          console.log('[PrinterSettings] Config inserted in database with ID:', data.id);
+        }
+      }
       
       // Register or unregister background task based on auto-print setting
       if (autoPrintEnabled && isConnected) {
@@ -246,10 +357,10 @@ export default function PrinterSettingsScreen() {
       const status = await getBackgroundTaskStatus();
       setBackgroundTaskStatus(status);
       
-      Alert.alert('Éxito', 'Configuración guardada correctamente');
+      Alert.alert('Éxito', 'Configuración guardada correctamente en la base de datos');
     } catch (error) {
       console.error('[PrinterSettings] Error saving config:', error);
-      Alert.alert('Error', 'No se pudo guardar la configuración');
+      Alert.alert('Error', 'No se pudo guardar la configuración: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
