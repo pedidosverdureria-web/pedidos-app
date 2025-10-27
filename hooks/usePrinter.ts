@@ -65,28 +65,82 @@ const SAVED_PRINTER_KEY = '@saved_printer_device';
 const KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
 const MAX_CHUNK_SIZE = 180; // Maximum bytes per write operation (safe for most printers)
 
-// Complete CP850 character mapping for Spanish and special characters
+// Complete and accurate CP850 character mapping for Spanish and special characters
+// CP850 is the standard code page for thermal printers with Spanish support
 const CP850_MAP: { [key: string]: number } = {
   // Lowercase vowels with accents
-  'á': 160, 'é': 130, 'í': 161, 'ó': 162, 'ú': 163,
+  'á': 160,
+  'é': 130,
+  'í': 161,
+  'ó': 162,
+  'ú': 163,
   // Uppercase vowels with accents
-  'Á': 181, 'É': 144, 'Í': 214, 'Ó': 224, 'Ú': 233,
-  // Ñ and ñ
-  'ñ': 164, 'Ñ': 165,
+  'Á': 181,
+  'É': 144,
+  'Í': 214,
+  'Ó': 224,
+  'Ú': 233,
+  // Ñ and ñ - THE MOST IMPORTANT FOR SPANISH
+  'ñ': 164,
+  'Ñ': 165,
   // Ü and ü
-  'ü': 129, 'Ü': 154,
+  'ü': 129,
+  'Ü': 154,
   // Special Spanish punctuation
-  '¿': 168, '¡': 173,
+  '¿': 168,
+  '¡': 173,
   // Other special characters
-  '°': 248, '€': 238, '£': 156, '¥': 157,
-  'ç': 135, 'Ç': 128,
-  'à': 133, 'è': 138, 'ì': 141, 'ò': 149, 'ù': 151,
-  'À': 183, 'È': 212, 'Ì': 222, 'Ò': 227, 'Ù': 235,
+  '°': 248,
+  '€': 213,
+  '£': 156,
+  '¥': 157,
+  'ç': 135,
+  'Ç': 128,
+  // Other accented vowels
+  'à': 133,
+  'è': 138,
+  'ì': 141,
+  'ò': 149,
+  'ù': 151,
+  'À': 183,
+  'È': 212,
+  'Ì': 222,
+  'Ò': 227,
+  'Ù': 235,
+  // Additional accented characters
+  'â': 131,
+  'ê': 136,
+  'î': 140,
+  'ô': 147,
+  'û': 150,
+  'Â': 182,
+  'Ê': 210,
+  'Î': 215,
+  'Ô': 226,
+  'Û': 234,
   // Box drawing and line characters
-  '─': 196, '│': 179, '┌': 218, '┐': 191, '└': 192, '┘': 217,
-  '├': 195, '┤': 180, '┬': 194, '┴': 193, '┼': 197,
-  '═': 205, '║': 186, '╔': 201, '╗': 187, '╚': 200, '╝': 188,
-  '╠': 204, '╣': 185, '╦': 203, '╩': 202, '╬': 206,
+  '─': 196,
+  '│': 179,
+  '┌': 218,
+  '┐': 191,
+  '└': 192,
+  '┘': 217,
+  '├': 195,
+  '┤': 180,
+  '┬': 194,
+  '┴': 193,
+  '┼': 197,
+  '═': 205,
+  '║': 186,
+  '╔': 201,
+  '╗': 187,
+  '╚': 200,
+  '╝': 188,
+  '╠': 204,
+  '╣': 185,
+  '╦': 203,
+  '╩': 202,
+  '╬': 206,
 };
 
 // ISO-8859-1 (Latin-1) character mapping
@@ -125,9 +179,14 @@ const convertToEncoding = (text: string, encoding: Encoding): Uint8Array => {
 /**
  * Convert text with Spanish characters to CP850 encoding
  * This function properly handles ñ, accented characters, and special symbols
+ * 
+ * IMPORTANT: CP850 is the standard code page for thermal printers with Spanish support.
+ * The printer MUST be set to CP850 mode using ESC t 2 command before printing.
  */
 const convertToCP850 = (text: string): Uint8Array => {
   const bytes: number[] = [];
+  
+  console.log(`[usePrinter] Converting to CP850: "${text.substring(0, 100)}..."`);
   
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
@@ -137,35 +196,25 @@ const convertToCP850 = (text: string): Uint8Array => {
     if (CP850_MAP[char] !== undefined) {
       const mappedValue = CP850_MAP[char];
       bytes.push(mappedValue);
-      console.log(`[usePrinter] Mapped '${char}' (U+${charCode.toString(16).toUpperCase()}) to CP850: ${mappedValue}`);
+      console.log(`[usePrinter] ✓ Mapped '${char}' (U+${charCode.toString(16).toUpperCase().padStart(4, '0')}) → CP850: ${mappedValue} (0x${mappedValue.toString(16).toUpperCase()})`);
     } 
     // ASCII characters (0-127) can be used directly
     else if (charCode < 128) {
       bytes.push(charCode);
     }
-    // For unmapped characters, try to find a reasonable substitute
+    // For unmapped characters, use a space as fallback
     else {
-      // Try to decompose accented characters
-      const normalized = char.normalize('NFD');
-      if (normalized.length > 1) {
-        // Use the base character without accent
-        const baseChar = normalized[0];
-        const baseCharCode = baseChar.charCodeAt(0);
-        if (baseCharCode < 128) {
-          console.warn(`[usePrinter] Unmapped character '${char}', using base character '${baseChar}'`);
-          bytes.push(baseCharCode);
-        } else {
-          console.warn(`[usePrinter] Unmapped character '${char}' (code: ${charCode}), using space`);
-          bytes.push(32); // Space character
-        }
-      } else {
-        console.warn(`[usePrinter] Unmapped character '${char}' (code: ${charCode}), using space`);
-        bytes.push(32); // Space character
-      }
+      console.warn(`[usePrinter] ✗ Unmapped character '${char}' (U+${charCode.toString(16).toUpperCase().padStart(4, '0')}), using space`);
+      bytes.push(32); // Space character
     }
   }
   
-  console.log(`[usePrinter] CP850 conversion complete: ${text.length} chars -> ${bytes.length} bytes`);
+  console.log(`[usePrinter] CP850 conversion complete: ${text.length} chars → ${bytes.length} bytes`);
+  
+  // Log a sample of the converted bytes for debugging
+  const sampleBytes = bytes.slice(0, 50).map(b => `0x${b.toString(16).toUpperCase().padStart(2, '0')}`).join(' ');
+  console.log(`[usePrinter] First bytes: ${sampleBytes}`);
+  
   return new Uint8Array(bytes);
 };
 
@@ -584,15 +633,19 @@ export const usePrinter = () => {
     }
 
     try {
-      console.log('[usePrinter] Printing receipt with settings:', { textSize, encoding, autoCut });
+      console.log('[usePrinter] ========================================');
+      console.log('[usePrinter] PRINTING RECEIPT');
+      console.log('[usePrinter] Settings:', { textSize, encoding, autoCut });
       console.log('[usePrinter] Original content length:', content.length);
-      console.log('[usePrinter] Original content preview:', content.substring(0, 200));
+      console.log('[usePrinter] Content preview:', content.substring(0, 200));
+      console.log('[usePrinter] ========================================');
       
       // Build the print command as a string first
       let printCommand = COMMANDS.INIT; // Initialize printer
       
       // Set code page based on encoding (only for CP850)
       if (encoding === 'CP850') {
+        console.log('[usePrinter] Setting printer to CP850 code page');
         printCommand += COMMANDS.SET_CODEPAGE_850;
       }
       
@@ -617,7 +670,9 @@ export const usePrinter = () => {
       
       // Send to printer in chunks
       await sendDataToPrinter(encodedData);
-      console.log('[usePrinter] Print completed successfully');
+      console.log('[usePrinter] ========================================');
+      console.log('[usePrinter] PRINT COMPLETED SUCCESSFULLY');
+      console.log('[usePrinter] ========================================');
     } catch (error) {
       console.error('[usePrinter] Print error:', error);
       throw error;
@@ -635,6 +690,14 @@ Esta es una prueba de impresión.
 Caracteres especiales:
 á é í ó ú ñ Ñ ¿ ¡
 Á É Í Ó Ú ü Ü
+
+Palabras comunes:
+- Año
+- Niño
+- Señor
+- Mañana
+- España
+- Jalapeño
 
 Si puedes leer esto correctamente,
 tu impresora funciona bien.
