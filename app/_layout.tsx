@@ -11,6 +11,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { WidgetProvider } from '@/contexts/WidgetContext';
 import { registerBackgroundNotificationTask } from '@/utils/backgroundNotificationTask';
 import { Platform } from 'react-native';
+import { requestAllRequiredPermissions } from '@/utils/permissions';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -30,12 +31,25 @@ export default function RootLayout() {
   // Register background notification task on app startup
   useEffect(() => {
     if (Platform.OS !== 'web') {
-      console.log('Registering background notification task...');
+      console.log('[RootLayout] Registering background notification task...');
       registerBackgroundNotificationTask().catch((error) => {
-        console.error('Failed to register background notification task:', error);
+        console.error('[RootLayout] Failed to register background notification task:', error);
       });
     }
   }, []);
+
+  // Request all required permissions on app startup
+  useEffect(() => {
+    if (Platform.OS !== 'web' && loaded) {
+      console.log('[RootLayout] Requesting all required permissions...');
+      // Delay permission request to avoid blocking the UI
+      setTimeout(() => {
+        requestAllRequiredPermissions().catch((error) => {
+          console.error('[RootLayout] Failed to request permissions:', error);
+        });
+      }, 2000);
+    }
+  }, [loaded]);
 
   if (!loaded) {
     return null;

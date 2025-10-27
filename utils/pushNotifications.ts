@@ -152,11 +152,13 @@ export async function sendLocalNotification(
 ) {
   // Local notifications not supported on web
   if (Platform.OS === 'web') {
-    console.log('Local notifications not supported on web');
+    console.log('[PushNotifications] Local notifications not supported on web');
     return;
   }
 
   try {
+    console.log('[PushNotifications] Sending local notification:', { title, body });
+    
     await Notifications.scheduleNotificationAsync({
       content: {
         title,
@@ -167,15 +169,18 @@ export async function sendLocalNotification(
         vibrate: [0, 500, 250, 500], // Custom vibration pattern
         badge: 1,
         categoryIdentifier: 'order',
+        sticky: true, // Keep notification visible
+        autoDismiss: false, // Don't auto-dismiss
         ...(Platform.OS === 'android' && {
           channelId: 'orders', // Use the orders channel for maximum priority
         }),
       },
       trigger: null, // Immediate delivery
     });
-    console.log('Local notification sent successfully');
+    console.log('[PushNotifications] Local notification sent successfully');
+    console.log('[PushNotifications] Notification will show even with screen off');
   } catch (error) {
-    console.error('Error sending local notification:', error);
+    console.error('[PushNotifications] Error sending local notification:', error);
   }
 }
 

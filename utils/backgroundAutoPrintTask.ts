@@ -286,8 +286,19 @@ export async function registerBackgroundAutoPrintTask() {
       });
       
       console.log('[BackgroundAutoPrint] Background task registered successfully');
+      console.log('[BackgroundAutoPrint] Task will run every 60 seconds, even with screen off');
     } else {
       console.log('[BackgroundAutoPrint] Background task already registered');
+    }
+    
+    // Check background fetch status
+    const status = await BackgroundFetch.getStatusAsync();
+    console.log('[BackgroundAutoPrint] Background fetch status:', getStatusText(status));
+    
+    if (status === BackgroundFetch.BackgroundFetchStatus.Denied || 
+        status === BackgroundFetch.BackgroundFetchStatus.Restricted) {
+      console.warn('[BackgroundAutoPrint] Background fetch is denied or restricted!');
+      console.warn('[BackgroundAutoPrint] Auto-print may not work with screen off');
     }
   } catch (error) {
     console.error('[BackgroundAutoPrint] Error registering background task:', error);

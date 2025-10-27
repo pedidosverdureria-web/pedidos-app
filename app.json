@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "order-flow-app-jdvhwd",
@@ -19,7 +20,13 @@
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "fetch",
-          "remote-notification"
+          "remote-notification",
+          "processing"
+        ],
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica y poder imprimir pedidos automáticamente.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica.",
+        "BGTaskSchedulerPermittedIdentifiers": [
+          "com.anonymous.Natively.background-auto-print"
         ]
       }
     },
@@ -33,7 +40,17 @@
       "permissions": [
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
-        "FOREGROUND_SERVICE"
+        "FOREGROUND_SERVICE",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "SCHEDULE_EXACT_ALARM",
+        "USE_EXACT_ALARM",
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
       ]
     },
     "web": {
@@ -51,7 +68,17 @@
           "color": "#3B82F6",
           "defaultChannel": "orders",
           "sounds": [],
-          "enableBackgroundRemoteNotifications": true
+          "enableBackgroundRemoteNotifications": true,
+          "androidMode": "default",
+          "androidCollapsedTitle": "Nuevo Pedido"
+        }
+      ],
+      [
+        "expo-background-fetch",
+        {
+          "android": {
+            "minimumInterval": 1
+          }
         }
       ]
     ],
