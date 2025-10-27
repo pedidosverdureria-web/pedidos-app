@@ -43,6 +43,45 @@ interface Order {
 }
 
 /**
+ * Helper function to extract unit from notes
+ */
+function getUnitFromNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  const lowerNotes = notes.toLowerCase();
+  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
+  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
+  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
+  if (lowerNotes.includes('ml')) return 'ml';
+  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
+  return '';
+}
+
+/**
+ * Format product display in webhook format: "1 kilo de tomates"
+ */
+function formatProductDisplay(item: { product_name: string; quantity: number; notes?: string }): string {
+  const unit = getUnitFromNotes(item.notes);
+  
+  // Determine the unit text
+  let unitText = '';
+  if (unit === 'kg' || unit === 'kilo') {
+    unitText = item.quantity === 1 ? 'kilo' : 'kilos';
+  } else if (unit === 'gr' || unit === 'gramo') {
+    unitText = item.quantity === 1 ? 'gramo' : 'gramos';
+  } else if (unit === 'lt' || unit === 'litro') {
+    unitText = item.quantity === 1 ? 'litro' : 'litros';
+  } else if (unit === 'ml') {
+    unitText = 'ml';
+  } else if (unit === 'un' || unit === 'unidad') {
+    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  } else {
+    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  }
+  
+  return `${item.quantity} ${unitText} de ${item.product_name}`;
+}
+
+/**
  * Generate receipt text for an order
  */
 function generateReceiptText(order: Order, printerConfig: PrinterConfig): string {
@@ -80,14 +119,13 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
     receipt += '-'.repeat(width) + '\n\n';
   }
   
-  // Items
+  // Items - using webhook format
   receipt += 'PRODUCTOS:\n\n';
   for (const item of order.items || []) {
-    const unit = getUnitFromNotes(item.notes);
-    const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+    // Use formatProductDisplay to get the webhook format
+    receipt += `${formatProductDisplay(item)}\n`;
     
-    receipt += `${quantityStr} ${item.product_name}\n`;
-    
+    // Add additional notes if they exist (excluding unit information)
     if (item.notes) {
       const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
       if (cleanNotes) {
@@ -96,7 +134,7 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
     }
     
     if (item.unit_price > 0) {
-      receipt += `  ${formatCLP(item.unit_price * item.quantity)}\n`;
+      receipt += `  ${formatCLP(item.unit_price)}\n`;
     }
     receipt += '\n';
   }
@@ -104,7 +142,7 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   // Totals
   if (printerConfig?.include_totals !== false) {
     receipt += '-'.repeat(width) + '\n';
-    const total = order.items?.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0) || 0;
+    const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
     receipt += `TOTAL: ${formatCLP(total)}\n`;
     
     if (order.amount_paid > 0) {
@@ -149,17 +187,6 @@ function formatCLP(amount: number): string {
     style: 'currency',
     currency: 'CLP',
   }).format(amount);
-}
-
-function getUnitFromNotes(notes: string | null | undefined): string {
-  if (!notes) return '';
-  const lowerNotes = notes.toLowerCase();
-  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
-  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
-  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
-  if (lowerNotes.includes('ml')) return 'ml';
-  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
-  return '';
 }
 
 /**

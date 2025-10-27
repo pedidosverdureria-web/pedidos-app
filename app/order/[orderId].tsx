@@ -759,11 +759,10 @@ export default function OrderDetailScreen() {
     
     receipt += 'PRODUCTOS:\n\n';
     for (const item of order.items || []) {
-      const unit = getUnitFromNotes(item.notes);
-      const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+      // Use formatProductDisplay to get the webhook format
+      receipt += `${formatProductDisplay(item)}\n`;
       
-      receipt += `${quantityStr} ${item.product_name}\n`;
-      
+      // Add additional notes if they exist (excluding unit information)
       if (item.notes) {
         const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
         if (cleanNotes) {
