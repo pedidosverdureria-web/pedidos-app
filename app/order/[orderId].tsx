@@ -88,6 +88,38 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 12,
   },
+  currentStatusContainer: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  currentStatusLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  currentStatusBadge: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  currentStatusText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  statusTransitionsLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
   statusContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -95,9 +127,12 @@ const styles = StyleSheet.create({
   },
   statusButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 20,
     borderWidth: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   statusButtonText: {
     fontSize: 14,
@@ -150,6 +185,9 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'center',
     marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   addButtonText: {
     color: '#fff',
@@ -182,17 +220,25 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   actionButton: {
-    backgroundColor: colors.primary,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
     marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 10,
   },
-  actionButtonSecondary: {
-    backgroundColor: colors.secondary,
+  printButton: {
+    backgroundColor: '#3B82F6',
   },
-  actionButtonDanger: {
-    backgroundColor: colors.error,
+  whatsappButton: {
+    backgroundColor: '#25D366',
+  },
+  editButton: {
+    backgroundColor: '#F59E0B',
+  },
+  deleteButton: {
+    backgroundColor: '#EF4444',
   },
   actionButtonText: {
     color: '#fff',
@@ -297,6 +343,23 @@ function getStatusLabel(status: OrderStatus): string {
       return 'Cancelado';
     default:
       return status;
+  }
+}
+
+function getStatusIcon(status: OrderStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'clock';
+    case 'preparing':
+      return 'flame';
+    case 'ready':
+      return 'checkmark.circle';
+    case 'delivered':
+      return 'shippingbox';
+    case 'cancelled':
+      return 'xmark.circle';
+    default:
+      return 'circle';
   }
 }
 
@@ -823,6 +886,7 @@ export default function OrderDetailScreen() {
   }
 
   const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
+  const availableTransitions = getAvailableStatusTransitions(order.status);
 
   return (
     <View style={styles.container}>
@@ -839,28 +903,56 @@ export default function OrderDetailScreen() {
           <Text style={styles.orderNumber}>{order.order_number}</Text>
           <Text style={styles.orderDate}>📅 {formatDate(order.created_at)}</Text>
           
-          <Text style={styles.sectionTitle}>Estado</Text>
-          <View style={styles.statusContainer}>
-            {getAvailableStatusTransitions(order.status).map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.statusButton,
-                  { borderColor: getStatusColor(status) },
-                ]}
-                onPress={() => updateStatus(status)}
-              >
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    { color: getStatusColor(status) },
-                  ]}
-                >
-                  {getStatusLabel(status)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          {/* Current Status Display */}
+          <View style={styles.currentStatusContainer}>
+            <Text style={styles.currentStatusLabel}>ESTADO ACTUAL</Text>
+            <View style={[
+              styles.currentStatusBadge,
+              { backgroundColor: getStatusColor(order.status) }
+            ]}>
+              <IconSymbol 
+                name={getStatusIcon(order.status)} 
+                size={20} 
+                color="#fff" 
+              />
+              <Text style={styles.currentStatusText}>
+                {getStatusLabel(order.status)}
+              </Text>
+            </View>
           </View>
+          
+          {/* Status Transitions */}
+          {availableTransitions.length > 0 && (
+            <>
+              <Text style={styles.statusTransitionsLabel}>Cambiar estado a:</Text>
+              <View style={styles.statusContainer}>
+                {availableTransitions.map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[
+                      styles.statusButton,
+                      { borderColor: getStatusColor(status) },
+                    ]}
+                    onPress={() => updateStatus(status)}
+                  >
+                    <IconSymbol 
+                      name={getStatusIcon(status)} 
+                      size={16} 
+                      color={getStatusColor(status)} 
+                    />
+                    <Text
+                      style={[
+                        styles.statusButtonText,
+                        { color: getStatusColor(status) },
+                      ]}
+                    >
+                      {getStatusLabel(status)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -890,6 +982,7 @@ export default function OrderDetailScreen() {
                 style={styles.addButton}
                 onPress={updateCustomerInfo}
               >
+                <IconSymbol name="checkmark.circle" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Guardar</Text>
               </TouchableOpacity>
             </>
@@ -906,6 +999,7 @@ export default function OrderDetailScreen() {
                 style={[styles.addButton, { marginTop: 12 }]}
                 onPress={() => setEditingCustomer(true)}
               >
+                <IconSymbol name="pencil" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Editar</Text>
               </TouchableOpacity>
             </>
@@ -985,13 +1079,15 @@ export default function OrderDetailScreen() {
                 style={styles.addButton}
                 onPress={() => updateProduct(editingProduct.id)}
               >
+                <IconSymbol name="checkmark.circle" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Actualizar Producto</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.addButton, styles.actionButtonSecondary]}
+                style={[styles.addButton, { backgroundColor: colors.border }]}
                 onPress={() => setEditingProduct(null)}
               >
-                <Text style={styles.addButtonText}>Cancelar</Text>
+                <IconSymbol name="xmark.circle" size={20} color={colors.text} />
+                <Text style={[styles.addButtonText, { color: colors.text }]}>Cancelar</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -1023,6 +1119,7 @@ export default function OrderDetailScreen() {
                 onChangeText={setProductNotes}
               />
               <TouchableOpacity style={styles.addButton} onPress={addProduct}>
+                <IconSymbol name="plus.circle" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Agregar Producto</Text>
               </TouchableOpacity>
               
@@ -1043,23 +1140,30 @@ export default function OrderDetailScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.actionButton} onPress={handlePrint}>
+        {/* Action Buttons with Icons and Colors */}
+        <TouchableOpacity 
+          style={[styles.actionButton, styles.printButton]} 
+          onPress={handlePrint}
+        >
+          <IconSymbol name="printer" size={22} color="#fff" />
           <Text style={styles.actionButtonText}>Imprimir Pedido</Text>
         </TouchableOpacity>
 
         {order.customer_phone && (
           <TouchableOpacity
-            style={[styles.actionButton, styles.actionButtonSecondary]}
+            style={[styles.actionButton, styles.whatsappButton]}
             onPress={handleWhatsApp}
           >
+            <IconSymbol name="message.fill" size={22} color="#fff" />
             <Text style={styles.actionButtonText}>Enviar WhatsApp</Text>
           </TouchableOpacity>
         )}
 
         <TouchableOpacity
-          style={[styles.actionButton, styles.actionButtonDanger]}
+          style={[styles.actionButton, styles.deleteButton]}
           onPress={handleDelete}
         >
+          <IconSymbol name="trash" size={22} color="#fff" />
           <Text style={styles.actionButtonText}>Eliminar Pedido</Text>
         </TouchableOpacity>
       </ScrollView>

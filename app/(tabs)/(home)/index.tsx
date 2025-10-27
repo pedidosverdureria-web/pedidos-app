@@ -180,6 +180,31 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 2,
   },
+  orderSourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 2,
+  },
+  orderSourceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  orderSourceWhatsApp: {
+    backgroundColor: '#25D366',
+  },
+  orderSourceManual: {
+    backgroundColor: '#6B7280',
+  },
+  orderSourceText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   orderDate: {
     fontSize: 13,
     color: colors.textSecondary,
@@ -208,28 +233,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
   },
 });
 
@@ -684,6 +687,24 @@ export default function HomeScreen() {
             {item.items.length} {item.items.length === 1 ? 'producto' : 'productos'}
           </Text>
         )}
+        
+        {/* Order Source Badge */}
+        <View style={styles.orderSourceRow}>
+          <View style={[
+            styles.orderSourceBadge,
+            item.source === 'whatsapp' ? styles.orderSourceWhatsApp : styles.orderSourceManual
+          ]}>
+            <IconSymbol 
+              name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'} 
+              size={12} 
+              color="#fff" 
+            />
+            <Text style={styles.orderSourceText}>
+              {item.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}
+            </Text>
+          </View>
+        </View>
+        
         <Text style={styles.orderDate}>📅 {formatDate(item.created_at)}</Text>
         {total > 0 && <Text style={styles.orderTotal}>{formatCLP(total)}</Text>}
       </TouchableOpacity>
@@ -808,10 +829,6 @@ export default function HomeScreen() {
           }
         />
       )}
-
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/order/new')}>
-        <IconSymbol name="plus" size={28} color="#fff" />
-      </TouchableOpacity>
     </View>
   );
 }
