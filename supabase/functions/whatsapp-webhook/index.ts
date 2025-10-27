@@ -47,7 +47,7 @@ const NUMBER_WORDS: Record<string, number> = {
 const UNIT_VARIATIONS: Record<string, string[]> = {
   'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
   'gramo': ['gramo', 'gramos', 'gr', 'grs', 'g'],
-  'unidad': ['unidad', 'unidades', 'u'],
+  'unidad': ['unidad', 'unidades', 'u', 'unds'],
   'malla': ['malla', 'mallas'],
   'saco': ['saco', 'sacos'],
   'cajón': ['cajón', 'cajon', 'cajones'],
@@ -57,6 +57,10 @@ const UNIT_VARIATIONS: Record<string, string[]> = {
   'atado': ['atado', 'atados'],
   'racimo': ['racimo', 'racimos'],
   'cabeza': ['cabeza', 'cabezas'],
+  'docena': ['docena', 'docenas'],
+  'bandeja': ['bandeja', 'bandejas'],
+  'cesta': ['cesta', 'cestas'],
+  'gamela': ['gamela', 'gamelas'],
 };
 
 /**
@@ -258,8 +262,8 @@ function parseSegment(segment: string): any {
     }
   }
 
-  // Pattern 6: Producto + Cantidad + Unidad
-  match = cleaned.match(/^(.+?)\s+(\d+(?:\/\d+)?|\w+)\s*([a-zA-Z]*)$/i);
+  // Pattern 6: Producto + Cantidad + Unidad (e.g., "tomates 3 kilos")
+  match = cleaned.match(/^(.+?)\s+(\d+(?:\/\d+)?|\w+)\s+(\w+)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2];
@@ -267,25 +271,51 @@ function parseSegment(segment: string): any {
 
     const quantity = parseQuantityValue(quantityStr);
 
-    if (quantity > 0 && product) {
-      if (unitStr && isKnownUnit(unitStr)) {
+    if (quantity > 0 && product && isKnownUnit(unitStr)) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Pattern 7: Producto + Unidad + Cantidad (e.g., "tomates kilos 3")
+  match = cleaned.match(/^(.+?)\s+(\w+)\s+(\d+(?:\/\d+)?|\w+)$/i);
+  if (match) {
+    const product = match[1].trim();
+    const unitStr = match[2];
+    const quantityStr = match[3];
+
+    if (isKnownUnit(unitStr)) {
+      const quantity = parseQuantityValue(quantityStr);
+      if (quantity > 0 && product) {
         const unit = normalizeUnit(unitStr, quantity);
         return { quantity, unit, product };
-      } else {
-        const quantityMatch = quantityStr.match(/^(\d+(?:\/\d+)?)([a-zA-Z]+)$/);
-        if (quantityMatch && isKnownUnit(quantityMatch[2])) {
-          const qty = parseQuantityValue(quantityMatch[1]);
-          const unit = normalizeUnit(quantityMatch[2], qty);
-          return { quantity: qty, unit, product };
-        } else {
-          const unit = normalizeUnit('', quantity);
-          return { quantity, unit, product };
-        }
       }
     }
   }
 
-  // Pattern 7: Fracción + "de" + Producto
+  // Pattern 8: Producto + Cantidad (sin unidad)
+  match = cleaned.match(/^(.+?)\s+(\d+(?:\/\d+)?|\w+)$/i);
+  if (match) {
+    const product = match[1].trim();
+    const quantityStr = match[2];
+
+    const quantity = parseQuantityValue(quantityStr);
+
+    if (quantity > 0 && product) {
+      // Check if quantity string has unit attached (e.g., "2k")
+      const quantityMatch = quantityStr.match(/^(\d+(?:\/\d+)?)([a-zA-Z]+)$/);
+      if (quantityMatch && isKnownUnit(quantityMatch[2])) {
+        const qty = parseQuantityValue(quantityMatch[1]);
+        const unit = normalizeUnit(quantityMatch[2], qty);
+        return { quantity: qty, unit, product };
+      } else {
+        const unit = normalizeUnit('', quantity);
+        return { quantity, unit, product };
+      }
+    }
+  }
+
+  // Pattern 9: Fracción + "de" + Producto
   match = cleaned.match(/^(\d+\/\d+)\s+de\s+(.+)$/i);
   if (match) {
     const quantity = parseQuantityValue(match[1]);
@@ -295,6 +325,13 @@ function parseSegment(segment: string): any {
       const unit = normalizeUnit('', quantity);
       return { quantity, unit, product };
     }
+  }
+
+  // Pattern 10: Solo Producto (sin cantidad ni unidad) - DEFAULT TO 1 UNIT
+  // This handles cases like "tomillo bonito", "romero", "cilantro"
+  if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
+    console.log(`Product without quantity detected: "${cleaned}" - assigning quantity 1`);
+    return { quantity: 1, unit: 'unidad', product: cleaned };
   }
 
   console.warn(`Could not parse segment: "${cleaned}"`);
@@ -436,7 +473,7 @@ function formatCLP(amount: number): string {
 function formatItemsList(items: any[], showPrices: boolean = false): string {
   return items.map((item) => {
     const priceText = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    return `${item.quantity} ${item.unit} de ${item.product}${priceText}`;
+    return `${item.quantity} ${item.unit} de ${item.product}`;
   }).join('\n');
 }
 
@@ -476,9 +513,12 @@ Hola ${customerName}! No pude identificar productos en tu mensaje.
 1 kg de papas
 5 pepinos
 1 cilantro
+tomillo bonito
+romero
 
 También puedes escribir:
 tomates 3 kilos
+tomates kilos 3
 3k de tomates
 tres kilos de tomates
 3kilos de papas
@@ -488,6 +528,9 @@ papas 3k
 2 saco de papa, un cajón de tomate
 2 kilos de tomates 1 kilo de papa
 3kilos tomates 2kilos paltas 3 pepinos
+2 docenas de huevos
+3 bandejas de fresas
+1 cesta de manzanas
 
 ¡Gracias por tu comprensión! 😊`;
 }
@@ -507,6 +550,8 @@ Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de p
 2 kilos de paltas
 5 pepinos
 1 cilantro
+romero
+tomillo bonito
 
 *Formato horizontal:*
 3 kilos de tomates, 2 kilos de paltas, 5 pepinos
@@ -514,11 +559,14 @@ Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de p
 *Otros formatos válidos:*
 3k de tomates
 tomates 3 kilos
+tomates kilos 3
 1/4 de ají
 2 saco de papa
 3kilos tomates 2kilos paltas
+2 docenas de huevos
+3 bandejas de fresas
 
-💡 *Tip:* Puedes escribir los productos como prefieras, nosotros entenderemos tu pedido.
+💡 *Tip:* Puedes escribir los productos como prefieras, nosotros entenderemos tu pedido. Si no especificas cantidad, asignaremos 1 unidad automáticamente.
 
 ¿En qué podemos ayudarte hoy? 😊`;
 }
