@@ -42,26 +42,9 @@ const NUMBER_WORDS: Record<string, number> = {
 };
 
 /**
- * Known unit variations and their categories
+ * Known unit variations - loaded from database
  */
-const UNIT_VARIATIONS: Record<string, string[]> = {
-  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
-  'gramo': ['gramo', 'gramos', 'gr', 'grs', 'g'],
-  'unidad': ['unidad', 'unidades', 'u', 'unds'],
-  'malla': ['malla', 'mallas'],
-  'saco': ['saco', 'sacos'],
-  'cajón': ['cajón', 'cajon', 'cajones'],
-  'bolsa': ['bolsa', 'bolsas'],
-  'paquete': ['paquete', 'paquetes', 'pqte', 'pqtes'],
-  'caja': ['caja', 'cajas'],
-  'atado': ['atado', 'atados'],
-  'racimo': ['racimo', 'racimos'],
-  'cabeza': ['cabeza', 'cabezas'],
-  'docena': ['docena', 'docenas'],
-  'bandeja': ['bandeja', 'bandejas'],
-  'cesta': ['cesta', 'cestas'],
-  'gamela': ['gamela', 'gamelas'],
-};
+let UNIT_VARIATIONS: Record<string, string[]> = {};
 
 /**
  * Greeting patterns
@@ -90,6 +73,90 @@ const QUESTION_PATTERNS = [
   'horario', 'horarios', 'abren', 'cierran',
   'entregan', 'entrega', 'delivery', 'envío', 'envio'
 ];
+
+/**
+ * Loads known units from database
+ */
+async function loadKnownUnits(supabase: any) {
+  try {
+    const { data, error } = await supabase
+      .from('known_units')
+      .select('unit_name, variations');
+
+    if (error) {
+      console.error('Error loading known units:', error);
+      return;
+    }
+
+    UNIT_VARIATIONS = {};
+    for (const unit of data) {
+      UNIT_VARIATIONS[unit.unit_name] = unit.variations;
+    }
+
+    console.log(`Loaded ${Object.keys(UNIT_VARIATIONS).length} known units from database`);
+  } catch (error) {
+    console.error('Exception loading known units:', error);
+  }
+}
+
+/**
+ * Adds a new unit to the database
+ */
+async function addNewUnit(supabase: any, unitName: string, variation: string) {
+  try {
+    const normalizedUnit = unitName.toLowerCase().trim();
+    const normalizedVariation = variation.toLowerCase().trim();
+
+    // Check if unit already exists
+    const { data: existing } = await supabase
+      .from('known_units')
+      .select('id, variations')
+      .eq('unit_name', normalizedUnit)
+      .single();
+
+    if (existing) {
+      // Unit exists, check if variation is already included
+      if (!existing.variations.includes(normalizedVariation)) {
+        // Add variation to existing unit
+        const updatedVariations = [...existing.variations, normalizedVariation];
+        const { error } = await supabase
+          .from('known_units')
+          .update({ 
+            variations: updatedVariations,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
+
+        if (error) {
+          console.error('Error updating unit variations:', error);
+        } else {
+          console.log(`✓ Added variation "${normalizedVariation}" to unit "${normalizedUnit}"`);
+          // Update local cache
+          UNIT_VARIATIONS[normalizedUnit] = updatedVariations;
+        }
+      }
+    } else {
+      // Create new unit
+      const { error } = await supabase
+        .from('known_units')
+        .insert({
+          unit_name: normalizedUnit,
+          variations: [normalizedVariation, normalizedUnit],
+          is_custom: true
+        });
+
+      if (error) {
+        console.error('Error creating new unit:', error);
+      } else {
+        console.log(`✓ Created new unit "${normalizedUnit}" with variation "${normalizedVariation}"`);
+        // Update local cache
+        UNIT_VARIATIONS[normalizedUnit] = [normalizedVariation, normalizedUnit];
+      }
+    }
+  } catch (error) {
+    console.error('Exception adding new unit:', error);
+  }
+}
 
 /**
  * Converts a number word to its numeric value
@@ -182,8 +249,9 @@ function normalizeUnit(unit: string, quantity: number = 1): string {
 
 /**
  * Parses a single segment from the WhatsApp message
+ * Returns parsed item and detected unknown unit (if any)
  */
-function parseSegment(segment: string): any {
+function parseSegment(segment: string): { item: any, unknownUnit?: string } | null {
   const trimmed = segment.trim();
 
   if (!trimmed) {
@@ -200,11 +268,17 @@ function parseSegment(segment: string): any {
   let match = cleaned.match(/^(\d+(?:\/\d+)?|\w+)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
     const quantity = parseQuantityValue(match[1]);
-    const unit = normalizeUnit(match[2], quantity);
+    const unitStr = match[2];
     const product = match[3].trim();
 
     if (quantity > 0 && product) {
-      return { quantity, unit, product };
+      const isKnown = isKnownUnit(unitStr);
+      const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
+      
+      return { 
+        item: { quantity, unit, product },
+        unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
+      };
     }
   }
 
@@ -212,11 +286,17 @@ function parseSegment(segment: string): any {
   match = cleaned.match(/^(\d+(?:\/\d+)?)([a-zA-Z]+)\s+de\s+(.+)$/i);
   if (match) {
     const quantity = parseQuantityValue(match[1]);
-    const unit = normalizeUnit(match[2], quantity);
+    const unitStr = match[2];
     const product = match[3].trim();
 
     if (quantity > 0 && product) {
-      return { quantity, unit, product };
+      const isKnown = isKnownUnit(unitStr);
+      const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
+      
+      return { 
+        item: { quantity, unit, product },
+        unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
+      };
     }
   }
 
@@ -224,14 +304,17 @@ function parseSegment(segment: string): any {
   match = cleaned.match(/^(\d+(?:\/\d+)?)([a-zA-Z]+)\s+(.+)$/i);
   if (match) {
     const potentialUnit = match[2];
-    if (isKnownUnit(potentialUnit)) {
-      const quantity = parseQuantityValue(match[1]);
-      const unit = normalizeUnit(potentialUnit, quantity);
-      const product = match[3].trim();
+    const quantity = parseQuantityValue(match[1]);
+    const product = match[3].trim();
 
-      if (quantity > 0 && product) {
-        return { quantity, unit, product };
-      }
+    if (quantity > 0 && product) {
+      const isKnown = isKnownUnit(potentialUnit);
+      const unit = isKnown ? normalizeUnit(potentialUnit, quantity) : potentialUnit.toLowerCase();
+      
+      return { 
+        item: { quantity, unit, product },
+        unknownUnit: isKnown ? undefined : potentialUnit.toLowerCase()
+      };
     }
   }
 
@@ -239,13 +322,26 @@ function parseSegment(segment: string): any {
   match = cleaned.match(/^(\d+(?:\/\d+)?|\w+)\s+(\w+)\s+(.+)$/i);
   if (match) {
     const potentialUnit = match[2];
-    if (isKnownUnit(potentialUnit)) {
-      const quantity = parseQuantityValue(match[1]);
-      const unit = normalizeUnit(potentialUnit, quantity);
-      const product = match[3].trim();
+    const quantity = parseQuantityValue(match[1]);
+    const product = match[3].trim();
 
-      if (quantity > 0 && product) {
-        return { quantity, unit, product };
+    if (quantity > 0 && product) {
+      const isKnown = isKnownUnit(potentialUnit);
+      
+      if (isKnown) {
+        const unit = normalizeUnit(potentialUnit, quantity);
+        return { item: { quantity, unit, product } };
+      } else {
+        // Check if it might be part of the product name
+        const nextWord = product.split(/\s+/)[0];
+        if (nextWord && !isKnownUnit(nextWord)) {
+          // Treat potentialUnit as unknown unit
+          const unit = potentialUnit.toLowerCase();
+          return { 
+            item: { quantity, unit, product },
+            unknownUnit: unit
+          };
+        }
       }
     }
   }
@@ -258,11 +354,11 @@ function parseSegment(segment: string): any {
 
     if (quantity > 0 && product && !isKnownUnit(product.split(/\s+/)[0])) {
       const unit = normalizeUnit('', quantity);
-      return { quantity, unit, product };
+      return { item: { quantity, unit, product } };
     }
   }
 
-  // Pattern 6: Producto + Cantidad + Unidad (e.g., "tomates 3 kilos")
+  // Pattern 6: Producto + Cantidad + Unidad
   match = cleaned.match(/^(.+?)\s+(\d+(?:\/\d+)?|\w+)\s+(\w+)$/i);
   if (match) {
     const product = match[1].trim();
@@ -271,24 +367,38 @@ function parseSegment(segment: string): any {
 
     const quantity = parseQuantityValue(quantityStr);
 
-    if (quantity > 0 && product && isKnownUnit(unitStr)) {
-      const unit = normalizeUnit(unitStr, quantity);
-      return { quantity, unit, product };
+    if (quantity > 0 && product) {
+      const isKnown = isKnownUnit(unitStr);
+      const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
+      
+      return { 
+        item: { quantity, unit, product },
+        unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
+      };
     }
   }
 
-  // Pattern 7: Producto + Unidad + Cantidad (e.g., "tomates kilos 3")
+  // Pattern 7: Producto + Unidad + Cantidad
   match = cleaned.match(/^(.+?)\s+(\w+)\s+(\d+(?:\/\d+)?|\w+)$/i);
   if (match) {
     const product = match[1].trim();
     const unitStr = match[2];
     const quantityStr = match[3];
 
-    if (isKnownUnit(unitStr)) {
-      const quantity = parseQuantityValue(quantityStr);
-      if (quantity > 0 && product) {
+    const quantity = parseQuantityValue(quantityStr);
+    
+    if (quantity > 0 && product) {
+      const isKnown = isKnownUnit(unitStr);
+      
+      if (isKnown) {
         const unit = normalizeUnit(unitStr, quantity);
-        return { quantity, unit, product };
+        return { item: { quantity, unit, product } };
+      } else {
+        const unit = unitStr.toLowerCase();
+        return { 
+          item: { quantity, unit, product },
+          unknownUnit: unit
+        };
       }
     }
   }
@@ -302,15 +412,20 @@ function parseSegment(segment: string): any {
     const quantity = parseQuantityValue(quantityStr);
 
     if (quantity > 0 && product) {
-      // Check if quantity string has unit attached (e.g., "2k")
       const quantityMatch = quantityStr.match(/^(\d+(?:\/\d+)?)([a-zA-Z]+)$/);
-      if (quantityMatch && isKnownUnit(quantityMatch[2])) {
+      if (quantityMatch) {
+        const unitStr = quantityMatch[2];
+        const isKnown = isKnownUnit(unitStr);
         const qty = parseQuantityValue(quantityMatch[1]);
-        const unit = normalizeUnit(quantityMatch[2], qty);
-        return { quantity: qty, unit, product };
+        const unit = isKnown ? normalizeUnit(unitStr, qty) : unitStr.toLowerCase();
+        
+        return { 
+          item: { quantity: qty, unit, product },
+          unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
+        };
       } else {
         const unit = normalizeUnit('', quantity);
-        return { quantity, unit, product };
+        return { item: { quantity, unit, product } };
       }
     }
   }
@@ -323,15 +438,14 @@ function parseSegment(segment: string): any {
 
     if (quantity > 0 && product) {
       const unit = normalizeUnit('', quantity);
-      return { quantity, unit, product };
+      return { item: { quantity, unit, product } };
     }
   }
 
   // Pattern 10: Solo Producto (sin cantidad ni unidad) - DEFAULT TO 1 UNIT
-  // This handles cases like "tomillo bonito", "romero", "cilantro"
   if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
     console.log(`Product without quantity detected: "${cleaned}" - assigning quantity 1`);
-    return { quantity: 1, unit: 'unidad', product: cleaned };
+    return { item: { quantity: 1, unit: 'unidad', product: cleaned } };
   }
 
   console.warn(`Could not parse segment: "${cleaned}"`);
@@ -348,12 +462,10 @@ function splitLineIntoSegments(line: string): string[] {
     return [];
   }
 
-  // Split by commas
   if (trimmed.includes(',')) {
     return trimmed.split(',').map(s => s.trim()).filter(s => s.length > 0);
   }
 
-  // Try to detect multiple items
   const segments: string[] = [];
   let currentSegment = '';
   const words = trimmed.split(/\s+/);
@@ -393,15 +505,17 @@ function splitLineIntoSegments(line: string): string[] {
 
 /**
  * Parses a WhatsApp message into a list of order items
+ * Returns items and list of unknown units detected
  */
-function parseWhatsAppMessage(message: string): any[] {
+function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: string[] } {
   if (!message || !message.trim()) {
     console.warn('Empty message provided');
-    return [];
+    return { items: [], unknownUnits: [] };
   }
 
   const lines = message.split('\n');
   const orderItems: any[] = [];
+  const unknownUnits: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -414,11 +528,17 @@ function parseWhatsAppMessage(message: string): any[] {
 
     for (const segment of segments) {
       try {
-        const parsedItem = parseSegment(segment);
+        const parsed = parseSegment(segment);
 
-        if (parsedItem) {
-          orderItems.push(parsedItem);
-          console.log(`✓ Parsed: "${segment}" →`, parsedItem);
+        if (parsed) {
+          orderItems.push(parsed.item);
+          if (parsed.unknownUnit && !unknownUnits.includes(parsed.unknownUnit)) {
+            unknownUnits.push(parsed.unknownUnit);
+          }
+          console.log(`✓ Parsed: "${segment}" →`, parsed.item);
+          if (parsed.unknownUnit) {
+            console.log(`  ⚠ Unknown unit detected: "${parsed.unknownUnit}"`);
+          }
         } else {
           console.warn(`✗ Could not parse: "${segment}"`);
         }
@@ -429,7 +549,11 @@ function parseWhatsAppMessage(message: string): any[] {
   }
 
   console.log(`Parsed ${orderItems.length} items from ${lines.length} lines`);
-  return orderItems;
+  if (unknownUnits.length > 0) {
+    console.log(`Detected ${unknownUnits.length} unknown units:`, unknownUnits);
+  }
+  
+  return { items: orderItems, unknownUnits };
 }
 
 /**
@@ -438,19 +562,16 @@ function parseWhatsAppMessage(message: string): any[] {
 function isGreeting(message: string): boolean {
   const normalized = message.toLowerCase().trim();
   
-  // Check if message contains question marks
   if (normalized.includes('?') || normalized.includes('¿')) {
     return true;
   }
   
-  // Check for greeting patterns
   for (const greeting of GREETINGS) {
     if (normalized.includes(greeting)) {
       return true;
     }
   }
   
-  // Check for question patterns
   for (const pattern of QUESTION_PATTERNS) {
     if (normalized.includes(pattern)) {
       return true;
@@ -468,7 +589,7 @@ function formatCLP(amount: number): string {
 }
 
 /**
- * Formats items list for messages (plain text without bullets or numbers)
+ * Formats items list for messages
  */
 function formatItemsList(items: any[], showPrices: boolean = false): string {
   return items.map((item) => {
@@ -531,6 +652,8 @@ papas 3k
 2 docenas de huevos
 3 bandejas de fresas
 1 cesta de manzanas
+1 mano de platano
+2 cuelgas de platano
 
 ¡Gracias por tu comprensión! 😊`;
 }
@@ -565,6 +688,8 @@ tomates kilos 3
 3kilos tomates 2kilos paltas
 2 docenas de huevos
 3 bandejas de fresas
+1 mano de platano
+2 cuelgas de platano
 
 💡 *Tip:* Puedes escribir los productos como prefieras, nosotros entenderemos tu pedido. Si no especificas cantidad, asignaremos 1 unidad automáticamente.
 
@@ -575,7 +700,6 @@ tomates kilos 3
  * Creates status update message
  */
 function createStatusUpdateMessage(customerName: string, orderNumber: string, status: string, items: any[]): string {
-  // Show prices only from "ready" status onwards
   const showPrices = status === 'ready' || status === 'delivered';
   const itemsList = formatItemsList(items, showPrices);
   
@@ -626,7 +750,6 @@ ${itemsList}${additionalInfo}
  * Creates product added message
  */
 function createProductAddedMessage(customerName: string, orderNumber: string, addedProduct: any, allItems: any[]): string {
-  // Don't show prices in product added messages
   const itemsList = formatItemsList(allItems, false);
 
   return `➕ *Producto Agregado*
@@ -697,6 +820,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
+    // Load known units from database
+    await loadKnownUnits(supabase);
+
     // GET request - webhook verification
     if (req.method === 'GET') {
       const url = new URL(req.url);
@@ -765,39 +891,23 @@ serve(async (req) => {
         const customerPhone = message.from;
         const messageId = message.id;
         
-        // Extract customer name from contact info
         const contact = contacts?.find((c: any) => c.wa_id === customerPhone);
         let customerName = extractCustomerName(contact, customerPhone);
 
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
         console.log('Message text:', messageText);
 
-        // Check for Manual keyword (case-insensitive, flexible format)
-        // Supports multiple formats:
-        // 1. "Manual #Juan Pérez#\n3 kilos de tomates\n2 kilos de papas"
-        // 2. "Manual: Juan Pérez\n3 kilos de tomates"
-        // 3. "Manual Juan Pérez\n3 kilos de tomates"
-        // 4. "MANUAL #Juan Pérez#\n3 kilos de tomates"
-        
-        // First, check if the message starts with "manual" (case-insensitive)
+        // Check for Manual keyword
         const startsWithManual = /^\s*manual\s*/i.test(messageText);
         
         if (startsWithManual) {
           console.log('Detected Manual keyword');
           
-          // Remove the "Manual" keyword and any following delimiter (: or #)
           const withoutManual = messageText.replace(/^\s*manual\s*[:#]?\s*/i, '');
-          
-          // Now we need to extract the custom name and the order text
-          // The name can be:
-          // - Enclosed in # symbols: #Juan Pérez#
-          // - On the first line before a newline
-          // - Everything before the first line that looks like an order item
           
           let customCustomerName = '';
           let orderText = '';
           
-          // Try pattern 1: #Name# followed by order
           const hashPattern = /^#([^#]+)#\s*(.+)$/s;
           const hashMatch = withoutManual.match(hashPattern);
           
@@ -806,20 +916,15 @@ serve(async (req) => {
             orderText = hashMatch[2].trim();
             console.log('Extracted name from # pattern:', customCustomerName);
           } else {
-            // Try pattern 2: Name on first line, order on subsequent lines
             const lines = withoutManual.split('\n');
             
             if (lines.length >= 2) {
-              // First line is the name
               customCustomerName = lines[0].trim();
-              // Rest is the order
               orderText = lines.slice(1).join('\n').trim();
               console.log('Extracted name from first line:', customCustomerName);
             } else if (lines.length === 1) {
-              // Single line: try to split by detecting order pattern
               const singleLine = lines[0].trim();
               
-              // Look for the first occurrence of a quantity pattern (number + optional unit)
               const orderStartMatch = singleLine.match(/\b(\d+(?:\/\d+)?|\w+)\s+(?:\w+\s+)?(?:de\s+)?[a-zA-Z]/);
               
               if (orderStartMatch && orderStartMatch.index !== undefined && orderStartMatch.index > 0) {
@@ -827,7 +932,6 @@ serve(async (req) => {
                 orderText = singleLine.substring(orderStartMatch.index).trim();
                 console.log('Extracted name from single line split:', customCustomerName);
               } else {
-                // Can't determine where name ends and order begins
                 console.log('Could not split name and order from single line');
                 customCustomerName = singleLine;
                 orderText = '';
@@ -835,7 +939,6 @@ serve(async (req) => {
             }
           }
           
-          // Validate that we have both name and order
           if (!customCustomerName || !orderText) {
             console.log('Manual format error: missing name or order text');
             
@@ -882,8 +985,14 @@ Manual Juan Pérez
           console.log('Custom customer name:', customCustomerName);
           console.log('Order text:', orderText);
           
-          // Parse the order items
-          const parsedItems = parseWhatsAppMessage(orderText);
+          const parseResult = parseWhatsAppMessage(orderText);
+          const parsedItems = parseResult.items;
+          const unknownUnits = parseResult.unknownUnits;
+          
+          // Add unknown units to database
+          for (const unknownUnit of unknownUnits) {
+            await addNewUnit(supabase, unknownUnit, unknownUnit);
+          }
           
           if (parsedItems.length === 0) {
             console.log('No items could be parsed from Manual order');
@@ -906,7 +1015,6 @@ Manual Juan Pérez
             continue;
           }
           
-          // Create manual order with custom customer name
           const { data: order, error: orderError } = await supabase
             .from('orders')
             .insert({
@@ -926,7 +1034,6 @@ Manual Juan Pérez
 
           console.log('Created Manual order:', order.id, 'with number:', order.order_number);
 
-          // Create order items
           const orderItems = parsedItems.map((item) => ({
             order_id: order.id,
             product_name: `${item.product}`,
@@ -943,7 +1050,6 @@ Manual Juan Pérez
             console.error('Error creating order items for Manual order:', itemsError);
           }
 
-          // Send confirmation message with custom name
           if (config.access_token && config.phone_number_id) {
             try {
               const confirmationMsg = createConfirmationMessage(
@@ -989,7 +1095,14 @@ Manual Juan Pérez
         }
 
         // Parse the message
-        const parsedItems = parseWhatsAppMessage(messageText);
+        const parseResult = parseWhatsAppMessage(messageText);
+        const parsedItems = parseResult.items;
+        const unknownUnits = parseResult.unknownUnits;
+
+        // Add unknown units to database
+        for (const unknownUnit of unknownUnits) {
+          await addNewUnit(supabase, unknownUnit, unknownUnit);
+        }
 
         // If no items could be parsed, send help message
         if (parsedItems.length === 0) {
