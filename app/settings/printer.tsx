@@ -1,4 +1,38 @@
 
+/**
+ * PRINTER SETTINGS SCREEN
+ * 
+ * This screen manages all printer configuration settings using LOCAL STORAGE ONLY.
+ * 
+ * KEY CHANGES:
+ * - ✅ NO DATABASE DEPENDENCY: All settings are stored in AsyncStorage (@printer_config)
+ * - ✅ PERSISTENT CONFIGURATION: Settings persist across app restarts
+ * - ✅ CP850 ENCODING: Proper support for Spanish characters (ñ, á, é, í, ó, ú, etc.)
+ * - ✅ GLOBAL APPLICATION: Configuration applies to ALL receipt formats
+ * 
+ * CONFIGURATION SETTINGS:
+ * - auto_print_enabled: Enable/disable automatic printing of new orders
+ * - auto_cut_enabled: Enable/disable automatic paper cutting after printing
+ * - text_size: Font size for receipts (small, medium, large)
+ * - paper_size: Paper width (58mm or 80mm)
+ * - encoding: Character encoding (CP850 recommended for Spanish)
+ * - include_logo: Show/hide logo in receipts
+ * - include_customer_info: Show/hide customer information
+ * - include_totals: Show/hide totals section
+ * 
+ * CP850 ENCODING:
+ * CP850 is the standard code page for thermal printers with Spanish support.
+ * It correctly encodes:
+ * - ñ, Ñ (most important for Spanish)
+ * - á, é, í, ó, ú (lowercase accented vowels)
+ * - Á, É, Í, Ó, Ú (uppercase accented vowels)
+ * - ü, Ü (dieresis)
+ * - ¿, ¡ (inverted punctuation)
+ * 
+ * The printer MUST be set to CP850 mode using ESC t 2 command before printing.
+ * This is handled automatically in the usePrinter hook.
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +51,6 @@ import {
 import { Stack } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
-import { getSupabase } from '@/lib/supabase';
 import { 
   registerBackgroundAutoPrintTask, 
   unregisterBackgroundAutoPrintTask,
@@ -187,70 +220,37 @@ export default function PrinterSettingsScreen() {
   const [includeTotals, setIncludeTotals] = useState(true);
   const [loading, setLoading] = useState(false);
   const [backgroundTaskStatus, setBackgroundTaskStatus] = useState<any>(null);
-  const [printerConfigId, setPrinterConfigId] = useState<string | null>(null);
 
   const loadConfig = useCallback(async () => {
     try {
-      console.log('[PrinterSettings] Loading config...');
+      console.log('[PrinterSettings] Loading config from local storage...');
       
-      // First, try to load from Supabase database
-      if (user?.id) {
-        const supabase = getSupabase();
-        const { data: dbConfig, error } = await supabase
-          .from('printer_config')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error('[PrinterSettings] Error loading from database:', error);
-        } else if (dbConfig) {
-          console.log('[PrinterSettings] Config loaded from database:', dbConfig);
-          setPrinterConfigId(dbConfig.id);
-          setAutoPrintEnabled(dbConfig.auto_print_enabled ?? false);
-          setAutoCutEnabled(dbConfig.auto_cut_enabled ?? true);
-          
-          // Map database fields to local state
-          // Note: text_size and paper_size are not in the database schema yet
-          // We'll use defaults or load from AsyncStorage as fallback
-          setIncludeLogo(dbConfig.include_logo ?? true);
-          setIncludeCustomerInfo(dbConfig.include_customer_info ?? true);
-          setIncludeTotals(dbConfig.include_totals ?? true);
-          
-          // Also save to AsyncStorage for quick access
-          const config = {
-            auto_print_enabled: dbConfig.auto_print_enabled ?? false,
-            auto_cut_enabled: dbConfig.auto_cut_enabled ?? true,
-            text_size: textSize, // Keep current value
-            paper_size: paperSize, // Keep current value
-            encoding: encoding, // Keep current value
-            include_logo: dbConfig.include_logo ?? true,
-            include_customer_info: dbConfig.include_customer_info ?? true,
-            include_totals: dbConfig.include_totals ?? true,
-          };
-          await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
-        }
-      }
-      
-      // Also load from AsyncStorage (for fields not in database or as fallback)
+      // Load from AsyncStorage only (no database dependency)
       const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       if (configStr) {
         const config = JSON.parse(configStr);
         console.log('[PrinterSettings] Config loaded from AsyncStorage:', config);
         
-        // Only update fields that are not in the database
+        // Load all settings from local storage
+        setAutoPrintEnabled(config.auto_print_enabled ?? false);
+        setAutoCutEnabled(config.auto_cut_enabled ?? true);
         setTextSize(config.text_size || 'medium');
         setPaperSize(config.paper_size || '80mm');
         setEncoding(config.encoding || 'CP850');
-        
-        // If no database config was found, use AsyncStorage values
-        if (!printerConfigId) {
-          setAutoPrintEnabled(config.auto_print_enabled ?? false);
-          setAutoCutEnabled(config.auto_cut_enabled ?? true);
-          setIncludeLogo(config.include_logo ?? true);
-          setIncludeCustomerInfo(config.include_customer_info ?? true);
-          setIncludeTotals(config.include_totals ?? true);
-        }
+        setIncludeLogo(config.include_logo ?? true);
+        setIncludeCustomerInfo(config.include_customer_info ?? true);
+        setIncludeTotals(config.include_totals ?? true);
+      } else {
+        console.log('[PrinterSettings] No config found, using defaults');
+        // Set default values
+        setAutoPrintEnabled(false);
+        setAutoCutEnabled(true);
+        setTextSize('medium');
+        setPaperSize('80mm');
+        setEncoding('CP850');
+        setIncludeLogo(true);
+        setIncludeCustomerInfo(true);
+        setIncludeTotals(true);
       }
       
       // Load background task status
@@ -260,7 +260,7 @@ export default function PrinterSettingsScreen() {
     } catch (error) {
       console.error('[PrinterSettings] Error loading config:', error);
     }
-  }, [user?.id, printerConfigId, textSize, paperSize, encoding]);
+  }, []);
 
   useEffect(() => {
     loadConfig();
@@ -269,16 +269,6 @@ export default function PrinterSettingsScreen() {
   const handleSaveConfig = async () => {
     try {
       setLoading(true);
-      
-      if (!user?.id) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
-          '❌ Error',
-          'Debes iniciar sesión para guardar la configuración',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
 
       const config = {
         auto_print_enabled: autoPrintEnabled,
@@ -289,66 +279,15 @@ export default function PrinterSettingsScreen() {
         include_logo: includeLogo,
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
-      };
-      
-      console.log('[PrinterSettings] Saving config:', config);
-      
-      // Save to AsyncStorage for quick local access
-      await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
-      console.log('[PrinterSettings] Config saved to AsyncStorage');
-      
-      // Save to Supabase database for persistence
-      const supabase = getSupabase();
-      
-      // Prepare database record (only fields that exist in the schema)
-      const dbConfig = {
-        user_id: user.id,
         printer_name: connectedDevice?.name || null,
         printer_address: connectedDevice?.id || null,
-        is_default: true,
-        auto_print_enabled: autoPrintEnabled,
-        auto_cut_enabled: autoCutEnabled,
-        include_logo: includeLogo,
-        include_customer_info: includeCustomerInfo,
-        include_totals: includeTotals,
-        updated_at: new Date().toISOString(),
       };
       
-      let savedConfigId = printerConfigId;
+      console.log('[PrinterSettings] Saving config to local storage:', config);
       
-      if (printerConfigId) {
-        // Update existing config
-        console.log('[PrinterSettings] Updating existing config in database:', printerConfigId);
-        const { error } = await supabase
-          .from('printer_config')
-          .update(dbConfig)
-          .eq('id', printerConfigId);
-        
-        if (error) {
-          console.error('[PrinterSettings] Error updating database:', error);
-          throw error;
-        }
-        console.log('[PrinterSettings] Config updated in database');
-      } else {
-        // Insert new config
-        console.log('[PrinterSettings] Inserting new config in database');
-        const { data, error } = await supabase
-          .from('printer_config')
-          .insert([dbConfig])
-          .select()
-          .single();
-        
-        if (error) {
-          console.error('[PrinterSettings] Error inserting into database:', error);
-          throw error;
-        }
-        
-        if (data) {
-          savedConfigId = data.id;
-          setPrinterConfigId(data.id);
-          console.log('[PrinterSettings] Config inserted in database with ID:', data.id);
-        }
-      }
+      // Save to AsyncStorage only (no database dependency)
+      await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
+      console.log('[PrinterSettings] Config saved to AsyncStorage successfully');
       
       // Register or unregister background task based on auto-print setting
       if (autoPrintEnabled && isConnected) {
@@ -366,7 +305,7 @@ export default function PrinterSettingsScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         '✅ Configuración Guardada',
-        'La configuración de la impresora se guardó correctamente en la base de datos',
+        'La configuración de la impresora se guardó correctamente en el dispositivo',
         [{ text: 'OK' }]
       );
     } catch (error) {
@@ -652,6 +591,13 @@ export default function PrinterSettingsScreen() {
             </Text>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
+          
+          {encoding === 'CP850' && (
+            <Text style={styles.infoText}>
+              ✓ CP850 es la codificación recomendada para español. 
+              Imprime correctamente: ñ, Ñ, á, é, í, ó, ú, ¿, ¡
+            </Text>
+          )}
           
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Incluir logo</Text>

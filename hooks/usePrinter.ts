@@ -67,80 +67,160 @@ const MAX_CHUNK_SIZE = 180; // Maximum bytes per write operation (safe for most 
 
 // Complete and accurate CP850 character mapping for Spanish and special characters
 // CP850 is the standard code page for thermal printers with Spanish support
+// This mapping ensures that ñ, accented vowels, and special characters print correctly
 const CP850_MAP: { [key: string]: number } = {
-  // Lowercase vowels with accents
-  'á': 160,
-  'é': 130,
-  'í': 161,
-  'ó': 162,
-  'ú': 163,
-  // Uppercase vowels with accents
-  'Á': 181,
-  'É': 144,
-  'Í': 214,
-  'Ó': 224,
-  'Ú': 233,
-  // Ñ and ñ - THE MOST IMPORTANT FOR SPANISH
-  'ñ': 164,
-  'Ñ': 165,
-  // Ü and ü
-  'ü': 129,
-  'Ü': 154,
-  // Special Spanish punctuation
-  '¿': 168,
-  '¡': 173,
-  // Other special characters
-  '°': 248,
-  '€': 213,
-  '£': 156,
-  '¥': 157,
-  'ç': 135,
-  'Ç': 128,
-  // Other accented vowels
-  'à': 133,
-  'è': 138,
-  'ì': 141,
-  'ò': 149,
-  'ù': 151,
-  'À': 183,
-  'È': 212,
-  'Ì': 222,
-  'Ò': 227,
-  'Ù': 235,
-  // Additional accented characters
-  'â': 131,
-  'ê': 136,
-  'î': 140,
-  'ô': 147,
-  'û': 150,
-  'Â': 182,
-  'Ê': 210,
-  'Î': 215,
-  'Ô': 226,
-  'Û': 234,
-  // Box drawing and line characters
-  '─': 196,
-  '│': 179,
-  '┌': 218,
-  '┐': 191,
-  '└': 192,
-  '┘': 217,
-  '├': 195,
-  '┤': 180,
-  '┬': 194,
-  '┴': 193,
-  '┼': 197,
-  '═': 205,
-  '║': 186,
-  '╔': 201,
-  '╗': 187,
-  '╚': 200,
-  '╝': 188,
-  '╠': 204,
-  '╣': 185,
-  '╦': 203,
-  '╩': 202,
-  '╬': 206,
+  // ===== SPANISH CHARACTERS (MOST IMPORTANT) =====
+  // Ñ and ñ - THE MOST CRITICAL FOR SPANISH
+  'ñ': 164,  // LATIN SMALL LETTER N WITH TILDE
+  'Ñ': 165,  // LATIN CAPITAL LETTER N WITH TILDE
+  
+  // Lowercase vowels with acute accents
+  'á': 160,  // LATIN SMALL LETTER A WITH ACUTE
+  'é': 130,  // LATIN SMALL LETTER E WITH ACUTE
+  'í': 161,  // LATIN SMALL LETTER I WITH ACUTE
+  'ó': 162,  // LATIN SMALL LETTER O WITH ACUTE
+  'ú': 163,  // LATIN SMALL LETTER U WITH ACUTE
+  
+  // Uppercase vowels with acute accents
+  'Á': 181,  // LATIN CAPITAL LETTER A WITH ACUTE
+  'É': 144,  // LATIN CAPITAL LETTER E WITH ACUTE
+  'Í': 214,  // LATIN CAPITAL LETTER I WITH ACUTE
+  'Ó': 224,  // LATIN CAPITAL LETTER O WITH ACUTE
+  'Ú': 233,  // LATIN CAPITAL LETTER U WITH ACUTE
+  
+  // Ü and ü (used in Spanish)
+  'ü': 129,  // LATIN SMALL LETTER U WITH DIAERESIS
+  'Ü': 154,  // LATIN CAPITAL LETTER U WITH DIAERESIS
+  
+  // Spanish punctuation
+  '¿': 168,  // INVERTED QUESTION MARK
+  '¡': 173,  // INVERTED EXCLAMATION MARK
+  
+  // ===== ADDITIONAL ACCENTED CHARACTERS =====
+  // Lowercase vowels with grave accents
+  'à': 133,  // LATIN SMALL LETTER A WITH GRAVE
+  'è': 138,  // LATIN SMALL LETTER E WITH GRAVE
+  'ì': 141,  // LATIN SMALL LETTER I WITH GRAVE
+  'ò': 149,  // LATIN SMALL LETTER O WITH GRAVE
+  'ù': 151,  // LATIN SMALL LETTER U WITH GRAVE
+  
+  // Uppercase vowels with grave accents
+  'À': 183,  // LATIN CAPITAL LETTER A WITH GRAVE
+  'È': 212,  // LATIN CAPITAL LETTER E WITH GRAVE
+  'Ì': 222,  // LATIN CAPITAL LETTER I WITH GRAVE
+  'Ò': 227,  // LATIN CAPITAL LETTER O WITH GRAVE
+  'Ù': 235,  // LATIN CAPITAL LETTER U WITH GRAVE
+  
+  // Lowercase vowels with circumflex
+  'â': 131,  // LATIN SMALL LETTER A WITH CIRCUMFLEX
+  'ê': 136,  // LATIN SMALL LETTER E WITH CIRCUMFLEX
+  'î': 140,  // LATIN SMALL LETTER I WITH CIRCUMFLEX
+  'ô': 147,  // LATIN SMALL LETTER O WITH CIRCUMFLEX
+  'û': 150,  // LATIN SMALL LETTER U WITH CIRCUMFLEX
+  
+  // Uppercase vowels with circumflex
+  'Â': 182,  // LATIN CAPITAL LETTER A WITH CIRCUMFLEX
+  'Ê': 210,  // LATIN CAPITAL LETTER E WITH CIRCUMFLEX
+  'Î': 215,  // LATIN CAPITAL LETTER I WITH CIRCUMFLEX
+  'Ô': 226,  // LATIN CAPITAL LETTER O WITH CIRCUMFLEX
+  'Û': 234,  // LATIN CAPITAL LETTER U WITH CIRCUMFLEX
+  
+  // ===== OTHER SPECIAL CHARACTERS =====
+  // Currency and symbols
+  '°': 248,  // DEGREE SIGN
+  '€': 213,  // EURO SIGN
+  '£': 156,  // POUND SIGN
+  '¥': 157,  // YEN SIGN
+  '¢': 189,  // CENT SIGN
+  'ª': 166,  // FEMININE ORDINAL INDICATOR
+  'º': 167,  // MASCULINE ORDINAL INDICATOR
+  
+  // C with cedilla
+  'ç': 135,  // LATIN SMALL LETTER C WITH CEDILLA
+  'Ç': 128,  // LATIN CAPITAL LETTER C WITH CEDILLA
+  
+  // Other accented letters
+  'ä': 132,  // LATIN SMALL LETTER A WITH DIAERESIS
+  'Ä': 142,  // LATIN CAPITAL LETTER A WITH DIAERESIS
+  'ë': 137,  // LATIN SMALL LETTER E WITH DIAERESIS
+  'Ë': 211,  // LATIN CAPITAL LETTER E WITH DIAERESIS
+  'ï': 139,  // LATIN SMALL LETTER I WITH DIAERESIS
+  'Ï': 216,  // LATIN CAPITAL LETTER I WITH DIAERESIS
+  'ö': 148,  // LATIN SMALL LETTER O WITH DIAERESIS
+  'Ö': 153,  // LATIN CAPITAL LETTER O WITH DIAERESIS
+  
+  // Additional letters
+  'å': 134,  // LATIN SMALL LETTER A WITH RING ABOVE
+  'Å': 143,  // LATIN CAPITAL LETTER A WITH RING ABOVE
+  'æ': 145,  // LATIN SMALL LETTER AE
+  'Æ': 146,  // LATIN CAPITAL LETTER AE
+  'ø': 155,  // LATIN SMALL LETTER O WITH STROKE
+  'Ø': 157,  // LATIN CAPITAL LETTER O WITH STROKE (alternative)
+  
+  // ===== BOX DRAWING CHARACTERS =====
+  // Single line box drawing
+  '─': 196,  // BOX DRAWINGS LIGHT HORIZONTAL
+  '│': 179,  // BOX DRAWINGS LIGHT VERTICAL
+  '┌': 218,  // BOX DRAWINGS LIGHT DOWN AND RIGHT
+  '┐': 191,  // BOX DRAWINGS LIGHT DOWN AND LEFT
+  '└': 192,  // BOX DRAWINGS LIGHT UP AND RIGHT
+  '┘': 217,  // BOX DRAWINGS LIGHT UP AND LEFT
+  '├': 195,  // BOX DRAWINGS LIGHT VERTICAL AND RIGHT
+  '┤': 180,  // BOX DRAWINGS LIGHT VERTICAL AND LEFT
+  '┬': 194,  // BOX DRAWINGS LIGHT DOWN AND HORIZONTAL
+  '┴': 193,  // BOX DRAWINGS LIGHT UP AND HORIZONTAL
+  '┼': 197,  // BOX DRAWINGS LIGHT VERTICAL AND HORIZONTAL
+  
+  // Double line box drawing
+  '═': 205,  // BOX DRAWINGS DOUBLE HORIZONTAL
+  '║': 186,  // BOX DRAWINGS DOUBLE VERTICAL
+  '╔': 201,  // BOX DRAWINGS DOUBLE DOWN AND RIGHT
+  '╗': 187,  // BOX DRAWINGS DOUBLE DOWN AND LEFT
+  '╚': 200,  // BOX DRAWINGS DOUBLE UP AND RIGHT
+  '╝': 188,  // BOX DRAWINGS DOUBLE UP AND LEFT
+  '╠': 204,  // BOX DRAWINGS DOUBLE VERTICAL AND RIGHT
+  '╣': 185,  // BOX DRAWINGS DOUBLE VERTICAL AND LEFT
+  '╦': 203,  // BOX DRAWINGS DOUBLE DOWN AND HORIZONTAL
+  '╩': 202,  // BOX DRAWINGS DOUBLE UP AND HORIZONTAL
+  '╬': 206,  // BOX DRAWINGS DOUBLE VERTICAL AND HORIZONTAL
+  
+  // ===== BLOCK AND SHADE CHARACTERS =====
+  '░': 176,  // LIGHT SHADE
+  '▒': 177,  // MEDIUM SHADE
+  '▓': 178,  // DARK SHADE
+  '█': 219,  // FULL BLOCK
+  '▄': 220,  // LOWER HALF BLOCK
+  '▌': 221,  // LEFT HALF BLOCK
+  '▐': 222,  // RIGHT HALF BLOCK
+  '▀': 223,  // UPPER HALF BLOCK
+  
+  // ===== MATHEMATICAL AND SPECIAL SYMBOLS =====
+  '±': 241,  // PLUS-MINUS SIGN
+  '×': 158,  // MULTIPLICATION SIGN
+  '÷': 246,  // DIVISION SIGN
+  '¼': 172,  // VULGAR FRACTION ONE QUARTER
+  '½': 171,  // VULGAR FRACTION ONE HALF
+  '¾': 243,  // VULGAR FRACTION THREE QUARTERS
+  '²': 253,  // SUPERSCRIPT TWO
+  '³': 252,  // SUPERSCRIPT THREE
+  '¹': 251,  // SUPERSCRIPT ONE
+  'µ': 230,  // MICRO SIGN
+  '¶': 244,  // PILCROW SIGN
+  '§': 245,  // SECTION SIGN
+  '·': 250,  // MIDDLE DOT
+  '¬': 170,  // NOT SIGN
+  
+  // ===== ADDITIONAL PUNCTUATION =====
+  '«': 174,  // LEFT-POINTING DOUBLE ANGLE QUOTATION MARK
+  '»': 175,  // RIGHT-POINTING DOUBLE ANGLE QUOTATION MARK
+  '"': 34,   // QUOTATION MARK (ASCII)
+  '"': 147,  // LEFT DOUBLE QUOTATION MARK (alternative)
+  '"': 148,  // RIGHT DOUBLE QUOTATION MARK (alternative)
+  ''': 39,   // APOSTROPHE (ASCII)
+  ''': 145,  // LEFT SINGLE QUOTATION MARK (alternative)
+  ''': 146,  // RIGHT SINGLE QUOTATION MARK (alternative)
+  '–': 150,  // EN DASH (alternative)
+  '—': 151,  // EM DASH (alternative)
 };
 
 // ISO-8859-1 (Latin-1) character mapping
@@ -724,25 +804,63 @@ export const usePrinter = () => {
   const testPrint = async (autoCut: boolean = true, encoding: Encoding = 'CP850') => {
     const testContent = `
 =================================
-   IMPRESION DE PRUEBA
+   IMPRESIÓN DE PRUEBA
 =================================
 
-Esta es una prueba de impresion.
+Esta es una prueba de impresión
+con codificación ${encoding}.
 
-Caracteres especiales:
-a e i o u n N ¿ ¡
-A E I O U u U
+CARACTERES ESPECIALES ESPAÑOLES:
 
-Palabras comunes:
-- Ano
-- Nino
-- Senor
-- Manana
-- Espana
-- Jalapeno
+Vocales con acento:
+á é í ó ú
+Á É Í Ó Ú
 
-Si puedes leer esto correctamente,
-tu impresora funciona bien.
+La letra Ñ (más importante):
+ñ Ñ
+
+Diéresis:
+ü Ü
+
+Puntuación española:
+¿ ¡
+
+PALABRAS COMUNES:
+
+- Año (no "Ano")
+- Niño (no "Nino")
+- Señor (no "Senor")
+- Mañana (no "Manana")
+- España (no "Espana")
+- Jalapeño (no "Jalapeno")
+- Teléfono (no "Telefono")
+- Dirección (no "Direccion")
+- Atención (no "Atencion")
+- Información (no "Informacion")
+- Pequeño (no "Pequeno")
+- Tamaño (no "Tamano")
+- Baño (no "Bano")
+- Compañía (no "Compania")
+- Montaña (no "Montana")
+
+FRASES COMPLETAS:
+
+¿Cómo está usted?
+¡Qué día tan hermoso!
+El niño pequeño juega en la montaña.
+Mañana será un año más.
+La señora de España habla español.
+
+SÍMBOLOS ESPECIALES:
+
+Grado: 15°C
+Euro: €10.50
+Libra: £8.25
+
+Si puedes leer TODOS estos
+caracteres correctamente, tu
+impresora está configurada
+correctamente con CP850.
 
 Fecha: ${new Date().toLocaleString('es-ES')}
 

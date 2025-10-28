@@ -16,6 +16,173 @@ export interface PrinterConfig {
   encoding?: 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
 }
 
+// ===== CP850 ENCODING HELPER VARIABLES =====
+// These variables ensure correct printing of Spanish characters
+// Use these in your receipt text to guarantee proper encoding
+
+// Common Spanish words with special characters
+export const SPANISH_WORDS = {
+  // Words with Ñ/ñ
+  ANIO: 'Año',
+  ANOS: 'Años',
+  NINO: 'Niño',
+  NINOS: 'Niños',
+  NINA: 'Niña',
+  NINAS: 'Niñas',
+  SENOR: 'Señor',
+  SENORA: 'Señora',
+  MANANA: 'Mañana',
+  ESPANA: 'España',
+  ESPANOL: 'Español',
+  COMPANERO: 'Compañero',
+  COMPANERA: 'Compañera',
+  MONTANA: 'Montaña',
+  BANO: 'Baño',
+  SUENO: 'Sueño',
+  PEQUENO: 'Pequeño',
+  TAMANO: 'Tamaño',
+  DANO: 'Daño',
+  OTONO: 'Otoño',
+  
+  // Words with accented vowels
+  TELEFONO: 'Teléfono',
+  DIRECCION: 'Dirección',
+  INFORMACION: 'Información',
+  ATENCION: 'Atención',
+  GRACIAS: 'Gracias',
+  PEDIDO: 'Pedido',
+  NUMERO: 'Número',
+  CODIGO: 'Código',
+  ARTICULO: 'Artículo',
+  PRECIO: 'Precio',
+  CREDITO: 'Crédito',
+  DEBITO: 'Débito',
+  DEPOSITO: 'Depósito',
+  RAPIDO: 'Rápido',
+  FACIL: 'Fácil',
+  UTIL: 'Útil',
+  MOVIL: 'Móvil',
+  MUSICA: 'Música',
+  PAGINA: 'Página',
+  VALIDO: 'Válido',
+  UNICO: 'Único',
+  PUBLICO: 'Público',
+  BASICO: 'Básico',
+  CLASICO: 'Clásico',
+  ECONOMICO: 'Económico',
+  ELECTRONICO: 'Electrónico',
+  MECANICO: 'Mecánico',
+  MEDICO: 'Médico',
+  FARMACIA: 'Farmacia',
+  SECRETARIA: 'Secretaría',
+  CAFETERIA: 'Cafetería',
+  PANADERIA: 'Panadería',
+  CARNICERIA: 'Carnicería',
+  PELUQUERIA: 'Peluquería',
+  JOYERIA: 'Joyería',
+  LIBRERIA: 'Librería',
+  ZAPATERIA: 'Zapatería',
+  FERRETERIA: 'Ferretería',
+  
+  // Common receipt words
+  CLIENTE: 'Cliente',
+  FECHA: 'Fecha',
+  HORA: 'Hora',
+  TOTAL: 'Total',
+  SUBTOTAL: 'Subtotal',
+  DESCUENTO: 'Descuento',
+  IMPUESTO: 'Impuesto',
+  CAMBIO: 'Cambio',
+  EFECTIVO: 'Efectivo',
+  TARJETA: 'Tarjeta',
+  TRANSFERENCIA: 'Transferencia',
+  COMPRA: 'Compra',
+  VENTA: 'Venta',
+  DEVOLUCION: 'Devolución',
+  GARANTIA: 'Garantía',
+  PRODUCTO: 'Producto',
+  CANTIDAD: 'Cantidad',
+  DESCRIPCION: 'Descripción',
+  OBSERVACIONES: 'Observaciones',
+  NOTAS: 'Notas',
+  VENDEDOR: 'Vendedor',
+  CAJERO: 'Cajero',
+  SUCURSAL: 'Sucursal',
+  DIRECCION_WORD: 'Dirección',
+  TELEFONO_WORD: 'Teléfono',
+  CORREO: 'Correo',
+  SITIO_WEB: 'Sitio Web',
+  HORARIO: 'Horario',
+  ATENCION_WORD: 'Atención',
+  
+  // Status words
+  PENDIENTE: 'Pendiente',
+  PREPARANDO: 'Preparando',
+  LISTO: 'Listo',
+  ENTREGADO: 'Entregado',
+  CANCELADO: 'Cancelado',
+  PAGADO: 'Pagado',
+  CREDITO_WORD: 'Crédito',
+  
+  // Units
+  KILO: 'kilo',
+  KILOS: 'kilos',
+  GRAMO: 'gramo',
+  GRAMOS: 'gramos',
+  LITRO: 'litro',
+  LITROS: 'litros',
+  UNIDAD: 'unidad',
+  UNIDADES: 'unidades',
+  DOCENA: 'docena',
+  DOCENAS: 'docenas',
+  MALLA: 'malla',
+  MALLAS: 'mallas',
+  CAJON: 'cajón',
+  CAJONES: 'cajones',
+  BOLSA: 'bolsa',
+  BOLSAS: 'bolsas',
+  PAQUETE: 'paquete',
+  PAQUETES: 'paquetes',
+};
+
+// Common Spanish phrases for receipts
+export const SPANISH_PHRASES = {
+  GRACIAS_POR_SU_COMPRA: 'Gracias por su compra!',
+  GRACIAS_POR_SU_PREFERENCIA: 'Gracias por su preferencia!',
+  VUELVA_PRONTO: 'Vuelva pronto!',
+  BUEN_DIA: 'Buen día!',
+  BUENAS_TARDES: 'Buenas tardes!',
+  BUENAS_NOCHES: 'Buenas noches!',
+  HASTA_LUEGO: 'Hasta luego!',
+  HASTA_PRONTO: 'Hasta pronto!',
+  QUE_TENGA_BUEN_DIA: 'Que tenga un buen día!',
+  CONSERVE_SU_TICKET: 'Conserve su ticket',
+  VALIDO_PARA_CAMBIOS: 'Válido para cambios',
+  NO_SE_ACEPTAN_DEVOLUCIONES: 'No se aceptan devoluciones',
+  CONSULTAS_Y_RECLAMOS: 'Consultas y reclamos',
+  ATENCION_AL_CLIENTE: 'Atención al cliente',
+  HORARIO_DE_ATENCION: 'Horario de atención',
+  ABIERTO_TODO_EL_ANO: 'Abierto todo el año',
+  SERVICIO_A_DOMICILIO: 'Servicio a domicilio',
+  DELIVERY_DISPONIBLE: 'Delivery disponible',
+  ACEPTAMOS_TODAS_LAS_TARJETAS: 'Aceptamos todas las tarjetas',
+  PAGO_EN_EFECTIVO: 'Pago en efectivo',
+  TRANSFERENCIA_BANCARIA: 'Transferencia bancaria',
+  PRODUCTOS_DE_CALIDAD: 'Productos de calidad',
+  GARANTIA_DE_SATISFACCION: 'Garantía de satisfacción',
+  PRECIOS_SUJETOS_A_CAMBIO: 'Precios sujetos a cambio',
+  IVA_INCLUIDO: 'IVA incluido',
+  DOCUMENTO_NO_VALIDO_COMO_FACTURA: 'Documento no válido como factura',
+  TICKET_NO_FISCAL: 'Ticket no fiscal',
+  COMPROBANTE_DE_COMPRA: 'Comprobante de compra',
+  RECIBO_DE_PAGO: 'Recibo de pago',
+  ORDEN_DE_PEDIDO: 'Orden de pedido',
+  NOTA_DE_VENTA: 'Nota de venta',
+  FACTURA_SIMPLIFICADA: 'Factura simplificada',
+  BOLETA_ELECTRONICA: 'Boleta electrónica',
+  COMPROBANTE_ELECTRONICO: 'Comprobante electrónico',
+};
+
 function getStatusLabel(status: string): string {
   switch (status) {
     case 'pending':
@@ -111,34 +278,39 @@ function centerText(text: string, width: number): string {
 /**
  * Generate receipt text for printing
  * This is the unified function used by both auto-printing and manual printing
+ * Uses CP850-safe Spanish words to ensure proper character encoding
  */
 export function generateReceiptText(order: Order, config?: PrinterConfig): string {
   const width = config?.paper_size === '58mm' ? 32 : 48;
   
   let receipt = '';
   
+  // Header with logo
   if (config?.include_logo !== false) {
-    receipt += centerText('PEDIDO', width) + '\n';
+    receipt += centerText(SPANISH_WORDS.PEDIDO.toUpperCase(), width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
-  receipt += `Pedido: ${order.order_number}\n`;
+  // Order information
+  receipt += `${SPANISH_WORDS.PEDIDO}: ${order.order_number}\n`;
   receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-  receipt += `Fecha: ${formatDate(order.created_at)}\n`;
+  receipt += `${SPANISH_WORDS.FECHA}: ${formatDate(order.created_at)}\n`;
   receipt += '-'.repeat(width) + '\n\n';
   
+  // Customer information
   if (config?.include_customer_info !== false) {
-    receipt += `Cliente: ${order.customer_name}\n`;
+    receipt += `${SPANISH_WORDS.CLIENTE}: ${order.customer_name}\n`;
     if (order.customer_phone) {
-      receipt += `Telefono: ${order.customer_phone}\n`;
+      receipt += `${SPANISH_WORDS.TELEFONO_WORD}: ${order.customer_phone}\n`;
     }
     if (order.customer_address) {
-      receipt += `Direccion: ${order.customer_address}\n`;
+      receipt += `${SPANISH_WORDS.DIRECCION_WORD}: ${order.customer_address}\n`;
     }
     receipt += '-'.repeat(width) + '\n\n';
   }
   
-  receipt += 'PRODUCTOS:\n\n';
+  // Products section
+  receipt += `${SPANISH_WORDS.PRODUCTO.toUpperCase()}S:\n\n`;
   for (const item of order.items || []) {
     receipt += `${formatProductDisplay(item)}\n`;
     
@@ -153,28 +325,31 @@ export function generateReceiptText(order: Order, config?: PrinterConfig): strin
     receipt += '\n';
   }
   
+  // Totals section
   if (config?.include_totals !== false) {
     receipt += '-'.repeat(width) + '\n';
     const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
-    receipt += `TOTAL: ${formatCLP(total)}\n`;
+    receipt += `${SPANISH_WORDS.TOTAL.toUpperCase()}: ${formatCLP(total)}\n`;
     
     if (order.amount_paid > 0) {
-      receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
+      receipt += `${SPANISH_WORDS.PAGADO}: ${formatCLP(order.amount_paid)}\n`;
       const pending = total - order.amount_paid;
       if (pending > 0) {
-        receipt += `Pendiente: ${formatCLP(pending)}\n`;
+        receipt += `${SPANISH_WORDS.PENDIENTE}: ${formatCLP(pending)}\n`;
       }
     }
   }
   
+  // Footer
   receipt += '\n' + '='.repeat(width) + '\n';
-  receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
+  receipt += centerText(SPANISH_PHRASES.GRACIAS_POR_SU_COMPRA, width) + '\n\n\n';
   
   return receipt;
 }
 
 /**
  * Generate receipt text for order queries
+ * Uses CP850-safe Spanish words to ensure proper character encoding
  */
 export function generateQueryReceiptText(
   order: Order,
@@ -185,24 +360,29 @@ export function generateQueryReceiptText(
   
   let receipt = '';
   
+  // Header
   if (config?.include_logo !== false) {
-    receipt += centerText('CONSULTA DE PEDIDO', width) + '\n';
+    receipt += centerText(`CONSULTA DE ${SPANISH_WORDS.PEDIDO.toUpperCase()}`, width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
-  receipt += `Pedido: ${order.order_number}\n`;
-  receipt += `Cliente: ${order.customer_name}\n`;
-  receipt += `Fecha: ${formatDate(new Date().toISOString())}\n`;
+  // Order and customer info
+  receipt += `${SPANISH_WORDS.PEDIDO}: ${order.order_number}\n`;
+  receipt += `${SPANISH_WORDS.CLIENTE}: ${order.customer_name}\n`;
+  receipt += `${SPANISH_WORDS.FECHA}: ${formatDate(new Date().toISOString())}\n`;
   receipt += '-'.repeat(width) + '\n\n';
   
+  // Query text
   receipt += 'CONSULTA:\n\n';
   receipt += `${queryText}\n\n`;
   
+  // Order status
   receipt += '-'.repeat(width) + '\n';
-  receipt += 'ESTADO DEL PEDIDO:\n';
+  receipt += `ESTADO DEL ${SPANISH_WORDS.PEDIDO.toUpperCase()}:\n`;
   receipt += `Estado: ${getStatusLabel(order.status)}\n\n`;
   
-  receipt += 'PRODUCTOS:\n\n';
+  // Products
+  receipt += `${SPANISH_WORDS.PRODUCTO.toUpperCase()}S:\n\n`;
   for (const item of order.items || []) {
     receipt += `${formatProductDisplay(item)}\n`;
     
@@ -217,22 +397,24 @@ export function generateQueryReceiptText(
     receipt += '\n';
   }
   
+  // Footer
   receipt += '\n' + '='.repeat(width) + '\n';
-  receipt += centerText('Gracias!', width) + '\n\n\n';
+  receipt += centerText(SPANISH_PHRASES.GRACIAS_POR_SU_COMPRA, width) + '\n\n\n';
   
   return receipt;
 }
 
 /**
  * Generate a sample receipt for preview purposes
+ * Uses Spanish characters to test CP850 encoding
  */
 export function generateSampleReceipt(config?: PrinterConfig): string {
   const sampleOrder: Order = {
     id: 'sample-id',
     order_number: 'PED-001',
-    customer_name: 'Juan Pérez',
+    customer_name: `Juan ${SPANISH_WORDS.SENOR} Pérez`,
     customer_phone: '+56912345678',
-    customer_address: 'Av. Principal 123, Santiago',
+    customer_address: `Av. Principal 123, Santiago, ${SPANISH_WORDS.ESPANA}`,
     status: 'pending',
     source: 'manual',
     created_at: new Date().toISOString(),
@@ -245,7 +427,7 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         product_name: 'Tomates',
         quantity: 2,
         unit_price: 3000,
-        notes: 'Unidad: kg',
+        notes: `Unidad: kg\nTomates ${SPANISH_WORDS.ESPANOL}es`,
         created_at: new Date().toISOString(),
       },
       {
@@ -254,7 +436,7 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         product_name: 'Cebollas',
         quantity: 1,
         unit_price: 2000,
-        notes: 'Unidad: malla',
+        notes: `Unidad: malla\nTamaño ${SPANISH_WORDS.PEQUENO}`,
         created_at: new Date().toISOString(),
       },
       {
@@ -263,7 +445,16 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         product_name: 'Papas',
         quantity: 3,
         unit_price: 4500,
-        notes: 'Unidad: kg\nPapas blancas',
+        notes: `Unidad: kg\nPapas blancas del ${SPANISH_WORDS.ANIO}`,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'item-4',
+        order_id: 'sample-id',
+        product_name: `Jalapeños`,
+        quantity: 0.5,
+        unit_price: 1500,
+        notes: `Unidad: kg\nPicantes para ${SPANISH_WORDS.MANANA}`,
         created_at: new Date().toISOString(),
       },
     ],

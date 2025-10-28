@@ -111,9 +111,29 @@ function getAdditionalNotes(notes: string | null | undefined): string {
   return cleanNotes;
 }
 
+// ===== CP850 ENCODING HELPER VARIABLES =====
+// Import from receiptGenerator would be ideal, but for background tasks
+// we need to keep dependencies minimal, so we define key words here
+const SPANISH_WORDS_BG = {
+  PEDIDO: 'Pedido',
+  CLIENTE: 'Cliente',
+  TELEFONO: 'Teléfono',
+  DIRECCION: 'Dirección',
+  FECHA: 'Fecha',
+  TOTAL: 'Total',
+  PAGADO: 'Pagado',
+  PENDIENTE: 'Pendiente',
+  PRODUCTOS: 'PRODUCTOS',
+};
+
+const SPANISH_PHRASES_BG = {
+  GRACIAS_POR_SU_COMPRA: 'Gracias por su compra!',
+};
+
 /**
  * Generate receipt text for an order
  * Uses the same format as the order detail screen
+ * Uses CP850-safe Spanish words to ensure proper character encoding
  */
 function generateReceiptText(order: Order, printerConfig: PrinterConfig): string {
   const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
@@ -122,14 +142,14 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   
   // Header
   if (printerConfig?.include_logo !== false) {
-    receipt += centerText('PEDIDO', width) + '\n';
+    receipt += centerText(SPANISH_WORDS_BG.PEDIDO.toUpperCase(), width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
   // Order info
-  receipt += `Pedido: ${order.order_number}\n`;
+  receipt += `${SPANISH_WORDS_BG.PEDIDO}: ${order.order_number}\n`;
   receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-  receipt += `Fecha: ${new Date(order.created_at).toLocaleString('es-CL', {
+  receipt += `${SPANISH_WORDS_BG.FECHA}: ${new Date(order.created_at).toLocaleString('es-CL', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -140,18 +160,18 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   
   // Customer info
   if (printerConfig?.include_customer_info !== false) {
-    receipt += `Cliente: ${order.customer_name}\n`;
+    receipt += `${SPANISH_WORDS_BG.CLIENTE}: ${order.customer_name}\n`;
     if (order.customer_phone) {
-      receipt += `Telefono: ${order.customer_phone}\n`;
+      receipt += `${SPANISH_WORDS_BG.TELEFONO}: ${order.customer_phone}\n`;
     }
     if (order.customer_address) {
-      receipt += `Direccion: ${order.customer_address}\n`;
+      receipt += `${SPANISH_WORDS_BG.DIRECCION}: ${order.customer_address}\n`;
     }
     receipt += '-'.repeat(width) + '\n\n';
   }
   
   // Items - using webhook format
-  receipt += 'PRODUCTOS:\n\n';
+  receipt += `${SPANISH_WORDS_BG.PRODUCTOS}:\n\n`;
   for (const item of order.items || []) {
     // Use formatProductDisplay to get the webhook format
     receipt += `${formatProductDisplay(item)}\n`;
@@ -172,19 +192,19 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   if (printerConfig?.include_totals !== false) {
     receipt += '-'.repeat(width) + '\n';
     const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
-    receipt += `TOTAL: ${formatCLP(total)}\n`;
+    receipt += `${SPANISH_WORDS_BG.TOTAL.toUpperCase()}: ${formatCLP(total)}\n`;
     
     if (order.amount_paid > 0) {
-      receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
+      receipt += `${SPANISH_WORDS_BG.PAGADO}: ${formatCLP(order.amount_paid)}\n`;
       const pending = total - order.amount_paid;
       if (pending > 0) {
-        receipt += `Pendiente: ${formatCLP(pending)}\n`;
+        receipt += `${SPANISH_WORDS_BG.PENDIENTE}: ${formatCLP(pending)}\n`;
       }
     }
   }
   
   receipt += '\n' + '='.repeat(width) + '\n';
-  receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
+  receipt += centerText(SPANISH_PHRASES_BG.GRACIAS_POR_SU_COMPRA, width) + '\n\n\n';
   
   return receipt;
 }
