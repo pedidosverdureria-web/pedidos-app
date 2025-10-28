@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Modal,
 } from 'react-native';
 import { Stack } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -23,6 +24,7 @@ import {
   unregisterBackgroundAutoPrintTask,
   getBackgroundTaskStatus 
 } from '@/utils/backgroundAutoPrintTask';
+import { generateSampleReceipt, PrinterConfig as ReceiptPrinterConfig } from '@/utils/receiptGenerator';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
@@ -161,6 +163,65 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 20,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 24,
+    width: '90%',
+    maxWidth: 500,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 16,
+  },
+  previewContainer: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 16,
+    marginVertical: 16,
+  },
+  previewText: {
+    fontFamily: 'monospace',
+    fontSize: 12,
+    color: colors.text,
+    lineHeight: 16,
+  },
+  previewButton: {
+    backgroundColor: colors.secondary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.border,
+  },
+  modalButtonConfirm: {
+    backgroundColor: colors.primary,
+  },
 });
 
 export default function PrinterSettingsScreen() {
@@ -188,12 +249,30 @@ export default function PrinterSettingsScreen() {
   const [loading, setLoading] = useState(false);
   const [backgroundTaskStatus, setBackgroundTaskStatus] = useState<any>(null);
   const [printerConfigId, setPrinterConfigId] = useState<string | null>(null);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const loadConfig = useCallback(async () => {
     try {
       console.log('[PrinterSettings] Loading config...');
       
-      // First, try to load from Supabase database
+      // Load from AsyncStorage first (fastest)
+      const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      if (configStr) {
+        const config = JSON.parse(configStr);
+        console.log('[PrinterSettings] Config loaded from AsyncStorage:', config);
+        
+        // Apply all settings from AsyncStorage
+        setAutoPrintEnabled(config.auto_print_enabled ?? false);
+        setAutoCutEnabled(config.auto_cut_enabled ?? true);
+        setTextSize(config.text_size || 'medium');
+        setPaperSize(config.paper_size || '80mm');
+        setEncoding(config.encoding || 'CP850');
+        setIncludeLogo(config.include_logo ?? true);
+        setIncludeCustomerInfo(config.include_customer_info ?? true);
+        setIncludeTotals(config.include_totals ?? true);
+      }
+      
+      // Then try to load from Supabase database (for sync across devices)
       if (user?.id) {
         const supabase = getSupabase();
         const { data: dbConfig, error } = await supabase
@@ -207,49 +286,26 @@ export default function PrinterSettingsScreen() {
         } else if (dbConfig) {
           console.log('[PrinterSettings] Config loaded from database:', dbConfig);
           setPrinterConfigId(dbConfig.id);
+          
+          // Update state with database values (they take precedence)
           setAutoPrintEnabled(dbConfig.auto_print_enabled ?? false);
           setAutoCutEnabled(dbConfig.auto_cut_enabled ?? true);
-          
-          // Map database fields to local state
-          // Note: text_size and paper_size are not in the database schema yet
-          // We'll use defaults or load from AsyncStorage as fallback
           setIncludeLogo(dbConfig.include_logo ?? true);
           setIncludeCustomerInfo(dbConfig.include_customer_info ?? true);
           setIncludeTotals(dbConfig.include_totals ?? true);
           
-          // Also save to AsyncStorage for quick access
-          const config = {
+          // Sync to AsyncStorage
+          const syncedConfig = {
             auto_print_enabled: dbConfig.auto_print_enabled ?? false,
             auto_cut_enabled: dbConfig.auto_cut_enabled ?? true,
-            text_size: textSize, // Keep current value
-            paper_size: paperSize, // Keep current value
-            encoding: encoding, // Keep current value
+            text_size: textSize,
+            paper_size: paperSize,
+            encoding: encoding,
             include_logo: dbConfig.include_logo ?? true,
             include_customer_info: dbConfig.include_customer_info ?? true,
             include_totals: dbConfig.include_totals ?? true,
           };
-          await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
-        }
-      }
-      
-      // Also load from AsyncStorage (for fields not in database or as fallback)
-      const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
-      if (configStr) {
-        const config = JSON.parse(configStr);
-        console.log('[PrinterSettings] Config loaded from AsyncStorage:', config);
-        
-        // Only update fields that are not in the database
-        setTextSize(config.text_size || 'medium');
-        setPaperSize(config.paper_size || '80mm');
-        setEncoding(config.encoding || 'CP850');
-        
-        // If no database config was found, use AsyncStorage values
-        if (!printerConfigId) {
-          setAutoPrintEnabled(config.auto_print_enabled ?? false);
-          setAutoCutEnabled(config.auto_cut_enabled ?? true);
-          setIncludeLogo(config.include_logo ?? true);
-          setIncludeCustomerInfo(config.include_customer_info ?? true);
-          setIncludeTotals(config.include_totals ?? true);
+          await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(syncedConfig));
         }
       }
       
@@ -260,7 +316,7 @@ export default function PrinterSettingsScreen() {
     } catch (error) {
       console.error('[PrinterSettings] Error loading config:', error);
     }
-  }, [user?.id, printerConfigId, textSize, paperSize, encoding]);
+  }, [user?.id, textSize, paperSize, encoding]);
 
   useEffect(() => {
     loadConfig();
@@ -484,6 +540,23 @@ export default function PrinterSettingsScreen() {
     }
   };
 
+  const handleShowPreview = () => {
+    setShowPreviewModal(true);
+  };
+
+  const getCurrentConfig = (): ReceiptPrinterConfig => {
+    return {
+      auto_print_enabled: autoPrintEnabled,
+      auto_cut_enabled: autoCutEnabled,
+      text_size: textSize,
+      paper_size: paperSize,
+      encoding: encoding,
+      include_logo: includeLogo,
+      include_customer_info: includeCustomerInfo,
+      include_totals: includeTotals,
+    };
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -598,6 +671,21 @@ export default function PrinterSettingsScreen() {
           )}
         </View>
 
+        {/* Ticket Format Preview Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Vista Previa del Ticket</Text>
+          <Text style={styles.infoText}>
+            Visualiza cómo se verá el ticket con la configuración actual
+          </Text>
+          <TouchableOpacity
+            style={styles.previewButton}
+            onPress={handleShowPreview}
+          >
+            <IconSymbol name="doc.text" size={20} color="#fff" />
+            <Text style={styles.addButtonText}>Ver Vista Previa</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Print Settings Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configuración de Impresión</Text>
@@ -706,6 +794,53 @@ export default function PrinterSettingsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Preview Modal */}
+      <Modal
+        visible={showPreviewModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPreviewModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Vista Previa del Ticket</Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 8 }}>
+              Así se verá el ticket con tu configuración actual:
+            </Text>
+            
+            <ScrollView style={{ maxHeight: 400 }}>
+              <View style={styles.previewContainer}>
+                <Text style={styles.previewText}>
+                  {generateSampleReceipt(getCurrentConfig())}
+                </Text>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowPreviewModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Cerrar</Text>
+              </TouchableOpacity>
+              {isConnected && (
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm]}
+                  onPress={async () => {
+                    setShowPreviewModal(false);
+                    await handleTestPrint();
+                  }}
+                >
+                  <Text style={[styles.modalButtonText, { color: '#fff' }]}>
+                    Imprimir Prueba
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
