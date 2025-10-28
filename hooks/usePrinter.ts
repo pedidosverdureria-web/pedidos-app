@@ -286,7 +286,7 @@ const convertToCP850 = (text: string): Uint8Array => {
       specialCharsFound++;
       const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
       const hexMapped = mappedValue.toString(16).toUpperCase().padStart(2, '0');
-      console.log('[usePrinter] Mapped \'' + char + '\' (U+' + hexCode + ') to CP850: ' + mappedValue + ' (0x' + hexMapped + ')');
+      console.log('[usePrinter] Mapped "' + char + '" (U+' + hexCode + ') to CP850: ' + mappedValue + ' (0x' + hexMapped + ')');
     } 
     // ASCII characters (0-127) can be used directly
     else if (charCode < 128) {
@@ -296,7 +296,7 @@ const convertToCP850 = (text: string): Uint8Array => {
     else {
       unmappedCharsFound++;
       const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
-      console.warn('[usePrinter] Unmapped character \'' + char + '\' (U+' + hexCode + '), using space');
+      console.warn('[usePrinter] Unmapped character "' + char + '" (U+' + hexCode + '), using space');
       bytes.push(32); // Space character
     }
   }
