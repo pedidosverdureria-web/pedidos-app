@@ -239,7 +239,7 @@ type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
  * Convert text to the specified encoding
  */
 const convertToEncoding = (text: string, encoding: Encoding): Uint8Array => {
-  console.log(`[usePrinter] Converting text to ${encoding}, length: ${text.length}`);
+  console.log('[usePrinter] Converting text to ' + encoding + ', length: ' + text.length);
   
   switch (encoding) {
     case 'CP850':
@@ -251,7 +251,7 @@ const convertToEncoding = (text: string, encoding: Encoding): Uint8Array => {
     case 'Windows-1252':
       return convertToWindows1252(text);
     default:
-      console.warn(`[usePrinter] Unknown encoding ${encoding}, using CP850`);
+      console.warn('[usePrinter] Unknown encoding ' + encoding + ', using CP850');
       return convertToCP850(text);
   }
 };
@@ -268,8 +268,8 @@ const convertToCP850 = (text: string): Uint8Array => {
   
   console.log('[usePrinter] ========================================');
   console.log('[usePrinter] CP850 ENCODING CONVERSION');
-  console.log(`[usePrinter] Input text length: ${text.length} characters`);
-  console.log(`[usePrinter] First 200 chars: "${text.substring(0, 200)}"`);
+  console.log('[usePrinter] Input text length: ' + text.length + ' characters');
+  console.log('[usePrinter] First 200 chars: "' + text.substring(0, 200) + '"');
   console.log('[usePrinter] ========================================');
   
   let specialCharsFound = 0;
@@ -284,7 +284,7 @@ const convertToCP850 = (text: string): Uint8Array => {
       const mappedValue = CP850_MAP[char];
       bytes.push(mappedValue);
       specialCharsFound++;
-      console.log(`[usePrinter] ✓ Mapped '${char}' (U+${charCode.toString(16).toUpperCase().padStart(4, '0')}) → CP850: ${mappedValue} (0x${mappedValue.toString(16).toUpperCase().padStart(2, '0')})`);
+      console.log('[usePrinter] ✓ Mapped \'' + char + '\' (U+' + charCode.toString(16).toUpperCase().padStart(4, '0') + ') → CP850: ' + mappedValue + ' (0x' + mappedValue.toString(16).toUpperCase().padStart(2, '0') + ')');
     } 
     // ASCII characters (0-127) can be used directly
     else if (charCode < 128) {
@@ -293,23 +293,23 @@ const convertToCP850 = (text: string): Uint8Array => {
     // For unmapped characters, use a space as fallback
     else {
       unmappedCharsFound++;
-      console.warn(`[usePrinter] ✗ Unmapped character '${char}' (U+${charCode.toString(16).toUpperCase().padStart(4, '0')}), using space`);
+      console.warn('[usePrinter] ✗ Unmapped character \'' + char + '\' (U+' + charCode.toString(16).toUpperCase().padStart(4, '0') + '), using space');
       bytes.push(32); // Space character
     }
   }
   
   console.log('[usePrinter] ========================================');
   console.log('[usePrinter] CP850 CONVERSION SUMMARY');
-  console.log(`[usePrinter] Input: ${text.length} characters`);
-  console.log(`[usePrinter] Output: ${bytes.length} bytes`);
-  console.log(`[usePrinter] Special chars mapped: ${specialCharsFound}`);
-  console.log(`[usePrinter] Unmapped chars: ${unmappedCharsFound}`);
+  console.log('[usePrinter] Input: ' + text.length + ' characters');
+  console.log('[usePrinter] Output: ' + bytes.length + ' bytes');
+  console.log('[usePrinter] Special chars mapped: ' + specialCharsFound);
+  console.log('[usePrinter] Unmapped chars: ' + unmappedCharsFound);
   console.log('[usePrinter] ========================================');
   
   // Log a sample of the converted bytes for debugging
   const sampleSize = Math.min(100, bytes.length);
-  const sampleBytes = bytes.slice(0, sampleSize).map(b => `0x${b.toString(16).toUpperCase().padStart(2, '0')}`).join(' ');
-  console.log(`[usePrinter] First ${sampleSize} bytes: ${sampleBytes}`);
+  const sampleBytes = bytes.slice(0, sampleSize).map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+  console.log('[usePrinter] First ' + sampleSize + ' bytes: ' + sampleBytes);
   
   return new Uint8Array(bytes);
 };
@@ -342,7 +342,7 @@ const convertToISO88591 = (text: string): Uint8Array => {
     }
     // For unmapped characters, use space
     else {
-      console.warn(`[usePrinter] Unmapped character in ISO-8859-1: ${char} (code: ${charCode}), using space`);
+      console.warn('[usePrinter] Unmapped character in ISO-8859-1: ' + char + ' (code: ' + charCode + '), using space');
       bytes.push(32); // Space character
     }
   }
@@ -371,7 +371,7 @@ const convertToWindows1252 = (text: string): Uint8Array => {
     }
     // For unmapped characters, use space
     else {
-      console.warn(`[usePrinter] Unmapped character in Windows-1252: ${char} (code: ${charCode}), using space`);
+      console.warn('[usePrinter] Unmapped character in Windows-1252: ' + char + ' (code: ' + charCode + '), using space');
       bytes.push(32); // Space character
     }
   }
@@ -564,7 +564,7 @@ export const usePrinter = () => {
       // Try to find the printer service and characteristic
       for (const service of services) {
         const characteristics = await service.characteristics();
-        console.log(`[usePrinter] Service ${service.uuid} has characteristics:`, characteristics.map(c => c.uuid));
+        console.log('[usePrinter] Service ' + service.uuid + ' has characteristics:', characteristics.map(c => c.uuid));
         
         for (const characteristic of characteristics) {
           // Check if characteristic is writable
@@ -674,7 +674,7 @@ export const usePrinter = () => {
         chunks.push(chunk);
       }
       
-      console.log(`[usePrinter] Split data into ${chunks.length} chunks`);
+      console.log('[usePrinter] Split data into ' + chunks.length + ' chunks');
       
       // Send each chunk with a small delay to ensure printer processes it
       for (let i = 0; i < chunks.length; i++) {
@@ -682,7 +682,7 @@ export const usePrinter = () => {
         const buffer = Buffer.from(chunk);
         const base64Data = buffer.toString('base64');
         
-        console.log(`[usePrinter] Sending chunk ${i + 1}/${chunks.length}, size: ${chunk.length} bytes`);
+        console.log('[usePrinter] Sending chunk ' + (i + 1) + '/' + chunks.length + ', size: ' + chunk.length + ' bytes');
         
         await device.writeCharacteristicWithResponseForService(
           characteristic.serviceUUID,
@@ -757,7 +757,7 @@ export const usePrinter = () => {
       const fontSizeValue = textSize === 'small' ? 0x00 : textSize === 'large' ? 0x22 : 0x11;
       initCommands.push(0x1D, 0x21, fontSizeValue);
       
-      console.log('[usePrinter] Initialization commands:', initCommands.map(b => `0x${b.toString(16).toUpperCase().padStart(2, '0')}`).join(' '));
+      console.log('[usePrinter] Initialization commands:', initCommands.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' '));
       
       // Send initialization commands first
       const initData = new Uint8Array(initCommands);
