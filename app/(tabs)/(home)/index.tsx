@@ -282,12 +282,67 @@ function formatCLP(amount: number): string {
 function getUnitFromNotes(notes: string | null | undefined): string {
   if (!notes) return '';
   const lowerNotes = notes.toLowerCase();
+  
+  // Extract unit from "Unidad: xxx" format
+  const unitMatch = lowerNotes.match(/unidad:\s*(\w+)/);
+  if (unitMatch) {
+    return unitMatch[1];
+  }
+  
+  // Fallback to old detection method
   if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
   if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
   if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
   if (lowerNotes.includes('ml')) return 'ml';
   if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
   return '';
+}
+
+/**
+ * Format product display in webhook format: "2 kilos de papas"
+ * This matches the format used in order detail screen and WhatsApp webhook
+ */
+function formatProductDisplay(item: { product_name: string; quantity: number; notes?: string | null }): string {
+  const unit = getUnitFromNotes(item.notes);
+  
+  // Determine the unit text
+  let unitText = '';
+  if (unit === 'kg' || unit === 'kilo' || unit === 'kilos') {
+    unitText = item.quantity === 1 ? 'kilo' : 'kilos';
+  } else if (unit === 'gr' || unit === 'gramo' || unit === 'gramos') {
+    unitText = item.quantity === 1 ? 'gramo' : 'gramos';
+  } else if (unit === 'lt' || unit === 'litro' || unit === 'litros') {
+    unitText = item.quantity === 1 ? 'litro' : 'litros';
+  } else if (unit === 'ml') {
+    unitText = 'ml';
+  } else if (unit === 'un' || unit === 'unidad' || unit === 'unidades') {
+    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  } else if (unit) {
+    // For any other unit (like malla, docena, etc.), use it directly
+    // Check if it needs pluralization
+    if (item.quantity === 1) {
+      unitText = unit;
+    } else {
+      // Simple pluralization: add 's' if doesn't end with 's'
+      unitText = unit.endsWith('s') ? unit : unit + 's';
+    }
+  } else {
+    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  }
+  
+  return `${item.quantity} ${unitText} de ${item.product_name}`;
+}
+
+/**
+ * Get additional notes excluding unit information
+ */
+function getAdditionalNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  
+  // Remove the "Unidad: xxx" part from notes
+  const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
+  
+  return cleanNotes;
 }
 
 function formatDate(dateString: string): string {
@@ -353,6 +408,7 @@ export default function HomeScreen() {
   }, []);
 
   // Generate receipt text - memoized with useCallback
+  // Uses the same format as order detail screen
   const generateReceiptText = useCallback((order: Order): string => {
     const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
     
@@ -381,16 +437,13 @@ export default function HomeScreen() {
     
     receipt += 'PRODUCTOS:\n\n';
     for (const item of order.items || []) {
-      const unit = getUnitFromNotes(item.notes);
-      const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+      // Use formatProductDisplay to get the webhook format (same as order detail)
+      receipt += `${formatProductDisplay(item)}\n`;
       
-      receipt += `${quantityStr} ${item.product_name}\n`;
-      
-      if (item.notes) {
-        const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
-        if (cleanNotes) {
-          receipt += `  ${cleanNotes}\n`;
-        }
+      // Add additional notes if they exist (excluding unit information)
+      const additionalNotes = getAdditionalNotes(item.notes);
+      if (additionalNotes) {
+        receipt += `  ${additionalNotes}\n`;
       }
       
       if (item.unit_price > 0) {
