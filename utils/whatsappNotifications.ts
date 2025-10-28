@@ -170,6 +170,30 @@ Si tienes alguna pregunta o deseas realizar un nuevo pedido, no dudes en contact
 }
 
 /**
+ * Creates query response message
+ */
+function createQueryResponseMessage(
+  customerName: string,
+  orderNumber: string,
+  queryText: string,
+  responseText: string
+): string {
+  return `💬 *Respuesta a tu Consulta*
+
+Hola ${customerName}, hemos recibido tu consulta sobre el pedido ${orderNumber}.
+
+❓ *Tu consulta:*
+${queryText}
+
+✅ *Nuestra respuesta:*
+${responseText}
+
+Si tienes más preguntas, no dudes en escribirnos.
+
+¡Gracias por tu preferencia! 😊`;
+}
+
+/**
  * Sends WhatsApp message via API
  */
 async function sendWhatsAppMessage(
@@ -422,5 +446,64 @@ export async function sendOrderDeletedNotification(
     console.log('Sent order deleted notification to:', order.customer_phone);
   } catch (error) {
     console.error('Error sending order deleted notification:', error);
+  }
+}
+
+/**
+ * Sends a response to a customer query via WhatsApp
+ */
+export async function sendQueryResponse(
+  orderId: string,
+  customerName: string,
+  orderNumber: string,
+  queryText: string,
+  responseText: string
+): Promise<void> {
+  try {
+    const supabase = getSupabase();
+
+    // Get WhatsApp config
+    const { data: config } = await supabase
+      .from('whatsapp_config')
+      .select('*')
+      .eq('is_active', true)
+      .single();
+
+    if (!config || !config.access_token || !config.phone_number_id) {
+      console.log('WhatsApp not configured, skipping notification');
+      throw new Error('WhatsApp no está configurado');
+    }
+
+    // Get order details to get customer phone
+    const { data: order } = await supabase
+      .from('orders')
+      .select('customer_phone')
+      .eq('id', orderId)
+      .single();
+
+    if (!order || !order.customer_phone) {
+      console.log('Order not found or no customer phone');
+      throw new Error('No se encontró el número de teléfono del cliente');
+    }
+
+    // Create and send query response message
+    const message = createQueryResponseMessage(
+      customerName,
+      orderNumber,
+      queryText,
+      responseText
+    );
+
+    await sendWhatsAppMessage(
+      config.phone_number_id,
+      config.access_token,
+      order.customer_phone,
+      message
+    );
+
+    console.log('Sent query response to:', order.customer_phone);
+  } catch (error) {
+    console.error('Error sending query response:', error);
+    throw error;
   }
 }
