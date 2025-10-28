@@ -11,7 +11,6 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { WidgetProvider } from '@/contexts/WidgetContext';
 import { registerBackgroundNotificationTask } from '@/utils/backgroundNotificationTask';
 import { Platform } from 'react-native';
-import { requestAllRequiredPermissions } from '@/utils/permissions';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -29,27 +28,22 @@ export default function RootLayout() {
   }, [loaded]);
 
   // Register background notification task on app startup
+  // CRITICAL: This ensures notifications work even when the screen is off
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      console.log('[RootLayout] Registering background notification task...');
-      registerBackgroundNotificationTask().catch((error) => {
-        console.error('[RootLayout] Failed to register background notification task:', error);
-      });
-    }
-  }, []);
+    const registerNotificationTask = async () => {
+      if (Platform.OS !== 'web') {
+        try {
+          console.log('[RootLayout] Registering background notification task...');
+          await registerBackgroundNotificationTask();
+          console.log('[RootLayout] Background notification task registered successfully');
+        } catch (error) {
+          console.error('[RootLayout] Failed to register background notification task:', error);
+        }
+      }
+    };
 
-  // Request all required permissions on app startup
-  useEffect(() => {
-    if (Platform.OS !== 'web' && loaded) {
-      console.log('[RootLayout] Requesting all required permissions...');
-      // Delay permission request to avoid blocking the UI
-      setTimeout(() => {
-        requestAllRequiredPermissions().catch((error) => {
-          console.error('[RootLayout] Failed to request permissions:', error);
-        });
-      }, 2000);
-    }
-  }, [loaded]);
+    registerNotificationTask();
+  }, []);
 
   if (!loaded) {
     return null;
@@ -60,19 +54,36 @@ export default function RootLayout() {
       <AuthProvider>
         <WidgetProvider>
           <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="welcome" options={{ headerShown: false }} />
             <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="register" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ headerShown: false }} />
-            <Stack.Screen name="order/[orderId]" options={{ headerShown: false }} />
-            <Stack.Screen name="order/new" options={{ headerShown: false }} />
             <Stack.Screen name="stats" options={{ headerShown: false }} />
             <Stack.Screen name="activity" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-            <Stack.Screen name="formsheet" options={{ presentation: 'formSheet' }} />
-            <Stack.Screen name="transparent-modal" options={{ presentation: 'transparentModal' }} />
+            <Stack.Screen
+              name="modal"
+              options={{
+                presentation: 'modal',
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="formsheet"
+              options={{
+                presentation: 'formSheet',
+                headerShown: false,
+              }}
+            />
+            <Stack.Screen
+              name="transparent-modal"
+              options={{
+                presentation: 'transparentModal',
+                headerShown: false,
+              }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </WidgetProvider>

@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "order-flow-app-jdvhwd",
@@ -23,8 +24,8 @@
           "processing",
           "audio"
         ],
-        "NSBluetoothAlwaysUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica y poder imprimir pedidos autom\u00e1ticamente.",
-        "NSBluetoothPeripheralUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica.",
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica y poder imprimir pedidos automáticamente.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica.",
         "BGTaskSchedulerPermittedIdentifiers": [
           "com.anonymous.Natively.background-auto-print",
           "com.anonymous.Natively.background-fetch"
@@ -54,8 +55,11 @@
         "USE_EXACT_ALARM",
         "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
         "SYSTEM_ALERT_WINDOW",
-        "DISABLE_KEYGUARD"
-      ]
+        "DISABLE_KEYGUARD",
+        "VIBRATE",
+        "USE_FULL_SCREEN_INTENT"
+      ],
+      "useNextNotificationsApi": true
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",

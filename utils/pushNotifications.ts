@@ -181,9 +181,11 @@ export async function sendLocalNotification(
       autoDismiss: false, // Don't auto-dismiss
     };
 
-    // Add Android-specific configuration
+    // Add Android-specific configuration for screen-off notifications
     if (Platform.OS === 'android') {
       notificationContent.channelId = 'orders'; // Use the orders channel for maximum priority
+      // These Android-specific flags help wake the device
+      notificationContent.color = '#3B82F6';
     }
 
     // Add iOS-specific configuration
