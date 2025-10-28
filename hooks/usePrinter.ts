@@ -266,11 +266,11 @@ const convertToEncoding = (text: string, encoding: Encoding): Uint8Array => {
 const convertToCP850 = (text: string): Uint8Array => {
   const bytes: number[] = [];
   
-  console.log(`[usePrinter] ========================================`);
-  console.log(`[usePrinter] CP850 ENCODING CONVERSION`);
+  console.log('[usePrinter] ========================================');
+  console.log('[usePrinter] CP850 ENCODING CONVERSION');
   console.log(`[usePrinter] Input text length: ${text.length} characters`);
   console.log(`[usePrinter] First 200 chars: "${text.substring(0, 200)}"`);
-  console.log(`[usePrinter] ========================================`);
+  console.log('[usePrinter] ========================================');
   
   let specialCharsFound = 0;
   let unmappedCharsFound = 0;
@@ -298,13 +298,13 @@ const convertToCP850 = (text: string): Uint8Array => {
     }
   }
   
-  console.log(`[usePrinter] ========================================`);
-  console.log(`[usePrinter] CP850 CONVERSION SUMMARY`);
+  console.log('[usePrinter] ========================================');
+  console.log('[usePrinter] CP850 CONVERSION SUMMARY');
   console.log(`[usePrinter] Input: ${text.length} characters`);
   console.log(`[usePrinter] Output: ${bytes.length} bytes`);
   console.log(`[usePrinter] Special chars mapped: ${specialCharsFound}`);
   console.log(`[usePrinter] Unmapped chars: ${unmappedCharsFound}`);
-  console.log(`[usePrinter] ========================================`);
+  console.log('[usePrinter] ========================================');
   
   // Log a sample of the converted bytes for debugging
   const sampleSize = Math.min(100, bytes.length);
