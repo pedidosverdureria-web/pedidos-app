@@ -211,16 +211,6 @@ export async function requestBatteryOptimizationExemption(): Promise<boolean> {
   }
 
   try {
-    // Check if already exempted
-    const PowerManager = require('react-native').NativeModules.PowerManager;
-    if (PowerManager) {
-      const isIgnoring = await PowerManager.isIgnoringBatteryOptimizations();
-      if (isIgnoring) {
-        console.log('[Permissions] Already exempted from battery optimization');
-        return true;
-      }
-    }
-
     // Request exemption
     Alert.alert(
       'Optimización de Batería',

@@ -360,17 +360,20 @@ export default function HomeScreen() {
   useEffect(() => {
     const shouldKeepAwake = printerConfig?.auto_print_enabled === true && isConnected;
     
+    // Copy ref value to variable inside effect
+    const keepAwakeTag = keepAwakeTagRef.current;
+    
     if (shouldKeepAwake) {
       console.log('[HomeScreen] Activating keep awake to prevent sleep');
-      activateKeepAwake(keepAwakeTagRef.current);
+      activateKeepAwake(keepAwakeTag);
     } else {
       console.log('[HomeScreen] Deactivating keep awake');
-      deactivateKeepAwake(keepAwakeTagRef.current);
+      deactivateKeepAwake(keepAwakeTag);
     }
 
-    // Cleanup on unmount
+    // Cleanup on unmount - use the captured variable
     return () => {
-      deactivateKeepAwake(keepAwakeTagRef.current);
+      deactivateKeepAwake(keepAwakeTag);
     };
   }, [printerConfig?.auto_print_enabled, isConnected]);
 
