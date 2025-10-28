@@ -1,38 +1,4 @@
 
-/**
- * PRINTER SETTINGS SCREEN
- * 
- * This screen manages all printer configuration settings using LOCAL STORAGE ONLY.
- * 
- * KEY CHANGES:
- * - ✅ NO DATABASE DEPENDENCY: All settings are stored in AsyncStorage (@printer_config)
- * - ✅ PERSISTENT CONFIGURATION: Settings persist across app restarts
- * - ✅ CP850 ENCODING: Proper support for Spanish characters (ñ, á, é, í, ó, ú, etc.)
- * - ✅ GLOBAL APPLICATION: Configuration applies to ALL receipt formats
- * 
- * CONFIGURATION SETTINGS:
- * - auto_print_enabled: Enable/disable automatic printing of new orders
- * - auto_cut_enabled: Enable/disable automatic paper cutting after printing
- * - text_size: Font size for receipts (small, medium, large)
- * - paper_size: Paper width (58mm or 80mm)
- * - encoding: Character encoding (CP850 recommended for Spanish)
- * - include_logo: Show/hide logo in receipts
- * - include_customer_info: Show/hide customer information
- * - include_totals: Show/hide totals section
- * 
- * CP850 ENCODING:
- * CP850 is the standard code page for thermal printers with Spanish support.
- * It correctly encodes:
- * - ñ, Ñ (most important for Spanish)
- * - á, é, í, ó, ú (lowercase accented vowels)
- * - Á, É, Í, Ó, Ú (uppercase accented vowels)
- * - ü, Ü (dieresis)
- * - ¿, ¡ (inverted punctuation)
- * 
- * The printer MUST be set to CP850 mode using ESC t 2 command before printing.
- * This is handled automatically in the usePrinter hook.
- */
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,16 +25,8 @@ import {
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
-type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
-
-const ENCODING_OPTIONS: { label: string; value: Encoding }[] = [
-  { label: 'CP850 (Recomendado para español)', value: 'CP850' },
-  { label: 'UTF-8', value: 'UTF-8' },
-  { label: 'ISO-8859-1 (Latin-1)', value: 'ISO-8859-1' },
-  { label: 'Windows-1252', value: 'Windows-1252' },
-];
 
 const styles = StyleSheet.create({
   container: {
@@ -214,7 +172,6 @@ export default function PrinterSettingsScreen() {
   const [autoCutEnabled, setAutoCutEnabled] = useState(true);
   const [textSize, setTextSize] = useState<TextSize>('medium');
   const [paperSize, setPaperSize] = useState<PaperSize>('80mm');
-  const [encoding, setEncoding] = useState<Encoding>('CP850');
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeCustomerInfo, setIncludeCustomerInfo] = useState(true);
   const [includeTotals, setIncludeTotals] = useState(true);
@@ -225,35 +182,29 @@ export default function PrinterSettingsScreen() {
     try {
       console.log('[PrinterSettings] Loading config from local storage...');
       
-      // Load from AsyncStorage only (no database dependency)
       const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       if (configStr) {
         const config = JSON.parse(configStr);
         console.log('[PrinterSettings] Config loaded from AsyncStorage:', config);
         
-        // Load all settings from local storage
         setAutoPrintEnabled(config.auto_print_enabled ?? false);
         setAutoCutEnabled(config.auto_cut_enabled ?? true);
         setTextSize(config.text_size || 'medium');
         setPaperSize(config.paper_size || '80mm');
-        setEncoding(config.encoding || 'CP850');
         setIncludeLogo(config.include_logo ?? true);
         setIncludeCustomerInfo(config.include_customer_info ?? true);
         setIncludeTotals(config.include_totals ?? true);
       } else {
         console.log('[PrinterSettings] No config found, using defaults');
-        // Set default values
         setAutoPrintEnabled(false);
         setAutoCutEnabled(true);
         setTextSize('medium');
         setPaperSize('80mm');
-        setEncoding('CP850');
         setIncludeLogo(true);
         setIncludeCustomerInfo(true);
         setIncludeTotals(true);
       }
       
-      // Load background task status
       const status = await getBackgroundTaskStatus();
       setBackgroundTaskStatus(status);
       console.log('[PrinterSettings] Background task status:', status);
@@ -275,7 +226,6 @@ export default function PrinterSettingsScreen() {
         auto_cut_enabled: autoCutEnabled,
         text_size: textSize,
         paper_size: paperSize,
-        encoding: encoding,
         include_logo: includeLogo,
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
@@ -285,11 +235,9 @@ export default function PrinterSettingsScreen() {
       
       console.log('[PrinterSettings] Saving config to local storage:', config);
       
-      // Save to AsyncStorage only (no database dependency)
       await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
       console.log('[PrinterSettings] Config saved to AsyncStorage successfully');
       
-      // Register or unregister background task based on auto-print setting
       if (autoPrintEnabled && isConnected) {
         console.log('[PrinterSettings] Registering background task');
         await registerBackgroundAutoPrintTask();
@@ -298,22 +246,21 @@ export default function PrinterSettingsScreen() {
         await unregisterBackgroundAutoPrintTask();
       }
       
-      // Reload status
       const status = await getBackgroundTaskStatus();
       setBackgroundTaskStatus(status);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        '✅ Configuración Guardada',
-        'La configuración de la impresora se guardó correctamente en el dispositivo',
+        'Configuracion Guardada',
+        'La configuracion de la impresora se guardo correctamente',
         [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('[PrinterSettings] Error saving config:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        '❌ Error al Guardar',
-        'No se pudo guardar la configuración: ' + (error as Error).message,
+        'Error al Guardar',
+        'No se pudo guardar la configuracion: ' + (error as Error).message,
         [{ text: 'OK' }]
       );
     } finally {
@@ -324,20 +271,20 @@ export default function PrinterSettingsScreen() {
   const handleTestPrint = async () => {
     try {
       setLoading(true);
-      await testPrint(autoCutEnabled, encoding);
+      await testPrint(autoCutEnabled);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        '✅ Impresión de Prueba',
-        'La impresión de prueba se envió correctamente',
+        'Impresion de Prueba',
+        'La impresion de prueba se envio correctamente',
         [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('[PrinterSettings] Test print error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        '❌ Error de Impresión',
-        'No se pudo imprimir. Verifica la conexión con la impresora.',
+        'Error de Impresion',
+        'No se pudo imprimir. Verifica la conexion con la impresora.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -353,7 +300,7 @@ export default function PrinterSettingsScreen() {
       console.error('[PrinterSettings] Scan error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        '❌ Error al Escanear',
+        'Error al Escanear',
         'No se pudo escanear dispositivos Bluetooth',
         [{ text: 'OK' }]
       );
@@ -369,12 +316,11 @@ export default function PrinterSettingsScreen() {
         
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
-          '✅ Conectado',
+          'Conectado',
           `Conectado exitosamente a ${device.name || 'la impresora'}`,
           [{ text: 'OK' }]
         );
         
-        // If auto-print is enabled, register background task
         if (autoPrintEnabled) {
           await registerBackgroundAutoPrintTask();
           const status = await getBackgroundTaskStatus();
@@ -385,8 +331,8 @@ export default function PrinterSettingsScreen() {
       console.error('[PrinterSettings] Connect error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        '❌ Error de Conexión',
-        'No se pudo conectar a la impresora. Verifica que esté encendida y cerca.',
+        'Error de Conexion',
+        'No se pudo conectar a la impresora. Verifica que este encendida y cerca.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -399,22 +345,21 @@ export default function PrinterSettingsScreen() {
       setLoading(true);
       await disconnect();
       
-      // Unregister background task when disconnecting
       await unregisterBackgroundAutoPrintTask();
       const status = await getBackgroundTaskStatus();
       setBackgroundTaskStatus(status);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        '✅ Desconectado',
-        'La impresora se desconectó correctamente',
+        'Desconectado',
+        'La impresora se desconecto correctamente',
         [{ text: 'OK' }]
       );
     } catch (error) {
       console.error('[PrinterSettings] Disconnect error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
-        '❌ Error',
+        'Error',
         'No se pudo desconectar la impresora',
         [{ text: 'OK' }]
       );
@@ -427,7 +372,7 @@ export default function PrinterSettingsScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: 'Configuración de Impresora',
+          title: 'Configuracion de Impresora',
           headerShown: true,
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: '#fff',
@@ -436,7 +381,7 @@ export default function PrinterSettingsScreen() {
       <ScrollView style={styles.content}>
         {/* Connection Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Conexión</Text>
+          <Text style={styles.sectionTitle}>Conexion</Text>
           
           {connectedDevice ? (
             <>
@@ -490,7 +435,7 @@ export default function PrinterSettingsScreen() {
                 disabled={loading}
               >
                 <Text style={styles.buttonText}>
-                  {isScanning ? 'Detener búsqueda' : 'Buscar impresoras'}
+                  {isScanning ? 'Detener busqueda' : 'Buscar impresoras'}
                 </Text>
               </TouchableOpacity>
             </>
@@ -499,10 +444,10 @@ export default function PrinterSettingsScreen() {
 
         {/* Auto-Print Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Auto-impresión</Text>
+          <Text style={styles.sectionTitle}>Auto-impresion</Text>
           
           <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Activar auto-impresión</Text>
+            <Text style={styles.settingLabel}>Activar auto-impresion</Text>
             <Switch
               value={autoPrintEnabled}
               onValueChange={setAutoPrintEnabled}
@@ -513,8 +458,8 @@ export default function PrinterSettingsScreen() {
           {autoPrintEnabled && (
             <>
               <Text style={styles.infoText}>
-                La auto-impresión funcionará en segundo plano y con la pantalla apagada. 
-                Los pedidos nuevos se imprimirán automáticamente cuando lleguen.
+                La auto-impresion funcionara en segundo plano y con la pantalla apagada. 
+                Los pedidos nuevos se imprimiran automaticamente cuando lleguen.
               </Text>
               
               {backgroundTaskStatus && (
@@ -528,8 +473,8 @@ export default function PrinterSettingsScreen() {
                 >
                   <Text style={styles.statusText}>
                     {backgroundTaskStatus.isRegistered
-                      ? '✓ Tarea en segundo plano activa'
-                      : '⚠ Tarea en segundo plano no registrada'}
+                      ? 'Tarea en segundo plano activa'
+                      : 'Tarea en segundo plano no registrada'}
                   </Text>
                 </View>
               )}
@@ -539,10 +484,10 @@ export default function PrinterSettingsScreen() {
 
         {/* Print Settings Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuración de Impresión</Text>
+          <Text style={styles.sectionTitle}>Configuracion de Impresion</Text>
           
           <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Corte automático</Text>
+            <Text style={styles.settingLabel}>Corte automatico</Text>
             <Switch
               value={autoCutEnabled}
               onValueChange={setAutoCutEnabled}
@@ -559,9 +504,9 @@ export default function PrinterSettingsScreen() {
               setTextSize(sizes[nextIndex]);
             }}
           >
-            <Text style={styles.settingLabel}>Tamaño de texto</Text>
+            <Text style={styles.settingLabel}>Tamano de texto</Text>
             <Text style={styles.settingValue}>
-              {textSize === 'small' ? 'Pequeño' : textSize === 'medium' ? 'Mediano' : 'Grande'}
+              {textSize === 'small' ? 'Pequeno' : textSize === 'medium' ? 'Mediano' : 'Grande'}
             </Text>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -572,32 +517,10 @@ export default function PrinterSettingsScreen() {
               setPaperSize(paperSize === '58mm' ? '80mm' : '58mm');
             }}
           >
-            <Text style={styles.settingLabel}>Tamaño de papel</Text>
+            <Text style={styles.settingLabel}>Tamano de papel</Text>
             <Text style={styles.settingValue}>{paperSize}</Text>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={() => {
-              const currentIndex = ENCODING_OPTIONS.findIndex(opt => opt.value === encoding);
-              const nextIndex = (currentIndex + 1) % ENCODING_OPTIONS.length;
-              setEncoding(ENCODING_OPTIONS[nextIndex].value);
-            }}
-          >
-            <Text style={styles.settingLabel}>Codificación</Text>
-            <Text style={styles.settingValue}>
-              {ENCODING_OPTIONS.find(opt => opt.value === encoding)?.label || encoding}
-            </Text>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          
-          {encoding === 'CP850' && (
-            <Text style={styles.infoText}>
-              ✓ CP850 es la codificación recomendada para español. 
-              Imprime correctamente: ñ, Ñ, á, é, í, ó, ú, ¿, ¡
-            </Text>
-          )}
           
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Incluir logo</Text>
@@ -637,7 +560,7 @@ export default function PrinterSettingsScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Guardando...' : 'Guardar configuración'}
+              {loading ? 'Guardando...' : 'Guardar configuracion'}
             </Text>
           </TouchableOpacity>
           
