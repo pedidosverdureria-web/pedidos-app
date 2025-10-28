@@ -315,6 +315,7 @@ export default function HomeScreen() {
   const lastPrintCheckRef = useRef<number>(0);
   const autoPrintIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const keepAwakeTagRef = useRef<string>('auto-print-home');
+  const isKeepAwakeActiveRef = useRef<boolean>(false);
 
   const { orders, loading, error, refetch } = useOrders(
     statusFilter === 'all' ? undefined : statusFilter
@@ -363,17 +364,45 @@ export default function HomeScreen() {
     // Copy ref value to variable inside effect
     const keepAwakeTag = keepAwakeTagRef.current;
     
-    if (shouldKeepAwake) {
-      console.log('[HomeScreen] Activating keep awake to prevent sleep');
-      activateKeepAwake(keepAwakeTag);
-    } else {
-      console.log('[HomeScreen] Deactivating keep awake');
-      deactivateKeepAwake(keepAwakeTag);
-    }
+    const manageKeepAwake = async () => {
+      if (shouldKeepAwake) {
+        // Only activate if not already active
+        if (!isKeepAwakeActiveRef.current) {
+          try {
+            console.log('[HomeScreen] Activating keep awake to prevent sleep');
+            await activateKeepAwake(keepAwakeTag);
+            isKeepAwakeActiveRef.current = true;
+            console.log('[HomeScreen] Keep awake activated successfully');
+          } catch (error) {
+            console.error('[HomeScreen] Error activating keep awake:', error);
+          }
+        }
+      } else {
+        // Only deactivate if currently active
+        if (isKeepAwakeActiveRef.current) {
+          try {
+            console.log('[HomeScreen] Deactivating keep awake');
+            await deactivateKeepAwake(keepAwakeTag);
+            isKeepAwakeActiveRef.current = false;
+            console.log('[HomeScreen] Keep awake deactivated successfully');
+          } catch (error) {
+            console.error('[HomeScreen] Error deactivating keep awake:', error);
+          }
+        }
+      }
+    };
 
-    // Cleanup on unmount - use the captured variable
+    manageKeepAwake();
+
+    // Cleanup on unmount - only deactivate if active
     return () => {
-      deactivateKeepAwake(keepAwakeTag);
+      if (isKeepAwakeActiveRef.current) {
+        console.log('[HomeScreen] Cleanup: Deactivating keep awake');
+        deactivateKeepAwake(keepAwakeTag).catch((error) => {
+          console.error('[HomeScreen] Error deactivating keep awake in cleanup:', error);
+        });
+        isKeepAwakeActiveRef.current = false;
+      }
     };
   }, [printerConfig?.auto_print_enabled, isConnected]);
 
@@ -393,7 +422,7 @@ export default function HomeScreen() {
     return () => {
       subscription.remove();
     };
-  }, [appState]);
+  }, [appState, checkAndPrintNewOrders]);
 
   // Register/unregister background task based on auto-print setting
   useEffect(() => {
