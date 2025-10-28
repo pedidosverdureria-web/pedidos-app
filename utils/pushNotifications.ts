@@ -24,7 +24,7 @@ if (Platform.OS !== 'web') {
 export async function registerForPushNotificationsAsync(userId: string): Promise<string | null> {
   // Push notifications are not supported on web
   if (Platform.OS === 'web') {
-    console.log('Push notifications not supported on web');
+    console.log('[PushNotifications] Not supported on web');
     return null;
   }
 
@@ -41,6 +41,8 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
       enableVibrate: true,
       enableLights: true,
       showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: true, // Bypass Do Not Disturb mode
     });
 
     // Create order notifications channel with maximum priority for background notifications
@@ -55,7 +57,10 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
       enableLights: true,
       showBadge: true,
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: true, // Bypass Do Not Disturb mode
     });
+
+    console.log('[PushNotifications] Android notification channels created with MAX priority');
   }
 
   if (Device.isDevice) {
@@ -69,14 +74,14 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
           allowBadge: true,
           allowSound: true,
           allowAnnouncements: true,
-          allowCriticalAlerts: false,
+          allowCriticalAlerts: true, // Request critical alerts for iOS
         },
       });
       finalStatus = status;
     }
     
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+      console.log('[PushNotifications] Failed to get push token - permission not granted');
       return null;
     }
     
@@ -85,7 +90,7 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
         projectId: 'your-project-id', // Replace with your Expo project ID
       });
       token = pushToken.data;
-      console.log('Push token:', token);
+      console.log('[PushNotifications] Push token obtained:', token);
 
       // Save token to database
       const supabase = getSupabase();
@@ -94,12 +99,13 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
           .from('profiles')
           .update({ push_token: token })
           .eq('user_id', userId);
+        console.log('[PushNotifications] Push token saved to database');
       }
     } catch (e) {
-      console.error('Error getting push token:', e);
+      console.error('[PushNotifications] Error getting push token:', e);
     }
   } else {
-    console.log('Must use physical device for Push Notifications');
+    console.log('[PushNotifications] Must use physical device for Push Notifications');
   }
 
   return token;
@@ -118,7 +124,7 @@ export async function createInAppNotification(
   try {
     const supabase = getSupabase();
     if (!supabase) {
-      console.error('Supabase not initialized');
+      console.error('[PushNotifications] Supabase not initialized');
       return;
     }
 
@@ -134,16 +140,19 @@ export async function createInAppNotification(
     ]);
 
     if (error) {
-      console.error('Error creating in-app notification:', error);
+      console.error('[PushNotifications] Error creating in-app notification:', error);
+    } else {
+      console.log('[PushNotifications] In-app notification created');
     }
   } catch (error) {
-    console.error('Error creating in-app notification:', error);
+    console.error('[PushNotifications] Error creating in-app notification:', error);
   }
 }
 
 /**
  * Send a local push notification with sound and vibration
  * This will work even when the screen is off or app is in background
+ * CRITICAL: Uses maximum priority and wake lock to ensure delivery
  */
 export async function sendLocalNotification(
   title: string,
@@ -159,26 +168,36 @@ export async function sendLocalNotification(
   try {
     console.log('[PushNotifications] Sending local notification:', { title, body });
     
+    const notificationContent: Notifications.NotificationContentInput = {
+      title,
+      body,
+      data: data || {},
+      sound: 'default',
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      vibrate: [0, 500, 250, 500], // Custom vibration pattern
+      badge: 1,
+      categoryIdentifier: 'order',
+      sticky: true, // Keep notification visible
+      autoDismiss: false, // Don't auto-dismiss
+    };
+
+    // Add Android-specific configuration
+    if (Platform.OS === 'android') {
+      notificationContent.channelId = 'orders'; // Use the orders channel for maximum priority
+    }
+
+    // Add iOS-specific configuration
+    if (Platform.OS === 'ios') {
+      notificationContent.interruptionLevel = 'timeSensitive'; // iOS 15+ time-sensitive notifications
+    }
+    
     await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data: data || {},
-        sound: 'default',
-        priority: Notifications.AndroidNotificationPriority.MAX,
-        vibrate: [0, 500, 250, 500], // Custom vibration pattern
-        badge: 1,
-        categoryIdentifier: 'order',
-        sticky: true, // Keep notification visible
-        autoDismiss: false, // Don't auto-dismiss
-        ...(Platform.OS === 'android' && {
-          channelId: 'orders', // Use the orders channel for maximum priority
-        }),
-      },
+      content: notificationContent,
       trigger: null, // Immediate delivery
     });
+    
     console.log('[PushNotifications] Local notification sent successfully');
-    console.log('[PushNotifications] Notification will show even with screen off');
+    console.log('[PushNotifications] Notification configured to work with screen off');
   } catch (error) {
     console.error('[PushNotifications] Error sending local notification:', error);
   }
@@ -196,7 +215,7 @@ export async function notifyAdmins(
   try {
     const supabase = getSupabase();
     if (!supabase) {
-      console.error('Supabase not initialized');
+      console.error('[PushNotifications] Supabase not initialized');
       return;
     }
     
@@ -208,9 +227,11 @@ export async function notifyAdmins(
       .eq('is_active', true);
 
     if (error) {
-      console.error('Error fetching admins:', error);
+      console.error('[PushNotifications] Error fetching admins:', error);
       return;
     }
+
+    console.log(`[PushNotifications] Notifying ${admins?.length || 0} admin users`);
 
     // Create in-app notifications for all admins
     for (const admin of admins || []) {
@@ -222,7 +243,7 @@ export async function notifyAdmins(
       await sendLocalNotification(title, message, { orderId: relatedOrderId });
     }
   } catch (error) {
-    console.error('Error notifying admins:', error);
+    console.error('[PushNotifications] Error notifying admins:', error);
   }
 }
 
@@ -234,14 +255,15 @@ export function setupNotificationResponseHandler(
 ) {
   // Only setup on native platforms
   if (Platform.OS === 'web') {
-    console.log('Notification response handler not supported on web');
+    console.log('[PushNotifications] Notification response handler not supported on web');
     return {
       remove: () => {
-        console.log('No subscription to remove on web');
+        console.log('[PushNotifications] No subscription to remove on web');
       }
     };
   }
 
+  console.log('[PushNotifications] Setting up notification response handler');
   const subscription = Notifications.addNotificationResponseReceivedListener(onNotificationResponse);
   return subscription;
 }
@@ -254,14 +276,15 @@ export function setupNotificationReceivedHandler(
 ) {
   // Only setup on native platforms
   if (Platform.OS === 'web') {
-    console.log('Notification received handler not supported on web');
+    console.log('[PushNotifications] Notification received handler not supported on web');
     return {
       remove: () => {
-        console.log('No subscription to remove on web');
+        console.log('[PushNotifications] No subscription to remove on web');
       }
     };
   }
 
+  console.log('[PushNotifications] Setting up notification received handler');
   const subscription = Notifications.addNotificationReceivedListener(onNotificationReceived);
   return subscription;
 }
@@ -276,9 +299,11 @@ export async function checkNotificationPermissions(): Promise<boolean> {
 
   try {
     const { status } = await Notifications.getPermissionsAsync();
-    return status === 'granted';
+    const granted = status === 'granted';
+    console.log('[PushNotifications] Notification permissions:', granted ? 'granted' : 'not granted');
+    return granted;
   } catch (error) {
-    console.error('Error checking notification permissions:', error);
+    console.error('[PushNotifications] Error checking notification permissions:', error);
     return false;
   }
 }
@@ -292,17 +317,21 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   }
 
   try {
+    console.log('[PushNotifications] Requesting notification permissions...');
     const { status } = await Notifications.requestPermissionsAsync({
       ios: {
         allowAlert: true,
         allowBadge: true,
         allowSound: true,
         allowAnnouncements: true,
+        allowCriticalAlerts: true, // Request critical alerts for iOS
       },
     });
-    return status === 'granted';
+    const granted = status === 'granted';
+    console.log('[PushNotifications] Notification permissions:', granted ? 'granted' : 'denied');
+    return granted;
   } catch (error) {
-    console.error('Error requesting notification permissions:', error);
+    console.error('[PushNotifications] Error requesting notification permissions:', error);
     return false;
   }
 }

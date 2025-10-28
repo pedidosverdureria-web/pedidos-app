@@ -21,12 +21,14 @@
         "UIBackgroundModes": [
           "fetch",
           "remote-notification",
-          "processing"
+          "processing",
+          "audio"
         ],
         "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica y poder imprimir pedidos automáticamente.",
         "NSBluetoothPeripheralUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica.",
         "BGTaskSchedulerPermittedIdentifiers": [
-          "com.anonymous.Natively.background-auto-print"
+          "com.anonymous.Natively.background-auto-print",
+          "com.anonymous.Natively.background-fetch"
         ]
       }
     },
@@ -41,6 +43,7 @@
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
         "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC",
         "BLUETOOTH",
         "BLUETOOTH_ADMIN",
         "BLUETOOTH_CONNECT",
@@ -50,7 +53,9 @@
         "POST_NOTIFICATIONS",
         "SCHEDULE_EXACT_ALARM",
         "USE_EXACT_ALARM",
-        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+        "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "SYSTEM_ALERT_WINDOW",
+        "DISABLE_KEYGUARD"
       ]
     },
     "web": {

@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Stack, router } from 'expo-router';
 import { usePrinter } from '@/hooks/usePrinter';
-import { useKeepAwake } from 'expo-keep-awake';
+import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import {
   RefreshControl,
   Platform,
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { useOrders } from '@/hooks/useOrders';
 import { Order, OrderStatus } from '@/types';
@@ -306,21 +308,19 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
   const [printedOrderIds, setPrintedOrderIds] = useState<string[]>([]);
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const notificationListenerRef = useRef<any>(null);
   const responseListenerRef = useRef<any>(null);
   const isPrintingRef = useRef(false);
   const lastPrintCheckRef = useRef<number>(0);
   const autoPrintIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const keepAwakeTagRef = useRef<string>('auto-print-home');
 
   const { orders, loading, error, refetch } = useOrders(
     statusFilter === 'all' ? undefined : statusFilter
   );
 
   const { isConnected, printReceipt } = usePrinter();
-
-  // Keep the device awake when auto-print is enabled - MUST be called unconditionally
-  const shouldKeepAwake = printerConfig?.auto_print_enabled === true && isConnected;
-  useKeepAwake('auto-print', { suppressDeactivateWarnings: !shouldKeepAwake });
 
   // Load printer configuration and printed orders
   const loadPrinterConfig = useCallback(async () => {
@@ -354,6 +354,43 @@ export default function HomeScreen() {
   useEffect(() => {
     loadPrinterConfig();
   }, [loadPrinterConfig]);
+
+  // Manage keep awake based on auto-print status
+  // This keeps the device awake even when the screen is off
+  useEffect(() => {
+    const shouldKeepAwake = printerConfig?.auto_print_enabled === true && isConnected;
+    
+    if (shouldKeepAwake) {
+      console.log('[HomeScreen] Activating keep awake to prevent sleep');
+      activateKeepAwake(keepAwakeTagRef.current);
+    } else {
+      console.log('[HomeScreen] Deactivating keep awake');
+      deactivateKeepAwake(keepAwakeTagRef.current);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      deactivateKeepAwake(keepAwakeTagRef.current);
+    };
+  }, [printerConfig?.auto_print_enabled, isConnected]);
+
+  // Monitor app state changes
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('[HomeScreen] App state changed:', appState, '->', nextAppState);
+      setAppState(nextAppState);
+      
+      // When app comes to foreground, check for pending prints
+      if (appState.match(/inactive|background/) && nextAppState === 'active') {
+        console.log('[HomeScreen] App came to foreground, checking for pending prints');
+        checkAndPrintNewOrders();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [appState]);
 
   // Register/unregister background task based on auto-print setting
   useEffect(() => {
@@ -753,7 +790,7 @@ export default function HomeScreen() {
           />
           <Text style={styles.autoPrintBannerText}>
             {autoPrintWorking
-              ? 'Auto-impresión activa'
+              ? 'Auto-impresión activa (funciona con pantalla apagada)'
               : 'Impresora no conectada - Toca para configurar'}
           </Text>
         </TouchableOpacity>
