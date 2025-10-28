@@ -48,6 +48,14 @@ interface Order {
 function getUnitFromNotes(notes: string | null | undefined): string {
   if (!notes) return '';
   const lowerNotes = notes.toLowerCase();
+  
+  // Extract unit from "Unidad: xxx" format
+  const unitMatch = lowerNotes.match(/unidad:\s*(\w+)/);
+  if (unitMatch) {
+    return unitMatch[1];
+  }
+  
+  // Fallback to old detection method
   if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
   if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
   if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
@@ -58,22 +66,32 @@ function getUnitFromNotes(notes: string | null | undefined): string {
 
 /**
  * Format product display in webhook format: "1 kilo de tomates"
+ * This matches the format used in order detail screen and WhatsApp webhook
  */
 function formatProductDisplay(item: { product_name: string; quantity: number; notes?: string }): string {
   const unit = getUnitFromNotes(item.notes);
   
   // Determine the unit text
   let unitText = '';
-  if (unit === 'kg' || unit === 'kilo') {
+  if (unit === 'kg' || unit === 'kilo' || unit === 'kilos') {
     unitText = item.quantity === 1 ? 'kilo' : 'kilos';
-  } else if (unit === 'gr' || unit === 'gramo') {
+  } else if (unit === 'gr' || unit === 'gramo' || unit === 'gramos') {
     unitText = item.quantity === 1 ? 'gramo' : 'gramos';
-  } else if (unit === 'lt' || unit === 'litro') {
+  } else if (unit === 'lt' || unit === 'litro' || unit === 'litros') {
     unitText = item.quantity === 1 ? 'litro' : 'litros';
   } else if (unit === 'ml') {
     unitText = 'ml';
-  } else if (unit === 'un' || unit === 'unidad') {
+  } else if (unit === 'un' || unit === 'unidad' || unit === 'unidades') {
     unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  } else if (unit) {
+    // For any other unit (like malla, docena, etc.), use it directly
+    // Check if it needs pluralization
+    if (item.quantity === 1) {
+      unitText = unit;
+    } else {
+      // Simple pluralization: add 's' if doesn't end with 's'
+      unitText = unit.endsWith('s') ? unit : unit + 's';
+    }
   } else {
     unitText = item.quantity === 1 ? 'unidad' : 'unidades';
   }
@@ -82,7 +100,20 @@ function formatProductDisplay(item: { product_name: string; quantity: number; no
 }
 
 /**
+ * Get additional notes excluding unit information
+ */
+function getAdditionalNotes(notes: string | null | undefined): string {
+  if (!notes) return '';
+  
+  // Remove the "Unidad: xxx" part from notes
+  const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
+  
+  return cleanNotes;
+}
+
+/**
  * Generate receipt text for an order
+ * Uses the same format as the order detail screen
  */
 function generateReceiptText(order: Order, printerConfig: PrinterConfig): string {
   const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
@@ -126,11 +157,9 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
     receipt += `${formatProductDisplay(item)}\n`;
     
     // Add additional notes if they exist (excluding unit information)
-    if (item.notes) {
-      const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
-      if (cleanNotes) {
-        receipt += `  ${cleanNotes}\n`;
-      }
+    const additionalNotes = getAdditionalNotes(item.notes);
+    if (additionalNotes) {
+      receipt += `  ${additionalNotes}\n`;
     }
     
     if (item.unit_price > 0) {
