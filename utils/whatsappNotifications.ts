@@ -170,6 +170,26 @@ Si tienes alguna pregunta o deseas realizar un nuevo pedido, no dudes en contact
 }
 
 /**
+ * Creates query confirmation message (sent immediately when query is received)
+ */
+function createQueryConfirmationMessage(
+  customerName: string,
+  orderNumber: string,
+  queryText: string
+): string {
+  return `📋 *Consulta Recibida*
+
+Hola ${customerName}, hemos recibido tu consulta sobre el pedido ${orderNumber}.
+
+❓ *Tu consulta:*
+${queryText}
+
+⏰ Te responderemos a la brevedad.
+
+¡Gracias por tu paciencia! 😊`;
+}
+
+/**
  * Creates query response message
  */
 function createQueryResponseMessage(
@@ -225,6 +245,20 @@ async function sendWhatsAppMessage(
 }
 
 /**
+ * Gets WhatsApp configuration from database
+ */
+async function getWhatsAppConfig() {
+  const supabase = getSupabase();
+  const { data: config } = await supabase
+    .from('whatsapp_config')
+    .select('*')
+    .eq('is_active', true)
+    .single();
+
+  return config;
+}
+
+/**
  * Sends order status update notification to customer
  */
 export async function sendOrderStatusUpdate(
@@ -235,11 +269,7 @@ export async function sendOrderStatusUpdate(
     const supabase = getSupabase();
 
     // Get WhatsApp config
-    const { data: config } = await supabase
-      .from('whatsapp_config')
-      .select('*')
-      .eq('is_active', true)
-      .single();
+    const config = await getWhatsAppConfig();
 
     if (!config || !config.access_token || !config.phone_number_id) {
       console.log('WhatsApp not configured, skipping notification');
@@ -291,11 +321,7 @@ export async function sendProductAddedNotification(
     const supabase = getSupabase();
 
     // Get WhatsApp config
-    const { data: config } = await supabase
-      .from('whatsapp_config')
-      .select('*')
-      .eq('is_active', true)
-      .single();
+    const config = await getWhatsAppConfig();
 
     if (!config || !config.access_token || !config.phone_number_id) {
       console.log('WhatsApp not configured, skipping notification');
@@ -353,11 +379,7 @@ export async function sendProductRemovedNotification(
     const supabase = getSupabase();
 
     // Get WhatsApp config
-    const { data: config } = await supabase
-      .from('whatsapp_config')
-      .select('*')
-      .eq('is_active', true)
-      .single();
+    const config = await getWhatsAppConfig();
 
     if (!config || !config.access_token || !config.phone_number_id) {
       console.log('WhatsApp not configured, skipping notification');
@@ -407,11 +429,7 @@ export async function sendOrderDeletedNotification(
     const supabase = getSupabase();
 
     // Get WhatsApp config
-    const { data: config } = await supabase
-      .from('whatsapp_config')
-      .select('*')
-      .eq('is_active', true)
-      .single();
+    const config = await getWhatsAppConfig();
 
     if (!config || !config.access_token || !config.phone_number_id) {
       console.log('WhatsApp not configured, skipping notification');
@@ -451,6 +469,7 @@ export async function sendOrderDeletedNotification(
 
 /**
  * Sends a response to a customer query via WhatsApp
+ * This function sends the actual response from the admin to the customer
  */
 export async function sendQueryResponse(
   orderId: string,
@@ -463,11 +482,7 @@ export async function sendQueryResponse(
     const supabase = getSupabase();
 
     // Get WhatsApp config
-    const { data: config } = await supabase
-      .from('whatsapp_config')
-      .select('*')
-      .eq('is_active', true)
-      .single();
+    const config = await getWhatsAppConfig();
 
     if (!config || !config.access_token || !config.phone_number_id) {
       console.log('WhatsApp not configured, skipping notification');
@@ -505,5 +520,46 @@ export async function sendQueryResponse(
   } catch (error) {
     console.error('Error sending query response:', error);
     throw error;
+  }
+}
+
+/**
+ * Sends an immediate confirmation message when a query is received
+ * This is called from the webhook when a customer sends a query
+ */
+export async function sendQueryConfirmation(
+  customerPhone: string,
+  customerName: string,
+  orderNumber: string,
+  queryText: string
+): Promise<void> {
+  try {
+    const supabase = getSupabase();
+
+    // Get WhatsApp config
+    const config = await getWhatsAppConfig();
+
+    if (!config || !config.access_token || !config.phone_number_id) {
+      console.log('WhatsApp not configured, skipping confirmation');
+      return;
+    }
+
+    // Create and send query confirmation message
+    const message = createQueryConfirmationMessage(
+      customerName,
+      orderNumber,
+      queryText
+    );
+
+    await sendWhatsAppMessage(
+      config.phone_number_id,
+      config.access_token,
+      customerPhone,
+      message
+    );
+
+    console.log('Sent query confirmation to:', customerPhone);
+  } catch (error) {
+    console.error('Error sending query confirmation:', error);
   }
 }
