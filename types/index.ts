@@ -29,6 +29,15 @@ export interface OrderItem {
   updated_at: string;
 }
 
+export interface OrderQuery {
+  id: string;
+  order_id: string;
+  customer_phone: string;
+  query_text: string;
+  whatsapp_message_id?: string;
+  created_at: string;
+}
+
 export interface Order {
   id: string;
   order_number: string;
@@ -46,6 +55,7 @@ export interface Order {
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
+  queries?: OrderQuery[];
 }
 
 export interface WhatsAppConfig {

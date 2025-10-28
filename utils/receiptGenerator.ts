@@ -174,6 +174,56 @@ export function generateReceiptText(order: Order, config?: PrinterConfig): strin
 }
 
 /**
+ * Generate receipt text for order queries
+ */
+export function generateQueryReceiptText(
+  order: Order,
+  queryText: string,
+  config?: PrinterConfig
+): string {
+  const width = config?.paper_size === '58mm' ? 32 : 48;
+  
+  let receipt = '';
+  
+  if (config?.include_logo !== false) {
+    receipt += centerText('CONSULTA DE PEDIDO', width) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+  }
+  
+  receipt += `Pedido: ${order.order_number}\n`;
+  receipt += `Cliente: ${order.customer_name}\n`;
+  receipt += `Fecha: ${formatDate(new Date().toISOString())}\n`;
+  receipt += '-'.repeat(width) + '\n\n';
+  
+  receipt += 'CONSULTA:\n\n';
+  receipt += `${queryText}\n\n`;
+  
+  receipt += '-'.repeat(width) + '\n';
+  receipt += 'ESTADO DEL PEDIDO:\n';
+  receipt += `Estado: ${getStatusLabel(order.status)}\n\n`;
+  
+  receipt += 'PRODUCTOS:\n\n';
+  for (const item of order.items || []) {
+    receipt += `${formatProductDisplay(item)}\n`;
+    
+    const additionalNotes = getAdditionalNotes(item.notes);
+    if (additionalNotes) {
+      receipt += `  ${additionalNotes}\n`;
+    }
+    
+    if (item.unit_price > 0) {
+      receipt += `  ${formatCLP(item.unit_price)}\n`;
+    }
+    receipt += '\n';
+  }
+  
+  receipt += '\n' + '='.repeat(width) + '\n';
+  receipt += centerText('Gracias!', width) + '\n\n\n';
+  
+  return receipt;
+}
+
+/**
  * Generate a sample receipt for preview purposes
  */
 export function generateSampleReceipt(config?: PrinterConfig): string {

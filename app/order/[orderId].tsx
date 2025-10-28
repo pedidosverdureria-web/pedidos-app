@@ -7,7 +7,7 @@ import {
 } from '@/utils/whatsappNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePrinter } from '@/hooks/usePrinter';
-import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
+import { generateReceiptText, generateQueryReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import * as Haptics from 'expo-haptics';
 import {
   View,
@@ -21,7 +21,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { Order, OrderStatus, OrderItem } from '@/types';
+import { Order, OrderStatus, OrderItem, OrderQuery } from '@/types';
 import React, { useState, useEffect, useCallback } from 'react';
 import { createInAppNotification, sendLocalNotification } from '@/utils/pushNotifications';
 import { colors } from '@/styles/commonStyles';
@@ -337,6 +337,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  queryItem: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  queryText: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 8,
+  },
+  queryDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  queryActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  queryButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  queryButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });
 
 function getStatusColor(status: OrderStatus): string {
@@ -523,7 +559,7 @@ export default function OrderDetailScreen() {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('orders')
-        .select('*, items:order_items(*)')
+        .select('*, items:order_items(*), queries:order_queries(*)')
         .eq('id', orderId)
         .single();
 
@@ -933,6 +969,46 @@ export default function OrderDetailScreen() {
     }
   };
 
+  const handlePrintQuery = async (query: OrderQuery) => {
+    if (!order) return;
+
+    if (!isConnected) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Impresora No Conectada',
+        'Por favor conecta una impresora antes de imprimir',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      console.log('[OrderDetail] Printing query receipt');
+      
+      const receiptText = generateQueryReceiptText(order, query.query_text, printerConfig || undefined);
+      const autoCut = printerConfig?.auto_cut_enabled ?? true;
+      const textSize = printerConfig?.text_size || 'medium';
+      const encoding = printerConfig?.encoding || 'CP850';
+
+      await printReceipt(receiptText, autoCut, textSize, encoding);
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Consulta Impresa',
+        'La consulta se imprimió correctamente',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('[OrderDetail] Print query error:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error de Impresión',
+        'No se pudo imprimir la consulta. Verifica la conexión con la impresora.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   const handleWhatsApp = async () => {
     if (!order?.customer_phone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -1251,6 +1327,32 @@ export default function OrderDetailScreen() {
             </>
           )}
         </View>
+
+        {/* Queries Section */}
+        {order.queries && order.queries.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Consultas del Pedido</Text>
+            {order.queries
+              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+              .map((query) => (
+                <View key={query.id} style={styles.queryItem}>
+                  <Text style={styles.queryText}>{query.query_text}</Text>
+                  <Text style={styles.queryDate}>
+                    📅 {formatDate(query.created_at)}
+                  </Text>
+                  <View style={styles.queryActions}>
+                    <TouchableOpacity
+                      style={styles.queryButton}
+                      onPress={() => handlePrintQuery(query)}
+                    >
+                      <IconSymbol name="printer" size={14} color="#fff" />
+                      <Text style={styles.queryButtonText}>Imprimir</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+          </View>
+        )}
 
         <View style={styles.section}>
           <View style={styles.totalRow}>

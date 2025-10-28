@@ -760,6 +760,40 @@ function isGreeting(message: string): boolean {
 }
 
 /**
+ * Checks if message contains new order keywords
+ */
+function isNewOrderKeyword(message: string): boolean {
+  const normalized = message.toLowerCase().trim();
+  
+  // Check for "nuevo pedido" or "otro pedido" (case-insensitive)
+  const newOrderPatterns = [
+    /\bnuevo\s+pedido\b/i,
+    /\botro\s+pedido\b/i,
+  ];
+  
+  for (const pattern of newOrderPatterns) {
+    if (pattern.test(normalized)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Removes new order keywords from message
+ */
+function removeNewOrderKeywords(message: string): string {
+  let cleaned = message;
+  
+  // Remove "nuevo pedido" or "otro pedido" (case-insensitive)
+  cleaned = cleaned.replace(/\bnuevo\s+pedido\b/gi, '');
+  cleaned = cleaned.replace(/\botro\s+pedido\b/gi, '');
+  
+  return cleaned.trim();
+}
+
+/**
  * Format currency as Chilean Pesos
  */
 function formatCLP(amount: number): string {
@@ -1083,13 +1117,90 @@ serve(async (req) => {
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
         console.log('Message text:', messageText);
 
+        // Check if customer has a non-delivered order
+        const { data: existingOrders } = await supabase
+          .from('orders')
+          .select('id, order_number, customer_name, status, items:order_items(*)')
+          .eq('customer_phone', customerPhone)
+          .neq('status', 'delivered')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        const hasActiveOrder = existingOrders && existingOrders.length > 0;
+        const activeOrder = hasActiveOrder ? existingOrders[0] : null;
+
+        console.log('Has active order:', hasActiveOrder);
+        if (activeOrder) {
+          console.log('Active order:', activeOrder.order_number, 'Status:', activeOrder.status);
+        }
+
+        // Check for new order keywords
+        const hasNewOrderKeyword = isNewOrderKeyword(messageText);
+        console.log('Has new order keyword:', hasNewOrderKeyword);
+
+        // If customer has active order and no new order keyword, treat as query
+        if (hasActiveOrder && !hasNewOrderKeyword && activeOrder) {
+          console.log('Treating message as order query');
+          
+          // Save query to database
+          const { error: queryError } = await supabase
+            .from('order_queries')
+            .insert({
+              order_id: activeOrder.id,
+              customer_phone: customerPhone,
+              query_text: messageText,
+              whatsapp_message_id: messageId,
+            });
+
+          if (queryError) {
+            console.error('Error saving query:', queryError);
+          } else {
+            console.log('Query saved successfully');
+          }
+
+          // Send acknowledgment message
+          if (config.access_token && config.phone_number_id) {
+            try {
+              const queryResponse = `📋 *Consulta Recibida*
+
+Hola ${activeOrder.customer_name}, hemos recibido tu consulta sobre el pedido ${activeOrder.order_number}.
+
+Tu consulta:
+"${messageText}"
+
+Estado actual: ${getStatusLabel(activeOrder.status)}
+
+Te responderemos pronto. ¡Gracias por tu paciencia! 😊`;
+
+              await sendWhatsAppMessage(
+                config.phone_number_id,
+                config.access_token,
+                customerPhone,
+                queryResponse
+              );
+              console.log('Sent query acknowledgment to:', customerPhone);
+            } catch (error) {
+              console.error('Error sending query acknowledgment:', error);
+            }
+          }
+
+          continue; // Skip to next message
+        }
+
+        // If has new order keyword, remove it and process as new order
+        let processedMessageText = messageText;
+        if (hasNewOrderKeyword) {
+          processedMessageText = removeNewOrderKeywords(messageText);
+          console.log('Removed new order keywords, processing:', processedMessageText);
+        }
+
         // Check for Manual keyword
-        const startsWithManual = /^\s*manual\s*/i.test(messageText);
+        const startsWithManual = /^\s*manual\s*/i.test(processedMessageText);
         
         if (startsWithManual) {
           console.log('Detected Manual keyword');
           
-          const withoutManual = messageText.replace(/^\s*manual\s*[:#]?\s*/i, '');
+          const withoutManual = processedMessageText.replace(/^\s*manual\s*[:#]?\s*/i, '');
           
           let customCustomerName = '';
           let orderText = '';
@@ -1259,7 +1370,7 @@ Manual Juan Pérez
         }
 
         // Check if message is a greeting or question
-        if (isGreeting(messageText)) {
+        if (isGreeting(processedMessageText)) {
           console.log('Detected greeting/question, sending welcome message');
           
           if (config.access_token && config.phone_number_id) {
@@ -1281,7 +1392,7 @@ Manual Juan Pérez
         }
 
         // Parse the message
-        const parseResult = parseWhatsAppMessage(messageText);
+        const parseResult = parseWhatsAppMessage(processedMessageText);
         const parsedItems = parseResult.items;
         const unknownUnits = parseResult.unknownUnits;
 
