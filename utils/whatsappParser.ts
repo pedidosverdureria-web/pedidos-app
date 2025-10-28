@@ -2,6 +2,7 @@
 /**
  * Comprehensive WhatsApp Message Parser
  * Supports multiple formats for parsing order items from WhatsApp messages
+ * Enhanced to handle combined integers and fractions (e.g., "1 kilo y medio", "1 1/2")
  */
 
 /**
@@ -48,6 +49,17 @@ const NUMBER_WORDS: Record<string, number> = {
 };
 
 /**
+ * Map of Spanish fraction words to their numeric values
+ */
+const FRACTION_WORDS: Record<string, number> = {
+  'medio': 0.5, 'media': 0.5,
+  'un medio': 0.5, 'una media': 0.5,
+  'cuarto': 0.25, 'un cuarto': 0.25,
+  'tercio': 0.333, 'un tercio': 0.333,
+  'octavo': 0.125, 'un octavo': 0.125,
+};
+
+/**
  * Known unit variations and their categories
  */
 const UNIT_VARIATIONS: Record<string, string[]> = {
@@ -89,7 +101,18 @@ function convertNumberWord(word: string): number | null {
 }
 
 /**
+ * Converts a fraction word to its numeric value
+ * @param word - The word to convert (e.g., "medio", "cuarto")
+ * @returns The numeric value or null if not a fraction word
+ */
+function convertFractionWord(word: string): number | null {
+  const normalized = word.toLowerCase().trim();
+  return FRACTION_WORDS[normalized] ?? null;
+}
+
+/**
  * Parses a quantity value from a string, handling fractions, decimals, and text numbers
+ * Enhanced to handle combined integers and fractions (e.g., "1 1/2", "1 y medio")
  * @param quantityStr - The quantity string to parse
  * @returns The parsed quantity value as a number, or 0 if parsing fails
  */
@@ -100,8 +123,8 @@ export function parseQuantityValue(quantityStr: string): number {
 
   const trimmed = quantityStr.trim();
 
-  // 1. Try as fraction (e.g., "1/2", "1/4", "1/8")
-  if (trimmed.includes('/')) {
+  // 1. Try as simple fraction (e.g., "1/2", "1/4", "1/8")
+  if (trimmed.includes('/') && !trimmed.includes(' ')) {
     const parts = trimmed.split('/');
     if (parts.length === 2) {
       const numerator = parseFloat(parts[0].trim());
@@ -113,19 +136,37 @@ export function parseQuantityValue(quantityStr: string): number {
     }
   }
 
-  // 2. Try as number (decimal or integer)
+  // 2. Try as combined integer and fraction with space (e.g., "1 1/2", "2 1/4")
+  const combinedSpaceMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (combinedSpaceMatch) {
+    const integer = parseFloat(combinedSpaceMatch[1]);
+    const numerator = parseFloat(combinedSpaceMatch[2]);
+    const denominator = parseFloat(combinedSpaceMatch[3]);
+    
+    if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+      return integer + (numerator / denominator);
+    }
+  }
+
+  // 3. Try as number (decimal or integer)
   const numValue = parseFloat(trimmed);
   if (!isNaN(numValue)) {
     return numValue;
   }
 
-  // 3. Try as text number (e.g., "dos", "tres")
+  // 4. Try as text number (e.g., "dos", "tres")
   const textValue = convertNumberWord(trimmed);
   if (textValue !== null) {
     return textValue;
   }
 
-  // 4. Return 0 if all parsing attempts fail
+  // 5. Try as fraction word (e.g., "medio", "cuarto")
+  const fractionValue = convertFractionWord(trimmed);
+  if (fractionValue !== null) {
+    return fractionValue;
+  }
+
+  // 6. Return 0 if all parsing attempts fail
   console.warn(`Could not parse quantity: "${quantityStr}"`);
   return 0;
 }
@@ -183,7 +224,7 @@ export function normalizeUnit(unit: string, quantity: number = 1): string {
 
 /**
  * Parses a single line or segment from the WhatsApp message
- * Supports multiple formats
+ * Supports multiple formats including combined integers and fractions
  * @param segment - The segment to parse
  * @returns Parsed order item or null if parsing fails
  */
@@ -202,9 +243,109 @@ function parseSegment(segment: string): ParsedOrderItem | null {
   }
 
   // Try different parsing patterns
-  
+
+  // NEW Pattern A: Integer + "y" + Fraction Word + Unit + "de" + Product
+  // (e.g., "1 kilo y medio de manzanas", "2 kilos y medio de papas")
+  let match = cleaned.match(/^(\d+)\s+(\w+)\s+y\s+(medio|media|cuarto|tercio|octavo)\s+de\s+(.+)$/i);
+  if (match) {
+    const integer = parseFloat(match[1]);
+    const unit = match[2];
+    const fractionWord = match[3];
+    const product = match[4].trim();
+    
+    const fractionValue = convertFractionWord(fractionWord);
+    
+    if (!isNaN(integer) && fractionValue !== null && product && isKnownUnit(unit)) {
+      const quantity = integer + fractionValue;
+      const normalizedUnit = normalizeUnit(unit, quantity);
+      return { quantity, unit: normalizedUnit, product };
+    }
+  }
+
+  // NEW Pattern B: Integer + Unit + "y" + Fraction Word + "de" + Product
+  // (e.g., "1 kilo y medio de manzanas")
+  match = cleaned.match(/^(\d+)\s+(\w+)\s+y\s+(medio|media|cuarto|tercio|octavo)\s+de\s+(.+)$/i);
+  if (match) {
+    const integer = parseFloat(match[1]);
+    const unit = match[2];
+    const fractionWord = match[3];
+    const product = match[4].trim();
+    
+    const fractionValue = convertFractionWord(fractionWord);
+    
+    if (!isNaN(integer) && fractionValue !== null && product && isKnownUnit(unit)) {
+      const quantity = integer + fractionValue;
+      const normalizedUnit = normalizeUnit(unit, quantity);
+      return { quantity, unit: normalizedUnit, product };
+    }
+  }
+
+  // NEW Pattern C: Integer + Space + Fraction + Unit + "de" + Product
+  // (e.g., "1 1/2 kilo de manzanas", "2 1/4 kilos de papas")
+  match = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const integer = parseFloat(match[1]);
+    const numerator = parseFloat(match[2]);
+    const denominator = parseFloat(match[3]);
+    const unit = match[4];
+    const product = match[5].trim();
+    
+    if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0 && product && isKnownUnit(unit)) {
+      const quantity = integer + (numerator / denominator);
+      const normalizedUnit = normalizeUnit(unit, quantity);
+      return { quantity, unit: normalizedUnit, product };
+    }
+  }
+
+  // NEW Pattern D: Integer + Space + Fraction + "de" + Product (no explicit unit)
+  // (e.g., "1 1/2 de manzana")
+  match = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)\s+de\s+(.+)$/i);
+  if (match) {
+    const integer = parseFloat(match[1]);
+    const numerator = parseFloat(match[2]);
+    const denominator = parseFloat(match[3]);
+    const product = match[4].trim();
+    
+    if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0 && product) {
+      const quantity = integer + (numerator / denominator);
+      const normalizedUnit = normalizeUnit('', quantity);
+      return { quantity, unit: normalizedUnit, product };
+    }
+  }
+
+  // NEW Pattern E: Fraction Word + Unit + "de" + Product
+  // (e.g., "medio kilo de papas", "un cuarto de ají")
+  match = cleaned.match(/^(medio|media|un medio|una media|cuarto|un cuarto|tercio|un tercio|octavo|un octavo)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const fractionWord = match[1];
+    const unit = match[2];
+    const product = match[3].trim();
+    
+    const quantity = convertFractionWord(fractionWord);
+    
+    if (quantity !== null && product && isKnownUnit(unit)) {
+      const normalizedUnit = normalizeUnit(unit, quantity);
+      return { quantity, unit: normalizedUnit, product };
+    }
+  }
+
+  // NEW Pattern F: Fraction Word + "de" + Product (no explicit unit)
+  // (e.g., "medio de papas", "un cuarto de ají")
+  match = cleaned.match(/^(medio|media|un medio|una media|cuarto|un cuarto|tercio|un tercio|octavo|un octavo)\s+de\s+(.+)$/i);
+  if (match) {
+    const fractionWord = match[1];
+    const product = match[2].trim();
+    
+    const quantity = convertFractionWord(fractionWord);
+    
+    if (quantity !== null && product) {
+      const normalizedUnit = normalizeUnit('', quantity);
+      return { quantity, unit: normalizedUnit, product };
+    }
+  }
+
   // Pattern 1: Cantidad + Unidad + "de" + Producto (e.g., "3 kilos de tomates")
-  let match = cleaned.match(/^(\d+(?:\/\d+)?|\w+)\s+(\w+)\s+de\s+(.+)$/i);
+  match = cleaned.match(/^(\d+(?:\/\d+)?|\w+)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
     const quantity = parseQuantityValue(match[1]);
     const unit = normalizeUnit(match[2], quantity);
@@ -411,7 +552,7 @@ function splitLineIntoSegments(line: string): string[] {
 
 /**
  * Parses a WhatsApp message into a list of order items
- * Supports all specified formats
+ * Supports all specified formats including combined integers and fractions
  * @param message - The WhatsApp message to parse
  * @returns An array of parsed order items
  */
@@ -460,6 +601,17 @@ export function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
  */
 export function testParser() {
   const testCases = [
+    // NEW: Combined integer and fraction formats
+    '1 kilo y medio de manzanas',
+    '2 kilos y medio de papas',
+    '1 1/2 kilo de manzanas',
+    '2 1/4 kilos de papas',
+    '1 1/2 de manzana',
+    '3 1/4 de tomates',
+    'medio kilo de papas',
+    'un cuarto de ají',
+    'medio de papas',
+    
     // Formato 1: Cantidad + Unidad + "de" + Producto
     '3 kilos de tomates',
     '2 kilos de papas',
@@ -540,7 +692,10 @@ cinco pepinos
 tomillo bonito
 romero
 2 docenas de huevos
-3 bandejas de fresas`;
+3 bandejas de fresas
+1 kilo y medio de manzanas
+2 1/4 kilos de peras
+medio kilo de uvas`;
   
   console.log('Input:');
   console.log(multiLineMessage);
