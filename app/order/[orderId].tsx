@@ -28,6 +28,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
@@ -311,6 +312,46 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  whatsappInputContainer: {
+    marginBottom: 16,
+  },
+  whatsappInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+  exampleText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  parsedItemsContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  parsedItemsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  parsedItem: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 6,
+  },
+  parsedItemText: {
+    fontSize: 14,
+    color: colors.text,
+  },
 });
 
 function getStatusColor(status: OrderStatus): string {
@@ -484,6 +525,11 @@ export default function OrderDetailScreen() {
   const [showPriceModal, setShowPriceModal] = useState(false);
   const [bulkPrices, setBulkPrices] = useState<{ [key: string]: string }>({});
 
+  // WhatsApp-style product addition modal
+  const [showAddProductModal, setShowAddProductModal] = useState(false);
+  const [whatsappInput, setWhatsappInput] = useState('');
+  const [parsedProducts, setParsedProducts] = useState<ParsedOrderItem[]>([]);
+
   const loadOrder = useCallback(async () => {
     if (!orderId) return;
 
@@ -530,6 +576,21 @@ export default function OrderDetailScreen() {
     loadOrder();
     loadPrinterConfig();
   }, [loadOrder, loadPrinterConfig]);
+
+  // Parse WhatsApp input in real-time
+  useEffect(() => {
+    if (whatsappInput.trim()) {
+      try {
+        const parsed = parseWhatsAppMessage(whatsappInput);
+        setParsedProducts(parsed);
+      } catch (error) {
+        console.error('[OrderDetail] Error parsing WhatsApp input:', error);
+        setParsedProducts([]);
+      }
+    } else {
+      setParsedProducts([]);
+    }
+  }, [whatsappInput]);
 
   const updateCustomerInfo = async () => {
     if (!order) return;
@@ -612,49 +673,54 @@ export default function OrderDetailScreen() {
     }
   };
 
-  const addProduct = async () => {
-    if (!order || !productName || !productQuantity) {
+  const openAddProductModal = () => {
+    setWhatsappInput('');
+    setParsedProducts([]);
+    setShowAddProductModal(true);
+  };
+
+  const addProductsFromWhatsApp = async () => {
+    if (!order || parsedProducts.length === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('⚠️ Atención', 'Por favor completa el nombre y la cantidad del producto');
+      Alert.alert('⚠️ Atención', 'Por favor ingresa al menos un producto válido');
       return;
     }
 
     try {
       const supabase = getSupabase();
-      const { data, error } = await supabase
-        .from('order_items')
-        .insert({
-          order_id: order.id,
-          product_name: productName,
-          quantity: parseFloat(productQuantity),
-          unit_price: parseFloat(productPrice) || 0,
-          notes: productNotes,
-        })
-        .select()
-        .single();
+      
+      // Add all parsed products to the order
+      for (const parsedItem of parsedProducts) {
+        const notes = `Unidad: ${parsedItem.unit}`;
+        
+        await supabase
+          .from('order_items')
+          .insert({
+            order_id: order.id,
+            product_name: parsedItem.product,
+            quantity: parsedItem.quantity,
+            unit_price: 0, // Default price is 0
+            notes: notes,
+          });
+      }
 
-      if (error) throw error;
-
-      await sendProductAddedNotification(order.id, data.id);
+      setShowAddProductModal(false);
+      setWhatsappInput('');
+      setParsedProducts([]);
       await loadOrder();
-
-      setProductName('');
-      setProductQuantity('');
-      setProductPrice('');
-      setProductNotes('');
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
-        '✅ Producto Agregado',
-        `${productName} se agregó correctamente al pedido`,
+        '✅ Productos Agregados',
+        `Se agregaron ${parsedProducts.length} producto(s) al pedido`,
         [{ text: 'OK' }]
       );
     } catch (error) {
-      console.error('[OrderDetail] Error adding product:', error);
+      console.error('[OrderDetail] Error adding products:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         '❌ Error',
-        'No se pudo agregar el producto. Por favor intenta nuevamente.',
+        'No se pudieron agregar los productos. Por favor intenta nuevamente.',
         [{ text: 'OK' }]
       );
     }
@@ -1247,33 +1313,7 @@ export default function OrderDetailScreen() {
             </>
           ) : (
             <>
-              <TextInput
-                style={styles.input}
-                placeholder="Nombre del producto"
-                value={productName}
-                onChangeText={setProductName}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Cantidad"
-                value={productQuantity}
-                onChangeText={setProductQuantity}
-                keyboardType="numeric"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Precio"
-                value={productPrice}
-                onChangeText={setProductPrice}
-                keyboardType="numeric"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Notas"
-                value={productNotes}
-                onChangeText={setProductNotes}
-              />
-              <TouchableOpacity style={styles.addButton} onPress={addProduct}>
+              <TouchableOpacity style={styles.addButton} onPress={openAddProductModal}>
                 <IconSymbol name="plus.circle" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Agregar Producto</Text>
               </TouchableOpacity>
@@ -1323,6 +1363,78 @@ export default function OrderDetailScreen() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/* WhatsApp-style Add Product Modal */}
+      <Modal
+        visible={showAddProductModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddProductModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Agregar Producto</Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
+              Ingresa el producto como en WhatsApp:
+            </Text>
+            
+            <View style={styles.whatsappInputContainer}>
+              <TextInput
+                style={styles.whatsappInput}
+                placeholder="Ejemplo: 2 kilos de papas"
+                placeholderTextColor={colors.textSecondary}
+                value={whatsappInput}
+                onChangeText={setWhatsappInput}
+                multiline
+                autoFocus
+              />
+              <Text style={styles.exampleText}>
+                Ejemplos: &quot;2 kilos de papas&quot;, &quot;3 mallas de cebolla&quot;, &quot;1/2 kilo de tomates&quot;
+              </Text>
+            </View>
+
+            {parsedProducts.length > 0 && (
+              <View style={styles.parsedItemsContainer}>
+                <Text style={styles.parsedItemsTitle}>
+                  Productos detectados ({parsedProducts.length}):
+                </Text>
+                <ScrollView style={styles.modalScrollView}>
+                  {parsedProducts.map((item, index) => (
+                    <View key={index} style={styles.parsedItem}>
+                      <Text style={styles.parsedItemText}>
+                        {item.quantity} {item.unit} de {item.product}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowAddProductModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton, 
+                  styles.modalButtonConfirm,
+                  parsedProducts.length === 0 && { opacity: 0.5 }
+                ]}
+                onPress={addProductsFromWhatsApp}
+                disabled={parsedProducts.length === 0}
+              >
+                <Text style={[styles.modalButtonText, { color: '#fff' }]}>
+                  Agregar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Bulk Price Modal */}
       <Modal
         visible={showPriceModal}
         transparent
