@@ -672,7 +672,7 @@ export default function HomeScreen() {
     setupNotifications();
 
     return () => {
-      // Capture current ref values to avoid stale references in cleanup
+      // Capture current ref values inside the effect to avoid stale references in cleanup
       const notificationListener = notificationListenerRef.current;
       const responseListener = responseListenerRef.current;
       
