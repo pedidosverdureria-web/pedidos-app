@@ -214,7 +214,6 @@ export default function BackupScreen() {
         Alert.alert('Éxito', 'Backup de pedidos descargado correctamente');
       } else {
         // Mobile: Save and share file
-        // Use documentDirectory for mobile platforms
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
         await FileSystem.writeAsStringAsync(fileUri, jsonString);
 
@@ -312,7 +311,6 @@ export default function BackupScreen() {
         Alert.alert('Éxito', 'Backup completo de la base de datos descargado correctamente');
       } else {
         // Mobile: Save and share file
-        // Use documentDirectory for mobile platforms
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
         await FileSystem.writeAsStringAsync(fileUri, jsonString);
 

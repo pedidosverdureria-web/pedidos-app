@@ -310,8 +310,8 @@ export default function HomeScreen() {
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
   const [printedOrderIds, setPrintedOrderIds] = useState<string[]>([]);
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
-  const notificationListenerRef = useRef<any>(null);
-  const responseListenerRef = useRef<any>(null);
+  const notificationListenerRef = useRef<Notifications.Subscription | null>(null);
+  const responseListenerRef = useRef<Notifications.Subscription | null>(null);
   const isPrintingRef = useRef(false);
   const lastPrintCheckRef = useRef<number>(0);
   const autoPrintIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -678,10 +678,10 @@ export default function HomeScreen() {
       const responseListener = responseListenerRef.current;
       
       if (notificationListener) {
-        Notifications.removeNotificationSubscription(notificationListener);
+        notificationListener.remove();
       }
       if (responseListener) {
-        Notifications.removeNotificationSubscription(responseListener);
+        responseListener.remove();
       }
     };
   }, [isAuthenticated, user]);
