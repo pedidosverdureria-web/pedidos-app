@@ -286,7 +286,7 @@ const convertToCP850 = (text: string): Uint8Array => {
       specialCharsFound++;
       const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
       const hexMapped = mappedValue.toString(16).toUpperCase().padStart(2, '0');
-      console.log('[usePrinter] ✓ Mapped \'' + char + '\' (U+' + hexCode + ') → CP850: ' + mappedValue + ' (0x' + hexMapped + ')');
+      console.log('[usePrinter] Mapped \'' + char + '\' (U+' + hexCode + ') to CP850: ' + mappedValue + ' (0x' + hexMapped + ')');
     } 
     // ASCII characters (0-127) can be used directly
     else if (charCode < 128) {
@@ -296,7 +296,7 @@ const convertToCP850 = (text: string): Uint8Array => {
     else {
       unmappedCharsFound++;
       const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
-      console.warn('[usePrinter] ✗ Unmapped character \'' + char + '\' (U+' + hexCode + '), using space');
+      console.warn('[usePrinter] Unmapped character \'' + char + '\' (U+' + hexCode + '), using space');
       bytes.push(32); // Space character
     }
   }
@@ -399,7 +399,7 @@ const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; c
     try {
       if (device && characteristic) {
         console.log('[usePrinter] Sending keep-alive ping');
-        // Send a simple status request command (ESC v - doesn't print anything)
+        // Send a simple status request command (ESC v - does not print anything)
         const keepAliveCommand = ESC + 'v';
         const buffer = Buffer.from(keepAliveCommand, 'binary');
         const base64Data = buffer.toString('base64');
@@ -414,7 +414,7 @@ const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; c
     } catch (error) {
       console.error('[usePrinter] Keep-alive ping failed:', error);
       // If keep-alive fails, the connection might be lost
-      // We'll let the next print attempt handle reconnection
+      // We will let the next print attempt handle reconnection
     }
   }, KEEP_ALIVE_INTERVAL);
 };
@@ -436,6 +436,7 @@ export const usePrinter = () => {
     characteristicUUID: string;
   } | null>(globalPrinterCharacteristic);
   const isMounted = useRef(true);
+  const reconnectAttemptedRef = useRef(false);
 
   const requestPermissions = useCallback(async () => {
     if (Platform.OS === 'android') {
@@ -464,27 +465,156 @@ export const usePrinter = () => {
     return true;
   }, []);
 
+  const findPrinterCharacteristic = async (device: Device) => {
+    try {
+      console.log('[usePrinter] Discovering services and characteristics...');
+      await device.discoverAllServicesAndCharacteristics();
+      
+      const services = await device.services();
+      console.log('[usePrinter] Found services:', services.map(s => s.uuid));
+
+      // Try to find the printer service and characteristic
+      for (const service of services) {
+        const characteristics = await service.characteristics();
+        console.log('[usePrinter] Service ' + service.uuid + ' has characteristics:', characteristics.map(c => c.uuid));
+        
+        for (const characteristic of characteristics) {
+          // Check if characteristic is writable
+          if (characteristic.isWritableWithResponse || characteristic.isWritableWithoutResponse) {
+            console.log('[usePrinter] Found writable characteristic:', characteristic.uuid);
+            return {
+              serviceUUID: service.uuid,
+              characteristicUUID: characteristic.uuid,
+            };
+          }
+        }
+      }
+
+      console.log('[usePrinter] No suitable characteristic found');
+      return null;
+    } catch (error) {
+      console.error('[usePrinter] Error finding characteristic:', error);
+      return null;
+    }
+  };
+
+  const connectToDevice = async (device: Device) => {
+    try {
+      console.log('[usePrinter] Connecting to device:', device.name);
+      const connected = await device.connect();
+      
+      // Find the printer characteristic
+      const characteristic = await findPrinterCharacteristic(connected);
+      
+      if (!characteristic) {
+        await connected.cancelConnection();
+        throw new Error('No se encontró una característica de impresora válida');
+      }
+
+      // Store in global variables to persist across component mounts
+      globalConnectedDevice = connected;
+      globalPrinterCharacteristic = characteristic;
+      
+      setPrinterCharacteristic(characteristic);
+      setConnectedDevice(connected);
+      await savePrinter(connected);
+      
+      // Start keep-alive mechanism
+      startKeepAlive(connected, characteristic);
+      
+      console.log('[usePrinter] Connected successfully with keep-alive enabled');
+    } catch (error) {
+      console.error('[usePrinter] Connection error:', error);
+      throw error;
+    }
+  };
+
   const loadAndReconnectSavedPrinter = useCallback(async () => {
     try {
-      const savedPrinter = await AsyncStorage.getItem(SAVED_PRINTER_KEY);
-      if (savedPrinter) {
-        const printerData = JSON.parse(savedPrinter);
-        console.log('[usePrinter] Found saved printer:', printerData.name);
+      // If we already have a global connection, use it
+      if (globalConnectedDevice && globalPrinterCharacteristic) {
+        console.log('[usePrinter] Using existing global connection');
+        setConnectedDevice(globalConnectedDevice);
+        setPrinterCharacteristic(globalPrinterCharacteristic);
         
-        // If we already have a global connection, use it
-        if (globalConnectedDevice && globalPrinterCharacteristic) {
-          console.log('[usePrinter] Using existing global connection');
-          setConnectedDevice(globalConnectedDevice);
-          setPrinterCharacteristic(globalPrinterCharacteristic);
+        // Verify the connection is still active
+        try {
+          const isConnected = await globalConnectedDevice.isConnected();
+          if (isConnected) {
+            console.log('[usePrinter] Global connection is active');
+            // Start keep-alive for existing connection
+            startKeepAlive(globalConnectedDevice, globalPrinterCharacteristic);
+            return;
+          } else {
+            console.log('[usePrinter] Global connection is not active, clearing');
+            globalConnectedDevice = null;
+            globalPrinterCharacteristic = null;
+            setConnectedDevice(null);
+            setPrinterCharacteristic(null);
+          }
+        } catch (error) {
+          console.error('[usePrinter] Error checking global connection:', error);
+          globalConnectedDevice = null;
+          globalPrinterCharacteristic = null;
+          setConnectedDevice(null);
+          setPrinterCharacteristic(null);
+        }
+      }
+
+      // Try to reconnect to saved printer
+      const savedPrinter = await AsyncStorage.getItem(SAVED_PRINTER_KEY);
+      if (savedPrinter && !reconnectAttemptedRef.current) {
+        const printerData = JSON.parse(savedPrinter);
+        console.log('[usePrinter] Found saved printer, attempting to reconnect:', printerData.name);
+        reconnectAttemptedRef.current = true;
+
+        // Request permissions first
+        const hasPermission = await requestPermissions();
+        if (!hasPermission) {
+          console.log('[usePrinter] No Bluetooth permissions, cannot reconnect');
+          return;
+        }
+
+        const manager = getBleManager();
+        
+        // Try to connect directly to the saved device
+        try {
+          console.log('[usePrinter] Attempting to connect to saved device ID:', printerData.id);
+          const device = await manager.connectToDevice(printerData.id, {
+            timeout: 10000,
+          });
           
-          // Start keep-alive for existing connection
-          startKeepAlive(globalConnectedDevice, globalPrinterCharacteristic);
+          console.log('[usePrinter] Successfully connected to saved device');
+          
+          // Find the printer characteristic
+          const characteristic = await findPrinterCharacteristic(device);
+          
+          if (characteristic) {
+            // Store in global variables
+            globalConnectedDevice = device;
+            globalPrinterCharacteristic = characteristic;
+            
+            setPrinterCharacteristic(characteristic);
+            setConnectedDevice(device);
+            
+            // Start keep-alive mechanism
+            startKeepAlive(device, characteristic);
+            
+            console.log('[usePrinter] Auto-reconnected successfully to saved printer');
+          } else {
+            console.log('[usePrinter] Could not find printer characteristic on saved device');
+            await device.cancelConnection();
+          }
+        } catch (error) {
+          console.log('[usePrinter] Could not auto-reconnect to saved printer:', error);
+          // Do not show alert here, just log the error
+          // User can manually reconnect if needed
         }
       }
     } catch (error) {
       console.error('[usePrinter] Error loading saved printer:', error);
     }
-  }, []);
+  }, [requestPermissions]);
 
   // Load saved printer on mount and try to reconnect
   useEffect(() => {
@@ -559,70 +689,6 @@ export const usePrinter = () => {
     }
   };
 
-  const findPrinterCharacteristic = async (device: Device) => {
-    try {
-      console.log('[usePrinter] Discovering services and characteristics...');
-      await device.discoverAllServicesAndCharacteristics();
-      
-      const services = await device.services();
-      console.log('[usePrinter] Found services:', services.map(s => s.uuid));
-
-      // Try to find the printer service and characteristic
-      for (const service of services) {
-        const characteristics = await service.characteristics();
-        console.log('[usePrinter] Service ' + service.uuid + ' has characteristics:', characteristics.map(c => c.uuid));
-        
-        for (const characteristic of characteristics) {
-          // Check if characteristic is writable
-          if (characteristic.isWritableWithResponse || characteristic.isWritableWithoutResponse) {
-            console.log('[usePrinter] Found writable characteristic:', characteristic.uuid);
-            return {
-              serviceUUID: service.uuid,
-              characteristicUUID: characteristic.uuid,
-            };
-          }
-        }
-      }
-
-      console.log('[usePrinter] No suitable characteristic found');
-      return null;
-    } catch (error) {
-      console.error('[usePrinter] Error finding characteristic:', error);
-      return null;
-    }
-  };
-
-  const connectToDevice = async (device: Device) => {
-    try {
-      console.log('[usePrinter] Connecting to device:', device.name);
-      const connected = await device.connect();
-      
-      // Find the printer characteristic
-      const characteristic = await findPrinterCharacteristic(connected);
-      
-      if (!characteristic) {
-        await connected.cancelConnection();
-        throw new Error('No se encontró una característica de impresora válida');
-      }
-
-      // Store in global variables to persist across component mounts
-      globalConnectedDevice = connected;
-      globalPrinterCharacteristic = characteristic;
-      
-      setPrinterCharacteristic(characteristic);
-      setConnectedDevice(connected);
-      await savePrinter(connected);
-      
-      // Start keep-alive mechanism
-      startKeepAlive(connected, characteristic);
-      
-      console.log('[usePrinter] Connected successfully with keep-alive enabled');
-    } catch (error) {
-      console.error('[usePrinter] Connection error:', error);
-      throw error;
-    }
-  };
-
   const disconnectDevice = async () => {
     if (connectedDevice || globalConnectedDevice) {
       try {
@@ -644,6 +710,9 @@ export const usePrinter = () => {
         
         // Clear saved printer
         await AsyncStorage.removeItem(SAVED_PRINTER_KEY);
+        
+        // Reset reconnect flag
+        reconnectAttemptedRef.current = false;
       } catch (error) {
         console.error('[usePrinter] Error disconnecting:', error);
         throw error;
@@ -751,7 +820,7 @@ export const usePrinter = () => {
       
       // 2. Set code page to CP850 (ESC t 2) - MUST be sent as raw bytes
       if (encoding === 'CP850') {
-        console.log('[usePrinter] ⚠️ CRITICAL: Setting printer to CP850 code page');
+        console.log('[usePrinter] CRITICAL: Setting printer to CP850 code page');
         console.log('[usePrinter] Sending command: ESC t 2 (0x1B 0x74 0x02)');
         initCommands.push(0x1B, 0x74, 0x02);
       }
