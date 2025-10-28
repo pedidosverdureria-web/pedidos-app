@@ -284,7 +284,9 @@ const convertToCP850 = (text: string): Uint8Array => {
       const mappedValue = CP850_MAP[char];
       bytes.push(mappedValue);
       specialCharsFound++;
-      console.log('[usePrinter] ✓ Mapped \'' + char + '\' (U+' + charCode.toString(16).toUpperCase().padStart(4, '0') + ') → CP850: ' + mappedValue + ' (0x' + mappedValue.toString(16).toUpperCase().padStart(2, '0') + ')');
+      const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
+      const hexMapped = mappedValue.toString(16).toUpperCase().padStart(2, '0');
+      console.log('[usePrinter] ✓ Mapped \'' + char + '\' (U+' + hexCode + ') → CP850: ' + mappedValue + ' (0x' + hexMapped + ')');
     } 
     // ASCII characters (0-127) can be used directly
     else if (charCode < 128) {
@@ -293,7 +295,8 @@ const convertToCP850 = (text: string): Uint8Array => {
     // For unmapped characters, use a space as fallback
     else {
       unmappedCharsFound++;
-      console.warn('[usePrinter] ✗ Unmapped character \'' + char + '\' (U+' + charCode.toString(16).toUpperCase().padStart(4, '0') + '), using space');
+      const hexCode = charCode.toString(16).toUpperCase().padStart(4, '0');
+      console.warn('[usePrinter] ✗ Unmapped character \'' + char + '\' (U+' + hexCode + '), using space');
       bytes.push(32); // Space character
     }
   }
@@ -308,7 +311,10 @@ const convertToCP850 = (text: string): Uint8Array => {
   
   // Log a sample of the converted bytes for debugging
   const sampleSize = Math.min(100, bytes.length);
-  const sampleBytes = bytes.slice(0, sampleSize).map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+  const sampleBytes = bytes.slice(0, sampleSize).map(b => {
+    const hex = b.toString(16).toUpperCase().padStart(2, '0');
+    return '0x' + hex;
+  }).join(' ');
   console.log('[usePrinter] First ' + sampleSize + ' bytes: ' + sampleBytes);
   
   return new Uint8Array(bytes);
@@ -757,7 +763,11 @@ export const usePrinter = () => {
       const fontSizeValue = textSize === 'small' ? 0x00 : textSize === 'large' ? 0x22 : 0x11;
       initCommands.push(0x1D, 0x21, fontSizeValue);
       
-      console.log('[usePrinter] Initialization commands:', initCommands.map(b => '0x' + b.toString(16).toUpperCase().padStart(2, '0')).join(' '));
+      const initHexString = initCommands.map(b => {
+        const hex = b.toString(16).toUpperCase().padStart(2, '0');
+        return '0x' + hex;
+      }).join(' ');
+      console.log('[usePrinter] Initialization commands:', initHexString);
       
       // Send initialization commands first
       const initData = new Uint8Array(initCommands);
