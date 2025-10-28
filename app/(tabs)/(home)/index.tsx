@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Stack, router } from 'expo-router';
 import { usePrinter } from '@/hooks/usePrinter';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
+import * as Notifications from 'expo-notifications';
 import {
   View,
   Text,
@@ -677,10 +678,10 @@ export default function HomeScreen() {
       const responseListener = responseListenerRef.current;
       
       if (notificationListener) {
-        notificationListener.remove();
+        Notifications.removeNotificationSubscription(notificationListener);
       }
       if (responseListener) {
-        responseListener.remove();
+        Notifications.removeNotificationSubscription(responseListener);
       }
     };
   }, [isAuthenticated, user]);
