@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Stack, router } from 'expo-router';
 import { usePrinter } from '@/hooks/usePrinter';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
+import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import {
   View,
   Text,
@@ -32,22 +33,6 @@ import {
   registerBackgroundAutoPrintTask, 
   unregisterBackgroundAutoPrintTask 
 } from '@/utils/backgroundAutoPrintTask';
-
-type TextSize = 'small' | 'medium' | 'large';
-type PaperSize = '58mm' | '80mm';
-type Encoding = 'CP850' | 'UTF-8' | 'ISO-8859-1' | 'Windows-1252';
-
-interface PrinterConfig {
-  auto_print_enabled?: boolean;
-  auto_cut_enabled?: boolean;
-  text_size?: TextSize;
-  paper_size?: PaperSize;
-  include_logo?: boolean;
-  include_customer_info?: boolean;
-  include_totals?: boolean;
-  use_webhook_format?: boolean;
-  encoding?: Encoding;
-}
 
 const STATUS_FILTERS: (OrderStatus | 'all')[] = [
   'all',
@@ -279,65 +264,6 @@ function formatCLP(amount: number): string {
   }).format(amount);
 }
 
-function getUnitFromNotes(notes: string | null | undefined): string {
-  if (!notes) return '';
-  const lowerNotes = notes.toLowerCase();
-  
-  // Extract unit from "Unidad: xxx" format
-  const unitMatch = lowerNotes.match(/unidad:\s*(\w+)/);
-  if (unitMatch) {
-    return unitMatch[1];
-  }
-  
-  // Fallback to old detection method
-  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
-  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
-  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
-  if (lowerNotes.includes('ml')) return 'ml';
-  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
-  return '';
-}
-
-function formatProductDisplay(item: { product_name: string; quantity: number; notes?: string | null }): string {
-  const unit = getUnitFromNotes(item.notes);
-  
-  // Determine the unit text
-  let unitText = '';
-  if (unit === 'kg' || unit === 'kilo' || unit === 'kilos') {
-    unitText = item.quantity === 1 ? 'kilo' : 'kilos';
-  } else if (unit === 'gr' || unit === 'gramo' || unit === 'gramos') {
-    unitText = item.quantity === 1 ? 'gramo' : 'gramos';
-  } else if (unit === 'lt' || unit === 'litro' || unit === 'litros') {
-    unitText = item.quantity === 1 ? 'litro' : 'litros';
-  } else if (unit === 'ml') {
-    unitText = 'ml';
-  } else if (unit === 'un' || unit === 'unidad' || unit === 'unidades') {
-    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
-  } else if (unit) {
-    // For any other unit (like malla, docena, etc.), use it directly
-    // Check if it needs pluralization
-    if (item.quantity === 1) {
-      unitText = unit;
-    } else {
-      // Simple pluralization: add 's' if doesn't end with 's'
-      unitText = unit.endsWith('s') ? unit : unit + 's';
-    }
-  } else {
-    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
-  }
-  
-  return `${item.quantity} ${unitText} de ${item.product_name}`;
-}
-
-function getAdditionalNotes(notes: string | null | undefined): string {
-  if (!notes) return '';
-  
-  // Remove the "Unidad: xxx" part from notes
-  const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
-  
-  return cleanNotes;
-}
-
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleString('es-CL', {
@@ -383,6 +309,10 @@ export default function HomeScreen() {
           auto_print_enabled: config.auto_print_enabled,
           encoding: config.encoding,
           text_size: config.text_size,
+          paper_size: config.paper_size,
+          include_logo: config.include_logo,
+          include_customer_info: config.include_customer_info,
+          include_totals: config.include_totals,
         });
       } else {
         console.log('[HomeScreen] No printer config found');
@@ -399,76 +329,6 @@ export default function HomeScreen() {
       console.error('[HomeScreen] Error loading printer config:', error);
     }
   }, []);
-
-  // Generate receipt text - memoized with useCallback
-  // This uses the same format as the detail view for consistency
-  const generateReceiptText = useCallback((order: Order): string => {
-    const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
-    
-    let receipt = '';
-    
-    if (printerConfig?.include_logo !== false) {
-      receipt += centerText('PEDIDO', width) + '\n';
-      receipt += '='.repeat(width) + '\n\n';
-    }
-    
-    receipt += `Pedido: ${order.order_number}\n`;
-    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-    receipt += `Fecha: ${formatDate(order.created_at)}\n`;
-    receipt += '-'.repeat(width) + '\n\n';
-    
-    if (printerConfig?.include_customer_info !== false) {
-      receipt += `Cliente: ${order.customer_name}\n`;
-      if (order.customer_phone) {
-        receipt += `Telefono: ${order.customer_phone}\n`;
-      }
-      if (order.customer_address) {
-        receipt += `Direccion: ${order.customer_address}\n`;
-      }
-      receipt += '-'.repeat(width) + '\n\n';
-    }
-    
-    receipt += 'PRODUCTOS:\n\n';
-    for (const item of order.items || []) {
-      // Use formatProductDisplay to get the webhook format
-      receipt += `${formatProductDisplay(item)}\n`;
-      
-      // Add additional notes if they exist (excluding unit information)
-      const additionalNotes = getAdditionalNotes(item.notes);
-      if (additionalNotes) {
-        receipt += `  ${additionalNotes}\n`;
-      }
-      
-      if (item.unit_price > 0) {
-        receipt += `  ${formatCLP(item.unit_price)}\n`;
-      }
-      receipt += '\n';
-    }
-    
-    if (printerConfig?.include_totals !== false) {
-      receipt += '-'.repeat(width) + '\n';
-      const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
-      receipt += `TOTAL: ${formatCLP(total)}\n`;
-      
-      if (order.amount_paid > 0) {
-        receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
-        const pending = total - order.amount_paid;
-        if (pending > 0) {
-          receipt += `Pendiente: ${formatCLP(pending)}\n`;
-        }
-      }
-    }
-    
-    receipt += '\n' + '='.repeat(width) + '\n';
-    receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
-    
-    return receipt;
-  }, [printerConfig]);
-
-  const centerText = (text: string, width: number): string => {
-    const padding = Math.max(0, Math.floor((width - text.length) / 2));
-    return ' '.repeat(padding) + text;
-  };
 
   // Save printed orders to AsyncStorage
   const savePrintedOrders = useCallback(async (orderIds: string[]) => {
@@ -520,10 +380,23 @@ export default function HomeScreen() {
             
             try {
               console.log('[HomeScreen] Auto-printing order:', order.order_number);
-              const receiptText = generateReceiptText(order);
+              console.log('[HomeScreen] Using printer config:', printerConfig);
+              
+              // Use the centralized receipt generator with the full printer config
+              const receiptText = generateReceiptText(order, printerConfig);
               const autoCut = printerConfig?.auto_cut_enabled ?? true;
               const textSize = printerConfig?.text_size || 'medium';
               const encoding = printerConfig?.encoding || 'CP850';
+              
+              console.log('[HomeScreen] Printing with settings:', {
+                autoCut,
+                textSize,
+                encoding,
+                paper_size: printerConfig?.paper_size,
+                include_logo: printerConfig?.include_logo,
+                include_customer_info: printerConfig?.include_customer_info,
+                include_totals: printerConfig?.include_totals,
+              });
               
               await printReceipt(receiptText, autoCut, textSize, encoding);
               
@@ -562,10 +435,23 @@ export default function HomeScreen() {
       
       try {
         console.log('[HomeScreen] Auto-printing new order:', order.order_number);
-        const receiptText = generateReceiptText(order);
+        console.log('[HomeScreen] Using printer config:', printerConfig);
+        
+        // Use the centralized receipt generator with the full printer config
+        const receiptText = generateReceiptText(order, printerConfig);
         const autoCut = printerConfig?.auto_cut_enabled ?? true;
         const textSize = printerConfig?.text_size || 'medium';
         const encoding = printerConfig?.encoding || 'CP850';
+        
+        console.log('[HomeScreen] Printing with settings:', {
+          autoCut,
+          textSize,
+          encoding,
+          paper_size: printerConfig?.paper_size,
+          include_logo: printerConfig?.include_logo,
+          include_customer_info: printerConfig?.include_customer_info,
+          include_totals: printerConfig?.include_totals,
+        });
         
         await printReceipt(receiptText, autoCut, textSize, encoding);
         
@@ -584,7 +470,7 @@ export default function HomeScreen() {
       // Only print one order at a time, then wait for next check
       break;
     }
-  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, generateReceiptText, savePrintedOrders]);
+  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, savePrintedOrders]);
 
   useEffect(() => {
     loadPrinterConfig();
