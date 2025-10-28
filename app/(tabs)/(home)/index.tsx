@@ -725,15 +725,15 @@ export default function HomeScreen() {
     setupNotifications();
 
     return () => {
-      // Capture current ref values to avoid stale references in cleanup
-      const notificationListener = notificationListenerRef.current;
-      const responseListener = responseListenerRef.current;
+      // Capture current ref values inside the effect to avoid stale references in cleanup
+      const currentNotificationListener = notificationListenerRef.current;
+      const currentResponseListener = responseListenerRef.current;
       
-      if (notificationListener) {
-        notificationListener.remove();
+      if (currentNotificationListener) {
+        currentNotificationListener.remove();
       }
-      if (responseListener) {
-        responseListener.remove();
+      if (currentResponseListener) {
+        currentResponseListener.remove();
       }
     };
   }, [isAuthenticated, user]);
