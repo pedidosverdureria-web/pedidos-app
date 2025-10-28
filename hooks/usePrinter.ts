@@ -22,28 +22,28 @@ const getBleManager = () => {
 };
 
 // ESC/POS Commands
-const ESC = 0x1B;
-const GS = 0x1D;
+const ESC = '\x1B';
+const GS = '\x1D';
 
-// Common ESC/POS commands as byte arrays
+// Common ESC/POS commands
 const COMMANDS = {
-  INIT: new Uint8Array([ESC, 0x40]), // ESC @
-  LINE_FEED: new Uint8Array([0x0A]), // \n
-  CUT_PAPER: new Uint8Array([GS, 0x56, 0x41, 0x00]), // GS V A 0
-  CUT_PAPER_PARTIAL: new Uint8Array([GS, 0x56, 0x42, 0x00]), // GS V B 0
-  ALIGN_LEFT: new Uint8Array([ESC, 0x61, 0x00]), // ESC a 0
-  ALIGN_CENTER: new Uint8Array([ESC, 0x61, 0x01]), // ESC a 1
-  ALIGN_RIGHT: new Uint8Array([ESC, 0x61, 0x02]), // ESC a 2
-  BOLD_ON: new Uint8Array([ESC, 0x45, 0x01]), // ESC E 1
-  BOLD_OFF: new Uint8Array([ESC, 0x45, 0x00]), // ESC E 0
-  FONT_SIZE_SMALL: new Uint8Array([GS, 0x21, 0x00]), // GS ! 0
-  FONT_SIZE_MEDIUM: new Uint8Array([GS, 0x21, 0x11]), // GS ! 17
-  FONT_SIZE_LARGE: new Uint8Array([GS, 0x21, 0x22]), // GS ! 34
+  INIT: ESC + '@',
+  LINE_FEED: '\n',
+  CUT_PAPER: GS + 'V' + '\x41' + '\x00', // Full cut
+  CUT_PAPER_PARTIAL: GS + 'V' + '\x42' + '\x00', // Partial cut
+  ALIGN_LEFT: ESC + 'a' + '\x00',
+  ALIGN_CENTER: ESC + 'a' + '\x01',
+  ALIGN_RIGHT: ESC + 'a' + '\x02',
+  BOLD_ON: ESC + 'E' + '\x01',
+  BOLD_OFF: ESC + 'E' + '\x00',
+  FONT_SIZE_SMALL: GS + '!' + '\x00',      // Normal size
+  FONT_SIZE_MEDIUM: GS + '!' + '\x11',     // Double height and width
+  FONT_SIZE_LARGE: GS + '!' + '\x22',      // Triple height and width
   // Set code page to CP850 (supports Spanish characters)
-  SET_CODEPAGE_850: new Uint8Array([ESC, 0x74, 0x02]), // ESC t 2
+  SET_CODEPAGE_850: ESC + 't' + '\x02',
   // Alternative code pages
-  SET_CODEPAGE_437: new Uint8Array([ESC, 0x74, 0x00]), // ESC t 0 (USA)
-  SET_CODEPAGE_858: new Uint8Array([ESC, 0x74, 0x13]), // ESC t 19 (Euro)
+  SET_CODEPAGE_437: ESC + 't' + '\x00',    // USA
+  SET_CODEPAGE_858: ESC + 't' + '\x13',    // Euro
 };
 
 // Generic printer service UUID (commonly used by thermal printers)
@@ -283,20 +283,6 @@ const convertToWindows1252 = (text: string): Uint8Array => {
   return new Uint8Array(bytes);
 };
 
-/**
- * Combine multiple Uint8Arrays into one
- */
-const combineUint8Arrays = (...arrays: Uint8Array[]): Uint8Array => {
-  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const arr of arrays) {
-    result.set(arr, offset);
-    offset += arr.length;
-  }
-  return result;
-};
-
 // Keep-alive mechanism to prevent Bluetooth disconnection
 const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; characteristicUUID: string }) => {
   console.log('[usePrinter] Starting keep-alive mechanism');
@@ -312,8 +298,8 @@ const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; c
       if (device && characteristic) {
         console.log('[usePrinter] Sending keep-alive ping');
         // Send a simple status request command (ESC v - doesn't print anything)
-        const keepAliveCommand = new Uint8Array([ESC, 0x76]);
-        const buffer = Buffer.from(keepAliveCommand);
+        const keepAliveCommand = ESC + 'v';
+        const buffer = Buffer.from(keepAliveCommand, 'binary');
         const base64Data = buffer.toString('base64');
         
         await device.writeCharacteristicWithResponseForService(
@@ -621,7 +607,7 @@ export const usePrinter = () => {
     }
   };
 
-  const getFontSizeCommand = (textSize: 'small' | 'medium' | 'large'): Uint8Array => {
+  const getFontSizeCommand = (textSize: 'small' | 'medium' | 'large'): string => {
     switch (textSize) {
       case 'small':
         return COMMANDS.FONT_SIZE_SMALL;
@@ -654,45 +640,36 @@ export const usePrinter = () => {
       console.log('[usePrinter] Content preview:', content.substring(0, 200));
       console.log('[usePrinter] ========================================');
       
-      // Build the print command as byte arrays
-      // CRITICAL: Commands must be sent as raw bytes, NOT converted to CP850
-      const commandParts: Uint8Array[] = [];
+      // Build the print command as a string first
+      let printCommand = COMMANDS.INIT; // Initialize printer
       
-      // 1. Initialize printer
-      commandParts.push(COMMANDS.INIT);
-      
-      // 2. Set code page based on encoding (MUST be done BEFORE sending text)
+      // Set code page based on encoding (only for CP850)
       if (encoding === 'CP850') {
         console.log('[usePrinter] Setting printer to CP850 code page');
-        commandParts.push(COMMANDS.SET_CODEPAGE_850);
+        printCommand += COMMANDS.SET_CODEPAGE_850;
       }
       
-      // 3. Set alignment and font size
-      commandParts.push(COMMANDS.ALIGN_LEFT);
-      commandParts.push(getFontSizeCommand(textSize));
+      printCommand += COMMANDS.ALIGN_LEFT; // Align left for better readability
+      printCommand += getFontSizeCommand(textSize); // Set font size based on config
+      printCommand += content;
+      printCommand += COMMANDS.FONT_SIZE_SMALL; // Reset to normal size
+      printCommand += COMMANDS.LINE_FEED;
+      printCommand += COMMANDS.LINE_FEED;
+      printCommand += COMMANDS.LINE_FEED;
       
-      // 4. Convert content to specified encoding
-      console.log('[usePrinter] Converting content to', encoding);
-      const encodedContent = convertToEncoding(content, encoding);
-      commandParts.push(encodedContent);
-      
-      // 5. Reset font size and add line feeds
-      commandParts.push(COMMANDS.FONT_SIZE_SMALL);
-      commandParts.push(COMMANDS.LINE_FEED);
-      commandParts.push(COMMANDS.LINE_FEED);
-      commandParts.push(COMMANDS.LINE_FEED);
-      
-      // 6. Add cut command if enabled
+      // Add cut command if enabled
       if (autoCut) {
-        commandParts.push(COMMANDS.CUT_PAPER);
+        printCommand += COMMANDS.CUT_PAPER;
       }
       
-      // Combine all parts into a single byte array
-      const finalData = combineUint8Arrays(...commandParts);
-      console.log('[usePrinter] Total command length:', finalData.length, 'bytes');
+      console.log('[usePrinter] Total command length before encoding:', printCommand.length);
+      
+      // Convert to specified encoding
+      const encodedData = convertToEncoding(printCommand, encoding);
+      console.log('[usePrinter] Encoded data length:', encodedData.length, 'bytes');
       
       // Send to printer in chunks
-      await sendDataToPrinter(finalData);
+      await sendDataToPrinter(encodedData);
       console.log('[usePrinter] ========================================');
       console.log('[usePrinter] PRINT COMPLETED SUCCESSFULLY');
       console.log('[usePrinter] ========================================');

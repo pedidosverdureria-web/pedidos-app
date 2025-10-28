@@ -134,7 +134,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.menuItem}
+              style={[styles.menuItem, styles.menuItemLast]}
               onPress={() => handleNavigation('/settings/printer')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#8B5CF6' }]}>
@@ -144,27 +144,6 @@ export default function SettingsScreen() {
                 <Text style={styles.menuTitle}>Impresora</Text>
                 <Text style={styles.menuDescription}>
                   Configurar impresora y auto-impresión
-                </Text>
-              </View>
-              <IconSymbol
-                name="chevron.right"
-                size={20}
-                color={colors.textSecondary}
-                style={styles.menuChevron}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemLast]}
-              onPress={() => handleNavigation('/settings/backup')}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: '#EF4444' }]}>
-                <IconSymbol name="arrow.clockwise.circle.fill" size={20} color="#FFFFFF" />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>Backup</Text>
-                <Text style={styles.menuDescription}>
-                  Crear y descargar copias de seguridad
                 </Text>
               </View>
               <IconSymbol
