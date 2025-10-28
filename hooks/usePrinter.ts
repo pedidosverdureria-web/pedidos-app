@@ -186,7 +186,14 @@ const convertToEncoding = (text: string, encoding: Encoding): Uint8Array => {
 const convertToCP850 = (text: string): Uint8Array => {
   const bytes: number[] = [];
   
-  console.log(`[usePrinter] Converting to CP850: "${text.substring(0, 100)}..."`);
+  console.log(`[usePrinter] ========================================`);
+  console.log(`[usePrinter] CP850 ENCODING CONVERSION`);
+  console.log(`[usePrinter] Input text length: ${text.length} characters`);
+  console.log(`[usePrinter] First 200 chars: "${text.substring(0, 200)}"`);
+  console.log(`[usePrinter] ========================================`);
+  
+  let specialCharsFound = 0;
+  let unmappedCharsFound = 0;
   
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
@@ -196,7 +203,8 @@ const convertToCP850 = (text: string): Uint8Array => {
     if (CP850_MAP[char] !== undefined) {
       const mappedValue = CP850_MAP[char];
       bytes.push(mappedValue);
-      console.log(`[usePrinter] ✓ Mapped '${char}' (U+${charCode.toString(16).toUpperCase().padStart(4, '0')}) → CP850: ${mappedValue} (0x${mappedValue.toString(16).toUpperCase()})`);
+      specialCharsFound++;
+      console.log(`[usePrinter] ✓ Mapped '${char}' (U+${charCode.toString(16).toUpperCase().padStart(4, '0')}) → CP850: ${mappedValue} (0x${mappedValue.toString(16).toUpperCase().padStart(2, '0')})`);
     } 
     // ASCII characters (0-127) can be used directly
     else if (charCode < 128) {
@@ -204,16 +212,24 @@ const convertToCP850 = (text: string): Uint8Array => {
     }
     // For unmapped characters, use a space as fallback
     else {
+      unmappedCharsFound++;
       console.warn(`[usePrinter] ✗ Unmapped character '${char}' (U+${charCode.toString(16).toUpperCase().padStart(4, '0')}), using space`);
       bytes.push(32); // Space character
     }
   }
   
-  console.log(`[usePrinter] CP850 conversion complete: ${text.length} chars → ${bytes.length} bytes`);
+  console.log(`[usePrinter] ========================================`);
+  console.log(`[usePrinter] CP850 CONVERSION SUMMARY`);
+  console.log(`[usePrinter] Input: ${text.length} characters`);
+  console.log(`[usePrinter] Output: ${bytes.length} bytes`);
+  console.log(`[usePrinter] Special chars mapped: ${specialCharsFound}`);
+  console.log(`[usePrinter] Unmapped chars: ${unmappedCharsFound}`);
+  console.log(`[usePrinter] ========================================`);
   
   // Log a sample of the converted bytes for debugging
-  const sampleBytes = bytes.slice(0, 50).map(b => `0x${b.toString(16).toUpperCase().padStart(2, '0')}`).join(' ');
-  console.log(`[usePrinter] First bytes: ${sampleBytes}`);
+  const sampleSize = Math.min(100, bytes.length);
+  const sampleBytes = bytes.slice(0, sampleSize).map(b => `0x${b.toString(16).toUpperCase().padStart(2, '0')}`).join(' ');
+  console.log(`[usePrinter] First ${sampleSize} bytes: ${sampleBytes}`);
   
   return new Uint8Array(bytes);
 };
@@ -640,36 +656,62 @@ export const usePrinter = () => {
       console.log('[usePrinter] Content preview:', content.substring(0, 200));
       console.log('[usePrinter] ========================================');
       
-      // Build the print command as a string first
-      let printCommand = COMMANDS.INIT; // Initialize printer
+      // CRITICAL: Build initialization commands separately and send as raw bytes
+      // This ensures the CP850 command is properly interpreted by the printer
+      const initCommands: number[] = [];
       
-      // Set code page based on encoding (only for CP850)
+      // 1. Initialize printer (ESC @)
+      initCommands.push(0x1B, 0x40);
+      
+      // 2. Set code page to CP850 (ESC t 2) - MUST be sent as raw bytes
       if (encoding === 'CP850') {
-        console.log('[usePrinter] Setting printer to CP850 code page');
-        printCommand += COMMANDS.SET_CODEPAGE_850;
+        console.log('[usePrinter] ⚠️ CRITICAL: Setting printer to CP850 code page');
+        console.log('[usePrinter] Sending command: ESC t 2 (0x1B 0x74 0x02)');
+        initCommands.push(0x1B, 0x74, 0x02);
       }
       
-      printCommand += COMMANDS.ALIGN_LEFT; // Align left for better readability
-      printCommand += getFontSizeCommand(textSize); // Set font size based on config
-      printCommand += content;
-      printCommand += COMMANDS.FONT_SIZE_SMALL; // Reset to normal size
-      printCommand += COMMANDS.LINE_FEED;
-      printCommand += COMMANDS.LINE_FEED;
-      printCommand += COMMANDS.LINE_FEED;
+      // 3. Set alignment to left (ESC a 0)
+      initCommands.push(0x1B, 0x61, 0x00);
       
-      // Add cut command if enabled
+      // 4. Set font size (GS ! n)
+      const fontSizeValue = textSize === 'small' ? 0x00 : textSize === 'large' ? 0x22 : 0x11;
+      initCommands.push(0x1D, 0x21, fontSizeValue);
+      
+      console.log('[usePrinter] Initialization commands:', initCommands.map(b => `0x${b.toString(16).toUpperCase().padStart(2, '0')}`).join(' '));
+      
+      // Send initialization commands first
+      const initData = new Uint8Array(initCommands);
+      await sendDataToPrinter(initData);
+      
+      // Small delay to ensure printer processes the initialization
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Now convert and send the content
+      console.log('[usePrinter] Converting content to', encoding);
+      const encodedContent = convertToEncoding(content, encoding);
+      console.log('[usePrinter] Encoded content length:', encodedContent.length, 'bytes');
+      
+      // Send the content
+      await sendDataToPrinter(encodedContent);
+      
+      // Build footer commands
+      const footerCommands: number[] = [];
+      
+      // Reset font size to normal (GS ! 0)
+      footerCommands.push(0x1D, 0x21, 0x00);
+      
+      // Add line feeds
+      footerCommands.push(0x0A, 0x0A, 0x0A);
+      
+      // Add cut command if enabled (GS V A 0)
       if (autoCut) {
-        printCommand += COMMANDS.CUT_PAPER;
+        footerCommands.push(0x1D, 0x56, 0x41, 0x00);
       }
       
-      console.log('[usePrinter] Total command length before encoding:', printCommand.length);
+      // Send footer commands
+      const footerData = new Uint8Array(footerCommands);
+      await sendDataToPrinter(footerData);
       
-      // Convert to specified encoding
-      const encodedData = convertToEncoding(printCommand, encoding);
-      console.log('[usePrinter] Encoded data length:', encodedData.length, 'bytes');
-      
-      // Send to printer in chunks
-      await sendDataToPrinter(encodedData);
       console.log('[usePrinter] ========================================');
       console.log('[usePrinter] PRINT COMPLETED SUCCESSFULLY');
       console.log('[usePrinter] ========================================');
@@ -682,22 +724,22 @@ export const usePrinter = () => {
   const testPrint = async (autoCut: boolean = true, encoding: Encoding = 'CP850') => {
     const testContent = `
 =================================
-   IMPRESIÓN DE PRUEBA
+   IMPRESION DE PRUEBA
 =================================
 
-Esta es una prueba de impresión.
+Esta es una prueba de impresion.
 
 Caracteres especiales:
-á é í ó ú ñ Ñ ¿ ¡
-Á É Í Ó Ú ü Ü
+a e i o u n N ¿ ¡
+A E I O U u U
 
 Palabras comunes:
-- Año
-- Niño
-- Señor
-- Mañana
-- España
-- Jalapeño
+- Ano
+- Nino
+- Senor
+- Manana
+- Espana
+- Jalapeno
 
 Si puedes leer esto correctamente,
 tu impresora funciona bien.
