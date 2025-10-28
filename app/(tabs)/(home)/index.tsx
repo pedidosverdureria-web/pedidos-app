@@ -352,6 +352,194 @@ export default function HomeScreen() {
     }
   }, []);
 
+  // Generate receipt text - memoized with useCallback
+  const generateReceiptText = useCallback((order: Order): string => {
+    const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
+    
+    let receipt = '';
+    
+    if (printerConfig?.include_logo !== false) {
+      receipt += centerText('PEDIDO', width) + '\n';
+      receipt += '='.repeat(width) + '\n\n';
+    }
+    
+    receipt += `Pedido: ${order.order_number}\n`;
+    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+    receipt += `Fecha: ${formatDate(order.created_at)}\n`;
+    receipt += '-'.repeat(width) + '\n\n';
+    
+    if (printerConfig?.include_customer_info !== false) {
+      receipt += `Cliente: ${order.customer_name}\n`;
+      if (order.customer_phone) {
+        receipt += `Telefono: ${order.customer_phone}\n`;
+      }
+      if (order.customer_address) {
+        receipt += `Direccion: ${order.customer_address}\n`;
+      }
+      receipt += '-'.repeat(width) + '\n\n';
+    }
+    
+    receipt += 'PRODUCTOS:\n\n';
+    for (const item of order.items || []) {
+      const unit = getUnitFromNotes(item.notes);
+      const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
+      
+      receipt += `${quantityStr} ${item.product_name}\n`;
+      
+      if (item.notes) {
+        const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
+        if (cleanNotes) {
+          receipt += `  ${cleanNotes}\n`;
+        }
+      }
+      
+      if (item.unit_price > 0) {
+        receipt += `  ${formatCLP(item.unit_price)}\n`;
+      }
+      receipt += '\n';
+    }
+    
+    if (printerConfig?.include_totals !== false) {
+      receipt += '-'.repeat(width) + '\n';
+      const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
+      receipt += `TOTAL: ${formatCLP(total)}\n`;
+      
+      if (order.amount_paid > 0) {
+        receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
+        const pending = total - order.amount_paid;
+        if (pending > 0) {
+          receipt += `Pendiente: ${formatCLP(pending)}\n`;
+        }
+      }
+    }
+    
+    receipt += '\n' + '='.repeat(width) + '\n';
+    receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
+    
+    return receipt;
+  }, [printerConfig]);
+
+  const centerText = (text: string, width: number): string => {
+    const padding = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(padding) + text;
+  };
+
+  // Save printed orders to AsyncStorage
+  const savePrintedOrders = useCallback(async (orderIds: string[]) => {
+    try {
+      await AsyncStorage.setItem(PRINTED_ORDERS_KEY, JSON.stringify(orderIds));
+      console.log('[HomeScreen] Saved printed orders:', orderIds.length);
+    } catch (error) {
+      console.error('[HomeScreen] Error saving printed orders:', error);
+    }
+  }, []);
+
+  // Auto-print function that checks for new orders
+  // IMPORTANT: This must be defined BEFORE any useEffect that uses it in dependencies
+  const checkAndPrintNewOrders = useCallback(async () => {
+    // Only run if auto-print is enabled and printer is connected
+    if (!printerConfig?.auto_print_enabled || !isConnected) {
+      return;
+    }
+
+    // If already printing, skip
+    if (isPrintingRef.current) {
+      console.log('[HomeScreen] Already printing, skipping');
+      return;
+    }
+
+    console.log('[HomeScreen] Checking for orders to auto-print...');
+
+    // Check for orders from background task
+    try {
+      const ordersToPrintStr = await AsyncStorage.getItem(ORDERS_TO_PRINT_KEY);
+      if (ordersToPrintStr) {
+        const ordersToPrint: string[] = JSON.parse(ordersToPrintStr);
+        console.log('[HomeScreen] Found orders to print from background:', ordersToPrint.length);
+        
+        // Clear the list immediately to prevent re-printing
+        await AsyncStorage.removeItem(ORDERS_TO_PRINT_KEY);
+        
+        // Process each order
+        for (const orderId of ordersToPrint) {
+          // Skip if already printed
+          if (printedOrderIds.includes(orderId)) {
+            console.log('[HomeScreen] Order already printed, skipping:', orderId);
+            continue;
+          }
+
+          const order = orders.find(o => o.id === orderId);
+          if (order && order.status === 'pending') {
+            isPrintingRef.current = true;
+            
+            try {
+              console.log('[HomeScreen] Auto-printing order:', order.order_number);
+              const receiptText = generateReceiptText(order);
+              const autoCut = printerConfig?.auto_cut_enabled ?? true;
+              const textSize = printerConfig?.text_size || 'medium';
+              const encoding = printerConfig?.encoding || 'CP850';
+              
+              await printReceipt(receiptText, autoCut, textSize, encoding);
+              
+              // Mark as printed
+              const newPrintedIds = [...printedOrderIds, orderId];
+              setPrintedOrderIds(newPrintedIds);
+              await savePrintedOrders(newPrintedIds);
+              
+              console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
+              
+              // Small delay between prints
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } catch (error) {
+              console.error('[HomeScreen] Error auto-printing order:', error);
+            } finally {
+              isPrintingRef.current = false;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[HomeScreen] Error checking orders to print:', error);
+    }
+
+    // Check for new pending orders in the current list
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+    console.log('[HomeScreen] Found', pendingOrders.length, 'pending orders');
+    
+    for (const order of pendingOrders) {
+      // Skip if already printed or currently printing
+      if (printedOrderIds.includes(order.id) || isPrintingRef.current) {
+        continue;
+      }
+
+      isPrintingRef.current = true;
+      
+      try {
+        console.log('[HomeScreen] Auto-printing new order:', order.order_number);
+        const receiptText = generateReceiptText(order);
+        const autoCut = printerConfig?.auto_cut_enabled ?? true;
+        const textSize = printerConfig?.text_size || 'medium';
+        const encoding = printerConfig?.encoding || 'CP850';
+        
+        await printReceipt(receiptText, autoCut, textSize, encoding);
+        
+        // Mark as printed
+        const newPrintedIds = [...printedOrderIds, order.id];
+        setPrintedOrderIds(newPrintedIds);
+        await savePrintedOrders(newPrintedIds);
+        
+        console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
+      } catch (error) {
+        console.error('[HomeScreen] Error auto-printing order:', error);
+      } finally {
+        isPrintingRef.current = false;
+      }
+      
+      // Only print one order at a time, then wait for next check
+      break;
+    }
+  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, generateReceiptText, savePrintedOrders]);
+
   useEffect(() => {
     loadPrinterConfig();
   }, [loadPrinterConfig]);
@@ -496,193 +684,6 @@ export default function HomeScreen() {
       }
     };
   }, [isAuthenticated, user]);
-
-  // Generate receipt text - memoized with useCallback
-  const generateReceiptText = useCallback((order: Order): string => {
-    const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
-    
-    let receipt = '';
-    
-    if (printerConfig?.include_logo !== false) {
-      receipt += centerText('PEDIDO', width) + '\n';
-      receipt += '='.repeat(width) + '\n\n';
-    }
-    
-    receipt += `Pedido: ${order.order_number}\n`;
-    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-    receipt += `Fecha: ${formatDate(order.created_at)}\n`;
-    receipt += '-'.repeat(width) + '\n\n';
-    
-    if (printerConfig?.include_customer_info !== false) {
-      receipt += `Cliente: ${order.customer_name}\n`;
-      if (order.customer_phone) {
-        receipt += `Telefono: ${order.customer_phone}\n`;
-      }
-      if (order.customer_address) {
-        receipt += `Direccion: ${order.customer_address}\n`;
-      }
-      receipt += '-'.repeat(width) + '\n\n';
-    }
-    
-    receipt += 'PRODUCTOS:\n\n';
-    for (const item of order.items || []) {
-      const unit = getUnitFromNotes(item.notes);
-      const quantityStr = unit ? `${item.quantity}${unit}` : `${item.quantity}x`;
-      
-      receipt += `${quantityStr} ${item.product_name}\n`;
-      
-      if (item.notes) {
-        const cleanNotes = item.notes.replace(/\d+\s*(kg|gr|lt|ml|un|kilo|gramo|litro|unidad)/gi, '').trim();
-        if (cleanNotes) {
-          receipt += `  ${cleanNotes}\n`;
-        }
-      }
-      
-      if (item.unit_price > 0) {
-        receipt += `  ${formatCLP(item.unit_price)}\n`;
-      }
-      receipt += '\n';
-    }
-    
-    if (printerConfig?.include_totals !== false) {
-      receipt += '-'.repeat(width) + '\n';
-      const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
-      receipt += `TOTAL: ${formatCLP(total)}\n`;
-      
-      if (order.amount_paid > 0) {
-        receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
-        const pending = total - order.amount_paid;
-        if (pending > 0) {
-          receipt += `Pendiente: ${formatCLP(pending)}\n`;
-        }
-      }
-    }
-    
-    receipt += '\n' + '='.repeat(width) + '\n';
-    receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
-    
-    return receipt;
-  }, [printerConfig]);
-
-  const centerText = (text: string, width: number): string => {
-    const padding = Math.max(0, Math.floor((width - text.length) / 2));
-    return ' '.repeat(padding) + text;
-  };
-
-  // Save printed orders to AsyncStorage
-  const savePrintedOrders = useCallback(async (orderIds: string[]) => {
-    try {
-      await AsyncStorage.setItem(PRINTED_ORDERS_KEY, JSON.stringify(orderIds));
-      console.log('[HomeScreen] Saved printed orders:', orderIds.length);
-    } catch (error) {
-      console.error('[HomeScreen] Error saving printed orders:', error);
-    }
-  }, []);
-
-  // Auto-print function that checks for new orders
-  const checkAndPrintNewOrders = useCallback(async () => {
-    // Only run if auto-print is enabled and printer is connected
-    if (!printerConfig?.auto_print_enabled || !isConnected) {
-      return;
-    }
-
-    // If already printing, skip
-    if (isPrintingRef.current) {
-      console.log('[HomeScreen] Already printing, skipping');
-      return;
-    }
-
-    console.log('[HomeScreen] Checking for orders to auto-print...');
-
-    // Check for orders from background task
-    try {
-      const ordersToPrintStr = await AsyncStorage.getItem(ORDERS_TO_PRINT_KEY);
-      if (ordersToPrintStr) {
-        const ordersToPrint: string[] = JSON.parse(ordersToPrintStr);
-        console.log('[HomeScreen] Found orders to print from background:', ordersToPrint.length);
-        
-        // Clear the list immediately to prevent re-printing
-        await AsyncStorage.removeItem(ORDERS_TO_PRINT_KEY);
-        
-        // Process each order
-        for (const orderId of ordersToPrint) {
-          // Skip if already printed
-          if (printedOrderIds.includes(orderId)) {
-            console.log('[HomeScreen] Order already printed, skipping:', orderId);
-            continue;
-          }
-
-          const order = orders.find(o => o.id === orderId);
-          if (order && order.status === 'pending') {
-            isPrintingRef.current = true;
-            
-            try {
-              console.log('[HomeScreen] Auto-printing order:', order.order_number);
-              const receiptText = generateReceiptText(order);
-              const autoCut = printerConfig?.auto_cut_enabled ?? true;
-              const textSize = printerConfig?.text_size || 'medium';
-              const encoding = printerConfig?.encoding || 'CP850';
-              
-              await printReceipt(receiptText, autoCut, textSize, encoding);
-              
-              // Mark as printed
-              const newPrintedIds = [...printedOrderIds, orderId];
-              setPrintedOrderIds(newPrintedIds);
-              await savePrintedOrders(newPrintedIds);
-              
-              console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
-              
-              // Small delay between prints
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            } catch (error) {
-              console.error('[HomeScreen] Error auto-printing order:', error);
-            } finally {
-              isPrintingRef.current = false;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[HomeScreen] Error checking orders to print:', error);
-    }
-
-    // Check for new pending orders in the current list
-    const pendingOrders = orders.filter(o => o.status === 'pending');
-    console.log('[HomeScreen] Found', pendingOrders.length, 'pending orders');
-    
-    for (const order of pendingOrders) {
-      // Skip if already printed or currently printing
-      if (printedOrderIds.includes(order.id) || isPrintingRef.current) {
-        continue;
-      }
-
-      isPrintingRef.current = true;
-      
-      try {
-        console.log('[HomeScreen] Auto-printing new order:', order.order_number);
-        const receiptText = generateReceiptText(order);
-        const autoCut = printerConfig?.auto_cut_enabled ?? true;
-        const textSize = printerConfig?.text_size || 'medium';
-        const encoding = printerConfig?.encoding || 'CP850';
-        
-        await printReceipt(receiptText, autoCut, textSize, encoding);
-        
-        // Mark as printed
-        const newPrintedIds = [...printedOrderIds, order.id];
-        setPrintedOrderIds(newPrintedIds);
-        await savePrintedOrders(newPrintedIds);
-        
-        console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
-      } catch (error) {
-        console.error('[HomeScreen] Error auto-printing order:', error);
-      } finally {
-        isPrintingRef.current = false;
-      }
-      
-      // Only print one order at a time, then wait for next check
-      break;
-    }
-  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, generateReceiptText, savePrintedOrders]);
 
   // Set up periodic auto-print checking
   useEffect(() => {
