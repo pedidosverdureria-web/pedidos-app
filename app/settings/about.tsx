@@ -8,9 +8,10 @@ import {
   TouchableOpacity,
   Linking,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import * as Haptics from 'expo-haptics';
 
 export default function AboutScreen() {
   const appInfo = {
@@ -73,17 +74,23 @@ export default function AboutScreen() {
   ];
 
   const handleLinkPress = (url: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Linking.openURL(url).catch((err) =>
       console.error('Error opening URL:', err)
     );
+  };
+
+  const handleManualPress = (path: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(path as any);
   };
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'About',
-          headerBackTitle: 'Back',
+          title: 'Acerca de',
+          headerBackTitle: 'Atrás',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -99,6 +106,44 @@ export default function AboutScreen() {
 
         <View style={styles.descriptionCard}>
           <Text style={styles.description}>{appInfo.description}</Text>
+        </View>
+
+        {/* Manuals Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Manuales</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.manualItem}
+              onPress={() => handleManualPress('/settings/user-manual')}
+            >
+              <View style={[styles.manualIcon, { backgroundColor: '#3B82F6' }]}>
+                <IconSymbol name="book.fill" size={24} color="#FFFFFF" />
+              </View>
+              <View style={styles.manualContent}>
+                <Text style={styles.manualTitle}>Manual de Usuario</Text>
+                <Text style={styles.manualDescription}>
+                  Guía completa para usar todas las funciones de la aplicación
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.manualItem, styles.manualItemLast]}
+              onPress={() => handleManualPress('/settings/technical-manual')}
+            >
+              <View style={[styles.manualIcon, { backgroundColor: '#8B5CF6' }]}>
+                <IconSymbol name="wrench.and.screwdriver.fill" size={24} color="#FFFFFF" />
+              </View>
+              <View style={styles.manualContent}>
+                <Text style={styles.manualTitle}>Manual Técnico</Text>
+                <Text style={styles.manualDescription}>
+                  Configuración avanzada y administración del sistema
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -244,6 +289,38 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  manualItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  manualItemLast: {
+    borderBottomWidth: 0,
+  },
+  manualIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  manualContent: {
+    flex: 1,
+  },
+  manualTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  manualDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   featureItem: {
     flexDirection: 'row',
