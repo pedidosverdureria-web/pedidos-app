@@ -24,7 +24,8 @@ export const useOrders = (statusFilter?: OrderStatus) => {
         .from('orders')
         .select(`
           *,
-          items:order_items(*)
+          items:order_items(*),
+          queries:order_queries(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -40,6 +41,7 @@ export const useOrders = (statusFilter?: OrderStatus) => {
       const transformedOrders = (data || []).map((order: any) => ({
         ...order,
         items: order.items || [],
+        queries: order.queries || [],
       }));
 
       setOrders(transformedOrders);
@@ -122,6 +124,14 @@ export const useOrders = (statusFilter?: OrderStatus) => {
           { event: '*', schema: 'public', table: 'order_items' },
           (payload) => {
             console.log('Order items change detected:', payload);
+            fetchOrders();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'order_queries' },
+          (payload) => {
+            console.log('Order queries change detected:', payload);
             fetchOrders();
           }
         )
