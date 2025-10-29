@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Stack, router } from 'expo-router';
 import { usePrinter } from '@/hooks/usePrinter';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
-import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
+import { generateReceiptText, generateQueryReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ import {
   registerBackgroundAutoPrintTask, 
   unregisterBackgroundAutoPrintTask 
 } from '@/utils/backgroundAutoPrintTask';
+import { getSupabase } from '@/lib/supabase';
 
 const STATUS_FILTERS: (OrderStatus | 'all')[] = [
   'all',
@@ -303,6 +304,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
   const [printedOrderIds, setPrintedOrderIds] = useState<string[]>([]);
+  const [printedQueryIds, setPrintedQueryIds] = useState<string[]>([]);
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const notificationListenerRef = useRef<any>(null);
   const responseListenerRef = useRef<any>(null);
@@ -362,7 +364,7 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Auto-print function that checks for new orders
+  // Auto-print function that checks for new orders AND queries
   // IMPORTANT: This must be defined BEFORE any useEffect that uses it in dependencies
   const checkAndPrintNewOrders = useCallback(async () => {
     // Only run if auto-print is enabled and printer is connected
@@ -376,7 +378,7 @@ export default function HomeScreen() {
       return;
     }
 
-    console.log('[HomeScreen] Checking for orders to auto-print...');
+    console.log('[HomeScreen] Checking for orders and queries to auto-print...');
 
     // Check for orders from background task
     try {
@@ -492,7 +494,110 @@ export default function HomeScreen() {
       // Only print one order at a time, then wait for next check
       break;
     }
-  }, [orders, printerConfig, isConnected, printedOrderIds, printReceipt, savePrintedOrders]);
+
+    // NEW: Check for queries that need printing from the print_queue table
+    try {
+      const supabase = getSupabase();
+      
+      // Get pending queries from print queue
+      const { data: printQueue, error: queueError } = await supabase
+        .from('print_queue')
+        .select('*')
+        .eq('item_type', 'query')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true })
+        .limit(10);
+
+      if (queueError) {
+        console.error('[HomeScreen] Error fetching print queue:', queueError);
+      } else if (printQueue && printQueue.length > 0) {
+        console.log('[HomeScreen] Found', printQueue.length, 'queries to print');
+
+        for (const queueItem of printQueue) {
+          // Skip if already printed or currently printing
+          if (printedQueryIds.includes(queueItem.item_id) || isPrintingRef.current) {
+            continue;
+          }
+
+          isPrintingRef.current = true;
+
+          try {
+            // Fetch the query and order details
+            const { data: query, error: queryError } = await supabase
+              .from('order_queries')
+              .select('*, order:orders(*)')
+              .eq('id', queueItem.item_id)
+              .single();
+
+            if (queryError || !query || !query.order) {
+              console.error('[HomeScreen] Error fetching query:', queryError);
+              
+              // Mark as failed in print queue
+              await supabase
+                .from('print_queue')
+                .update({
+                  status: 'failed',
+                  error_message: 'Query or order not found',
+                })
+                .eq('id', queueItem.id);
+              
+              isPrintingRef.current = false;
+              continue;
+            }
+
+            console.log('[HomeScreen] Auto-printing query for order:', query.order.order_number);
+
+            // Generate query receipt
+            const receiptText = generateQueryReceiptText(
+              query.order,
+              query.query_text,
+              printerConfig
+            );
+            const autoCut = printerConfig?.auto_cut_enabled ?? true;
+            const textSize = printerConfig?.text_size || 'medium';
+            const encoding = printerConfig?.encoding || 'CP850';
+
+            await printReceipt(receiptText, autoCut, textSize, encoding);
+
+            // Mark as printed in print queue
+            await supabase
+              .from('print_queue')
+              .update({
+                status: 'printed',
+                printed_at: new Date().toISOString(),
+              })
+              .eq('id', queueItem.id);
+
+            // Add to printed queries list
+            setPrintedQueryIds(prev => [...prev, queueItem.item_id]);
+
+            console.log('[HomeScreen] Query auto-printed successfully');
+
+            // Small delay between prints
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } catch (error) {
+            console.error('[HomeScreen] Error auto-printing query:', error);
+
+            // Mark as failed in print queue
+            await supabase
+              .from('print_queue')
+              .update({
+                status: 'failed',
+                error_message: String(error),
+              })
+              .eq('id', queueItem.id);
+          } finally {
+            isPrintingRef.current = false;
+          }
+
+          // Only print one query at a time, then wait for next check
+          break;
+        }
+      }
+    } catch (error) {
+      console.error('[HomeScreen] Error checking queries to print:', error);
+    }
+  }, [orders, printerConfig, isConnected, printedOrderIds, printedQueryIds, printReceipt, savePrintedOrders]);
 
   useEffect(() => {
     loadPrinterConfig();

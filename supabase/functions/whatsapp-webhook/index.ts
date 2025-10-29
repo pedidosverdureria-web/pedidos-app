@@ -1209,6 +1209,37 @@ function extractCustomerName(contact: any, phone: string): string {
   return phone;
 }
 
+/**
+ * Adds query to print queue for auto-printing
+ * This marks the query for auto-printing when the app is active
+ */
+async function addQueryToPrintQueue(supabase: any, queryId: string) {
+  try {
+    console.log('[WhatsApp Webhook] Adding query to print queue:', queryId);
+    
+    // Get existing print queue
+    const QUERIES_TO_PRINT_KEY = '@queries_to_print';
+    
+    // We can't directly access AsyncStorage from Edge Function,
+    // so we'll use a database table to track queries that need printing
+    const { error } = await supabase
+      .from('print_queue')
+      .insert({
+        item_type: 'query',
+        item_id: queryId,
+        status: 'pending',
+      });
+    
+    if (error) {
+      console.error('[WhatsApp Webhook] Error adding query to print queue:', error);
+    } else {
+      console.log('[WhatsApp Webhook] Query added to print queue successfully');
+    }
+  } catch (error) {
+    console.error('[WhatsApp Webhook] Exception adding query to print queue:', error);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -1321,20 +1352,26 @@ serve(async (req) => {
         if (hasActiveOrder && !hasNewOrderKeyword && activeOrder) {
           console.log('Treating message as order query');
           
-          // Save query to database
-          const { error: queryError } = await supabase
+          // Save query to database with direction='incoming'
+          const { data: queryData, error: queryError } = await supabase
             .from('order_queries')
             .insert({
               order_id: activeOrder.id,
               customer_phone: customerPhone,
               query_text: messageText,
+              direction: 'incoming',
               whatsapp_message_id: messageId,
-            });
+            })
+            .select()
+            .single();
 
           if (queryError) {
             console.error('Error saving query:', queryError);
           } else {
-            console.log('Query saved successfully');
+            console.log('Query saved successfully with ID:', queryData.id);
+            
+            // Add query to print queue for auto-printing
+            await addQueryToPrintQueue(supabase, queryData.id);
           }
 
           // Send immediate acknowledgment message
