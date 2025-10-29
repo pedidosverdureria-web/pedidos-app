@@ -198,6 +198,7 @@ export const usePrinter = () => {
       startKeepAlive(connected, characteristic);
       
       console.log('[usePrinter] Connected successfully with keep-alive enabled');
+      console.log('[usePrinter] Printer will auto-reconnect on app restart');
     } catch (error) {
       console.error('[usePrinter] Connection error:', error);
       throw error;
@@ -241,6 +242,7 @@ export const usePrinter = () => {
       if (savedPrinter && !reconnectAttemptedRef.current) {
         const printerData = JSON.parse(savedPrinter);
         console.log('[usePrinter] Found saved printer, attempting to reconnect:', printerData.name);
+        console.log('[usePrinter] This enables automatic reconnection after app restart');
         reconnectAttemptedRef.current = true;
 
         // Request permissions first
@@ -276,12 +278,14 @@ export const usePrinter = () => {
             startKeepAlive(device, characteristic);
             
             console.log('[usePrinter] Auto-reconnected successfully to saved printer');
+            console.log('[usePrinter] Printer is now ready for auto-printing');
           } else {
             console.log('[usePrinter] Could not find printer characteristic on saved device');
             await device.cancelConnection();
           }
         } catch (error) {
           console.log('[usePrinter] Could not auto-reconnect to saved printer:', error);
+          console.log('[usePrinter] User can manually reconnect from printer settings');
           // Do not show alert here, just log the error
           // User can manually reconnect if needed
         }
@@ -293,7 +297,8 @@ export const usePrinter = () => {
 
   // Load saved printer on mount and try to reconnect
   useEffect(() => {
-    console.log('[usePrinter] Initializing');
+    console.log('[usePrinter] Initializing printer hook');
+    console.log('[usePrinter] Will attempt to auto-reconnect to saved printer');
     isMounted.current = true;
     requestPermissions();
     loadAndReconnectSavedPrinter();
@@ -313,7 +318,8 @@ export const usePrinter = () => {
         name: device.name,
       };
       await AsyncStorage.setItem(SAVED_PRINTER_KEY, JSON.stringify(printerData));
-      console.log('[usePrinter] Printer saved:', device.name);
+      console.log('[usePrinter] Printer saved to AsyncStorage:', device.name);
+      console.log('[usePrinter] Printer will auto-reconnect on next app launch');
     } catch (error) {
       console.error('[usePrinter] Error saving printer:', error);
     }
@@ -385,6 +391,8 @@ export const usePrinter = () => {
         
         // Clear saved printer
         await AsyncStorage.removeItem(SAVED_PRINTER_KEY);
+        console.log('[usePrinter] Printer removed from saved devices');
+        console.log('[usePrinter] Auto-reconnect disabled');
         
         // Reset reconnect flag
         reconnectAttemptedRef.current = false;

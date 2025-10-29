@@ -6,9 +6,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { WidgetProvider } from '@/contexts/WidgetContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { registerBackgroundNotificationTask } from '@/utils/backgroundNotificationTask';
 import { Platform } from 'react-native';
 
@@ -28,21 +27,22 @@ export default function RootLayout() {
   }, [loaded]);
 
   // Register background notification task on app startup
-  // CRITICAL: This ensures notifications work even when the screen is off
+  // This is CRITICAL for notifications to work with screen off
   useEffect(() => {
-    const registerNotificationTask = async () => {
+    const setupBackgroundNotifications = async () => {
       if (Platform.OS !== 'web') {
         try {
           console.log('[RootLayout] Registering background notification task...');
           await registerBackgroundNotificationTask();
           console.log('[RootLayout] Background notification task registered successfully');
+          console.log('[RootLayout] Notifications will now work with screen off');
         } catch (error) {
-          console.error('[RootLayout] Failed to register background notification task:', error);
+          console.error('[RootLayout] Error registering background notification task:', error);
         }
       }
     };
 
-    registerNotificationTask();
+    setupBackgroundNotifications();
   }, []);
 
   if (!loaded) {
@@ -50,44 +50,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <WidgetProvider>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="welcome" options={{ headerShown: false }} />
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="register" options={{ headerShown: false }} />
-            <Stack.Screen name="settings" options={{ headerShown: false }} />
-            <Stack.Screen name="stats" options={{ headerShown: false }} />
-            <Stack.Screen name="activity" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="modal"
-              options={{
-                presentation: 'modal',
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="formsheet"
-              options={{
-                presentation: 'formSheet',
-                headerShown: false,
-              }}
-            />
-            <Stack.Screen
-              name="transparent-modal"
-              options={{
-                presentation: 'transparentModal',
-                headerShown: false,
-              }}
-            />
-          </Stack>
-          <StatusBar style="auto" />
-        </WidgetProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </AuthProvider>
   );
 }

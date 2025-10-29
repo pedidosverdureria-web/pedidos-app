@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase';
 
 // Configure notification handler (only on native platforms)
 // This ensures notifications are shown with sound and vibration even when app is in foreground
+// CRITICAL: This configuration is essential for screen-off notifications
 if (Platform.OS !== 'web') {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
@@ -16,10 +17,14 @@ if (Platform.OS !== 'web') {
       shouldShowList: true,
     }),
   });
+  
+  console.log('[PushNotifications] Notification handler configured');
+  console.log('[PushNotifications] Notifications will show with sound and vibration');
 }
 
 /**
  * Register for push notifications and save the token to the database
+ * CRITICAL: This sets up notification channels with maximum priority for screen-off delivery
  */
 export async function registerForPushNotificationsAsync(userId: string): Promise<string | null> {
   // Push notifications are not supported on web
@@ -32,6 +37,7 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
 
   if (Platform.OS === 'android') {
     // Create default notification channel with high priority
+    // CRITICAL: MAX importance ensures notifications work with screen off
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Predeterminado',
       importance: Notifications.AndroidImportance.MAX,
@@ -46,6 +52,7 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     });
 
     // Create order notifications channel with maximum priority for background notifications
+    // CRITICAL: This channel is specifically designed for screen-off delivery
     await Notifications.setNotificationChannelAsync('orders', {
       name: 'Pedidos',
       description: 'Notificaciones de nuevos pedidos',
@@ -61,6 +68,7 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     });
 
     console.log('[PushNotifications] Android notification channels created with MAX priority');
+    console.log('[PushNotifications] Channels configured to work with screen off and DND mode');
   }
 
   if (Device.isDevice) {
@@ -68,6 +76,7 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     let finalStatus = existingStatus;
     
     if (existingStatus !== 'granted') {
+      console.log('[PushNotifications] Requesting notification permissions...');
       const { status } = await Notifications.requestPermissionsAsync({
         ios: {
           allowAlert: true,
@@ -84,6 +93,8 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
       console.log('[PushNotifications] Failed to get push token - permission not granted');
       return null;
     }
+    
+    console.log('[PushNotifications] Notification permissions granted');
     
     try {
       const pushToken = await Notifications.getExpoPushTokenAsync({
@@ -167,6 +178,7 @@ export async function sendLocalNotification(
 
   try {
     console.log('[PushNotifications] Sending local notification:', { title, body });
+    console.log('[PushNotifications] Notification configured for screen-off delivery');
     
     const notificationContent: Notifications.NotificationContentInput = {
       title,
@@ -199,7 +211,7 @@ export async function sendLocalNotification(
     });
     
     console.log('[PushNotifications] Local notification sent successfully');
-    console.log('[PushNotifications] Notification configured to work with screen off');
+    console.log('[PushNotifications] Notification will wake device and show with screen off');
   } catch (error) {
     console.error('[PushNotifications] Error sending local notification:', error);
   }
@@ -241,8 +253,10 @@ export async function notifyAdmins(
     }
 
     // Send local notification (only on native platforms)
+    // CRITICAL: This ensures notification works with screen off
     if (Platform.OS !== 'web') {
       await sendLocalNotification(title, message, { orderId: relatedOrderId });
+      console.log('[PushNotifications] Local notification sent to device');
     }
   } catch (error) {
     console.error('[PushNotifications] Error notifying admins:', error);
@@ -331,6 +345,26 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     });
     const granted = status === 'granted';
     console.log('[PushNotifications] Notification permissions:', granted ? 'granted' : 'denied');
+    
+    if (granted && Platform.OS === 'android') {
+      console.log('[PushNotifications] Setting up Android notification channels...');
+      // Set up notification channels after permission is granted
+      await Notifications.setNotificationChannelAsync('orders', {
+        name: 'Pedidos',
+        description: 'Notificaciones de nuevos pedidos',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 500, 250, 500],
+        lightColor: '#3B82F6',
+        sound: 'default',
+        enableVibrate: true,
+        enableLights: true,
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true,
+      });
+      console.log('[PushNotifications] Notification channels configured for screen-off delivery');
+    }
+    
     return granted;
   } catch (error) {
     console.error('[PushNotifications] Error requesting notification permissions:', error);
