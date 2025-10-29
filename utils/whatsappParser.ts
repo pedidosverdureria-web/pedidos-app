@@ -1,7 +1,7 @@
 
 /**
- * Simple WhatsApp Message Parser
- * Handles basic order formats
+ * Intelligent WhatsApp Message Parser
+ * Handles a wide variety of natural order formats
  */
 
 /**
@@ -14,36 +14,73 @@ export interface ParsedOrderItem {
 }
 
 /**
- * Parses a quantity value from a string
+ * Spanish number words mapping
  */
-export function parseQuantityValue(quantityStr: string): number {
-  if (!quantityStr || !quantityStr.trim()) {
-    return 0;
-  }
+const NUMBER_WORDS: Record<string, number> = {
+  'un': 1, 'uno': 1, 'una': 1,
+  'dos': 2,
+  'tres': 3,
+  'cuatro': 4,
+  'cinco': 5,
+  'seis': 6,
+  'siete': 7,
+  'ocho': 8,
+  'nueve': 9,
+  'diez': 10,
+  'once': 11,
+  'doce': 12,
+  'trece': 13,
+  'catorce': 14,
+  'quince': 15,
+  'veinte': 20,
+  'treinta': 30,
+  'cuarenta': 40,
+  'cincuenta': 50,
+};
 
-  const trimmed = quantityStr.trim().replace(',', '.');
+/**
+ * Spanish fraction words mapping
+ */
+const FRACTION_WORDS: Record<string, number> = {
+  'medio': 0.5, 'media': 0.5,
+  'cuarto': 0.25,
+  'tercio': 0.33,
+};
 
-  // Simple fraction (e.g., "1/2")
-  if (trimmed.includes('/')) {
-    const parts = trimmed.split('/');
-    if (parts.length === 2) {
-      const numerator = parseFloat(parts[0].trim());
-      const denominator = parseFloat(parts[1].trim());
-      
-      if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
-        return numerator / denominator;
-      }
+/**
+ * Common unit variations
+ */
+const UNIT_VARIATIONS: Record<string, string[]> = {
+  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
+  'gramo': ['gramo', 'gramos', 'gr', 'g'],
+  'unidad': ['unidad', 'unidades', 'u', 'und'],
+  'bolsa': ['bolsa', 'bolsas'],
+  'malla': ['malla', 'mallas'],
+  'saco': ['saco', 'sacos'],
+  'cajón': ['cajón', 'cajon', 'cajones'],
+  'atado': ['atado', 'atados'],
+  'cabeza': ['cabeza', 'cabezas'],
+  'libra': ['libra', 'libras', 'lb', 'lbs'],
+  'docena': ['docena', 'docenas'],
+  'paquete': ['paquete', 'paquetes'],
+  'caja': ['caja', 'cajas'],
+};
+
+/**
+ * Checks if a word is a known unit
+ */
+function isKnownUnit(word: string): boolean {
+  if (!word) return false;
+
+  const normalized = word.toLowerCase().trim().replace(/[.,;:!?]$/, '');
+
+  for (const variations of Object.values(UNIT_VARIATIONS)) {
+    if (variations.includes(normalized)) {
+      return true;
     }
   }
 
-  // Number (decimal or integer)
-  const numValue = parseFloat(trimmed);
-  if (!isNaN(numValue)) {
-    return numValue;
-  }
-
-  console.warn(`Could not parse quantity: "${quantityStr}"`);
-  return 0;
+  return false;
 }
 
 /**
@@ -55,31 +92,122 @@ export function normalizeUnit(unit: string, quantity: number = 1): string {
   }
 
   const normalized = unit.toLowerCase().trim().replace(/[.,;:!?]$/, '');
-  
-  // Basic unit mappings
-  const unitMap: Record<string, string> = {
-    'kilo': 'kilo',
-    'kilos': 'kilos',
-    'kg': 'kilo',
-    'kgs': 'kilos',
-    'k': 'kilo',
-    'gramo': 'gramo',
-    'gramos': 'gramos',
-    'gr': 'gramo',
-    'g': 'gramo',
-    'unidad': 'unidad',
-    'unidades': 'unidades',
-    'u': 'unidad',
-    'und': 'unidad',
-    'bolsa': 'bolsa',
-    'bolsas': 'bolsas',
-    'malla': 'malla',
-    'mallas': 'mallas',
-    'saco': 'saco',
-    'sacos': 'sacos',
-  };
-  
-  return unitMap[normalized] || normalized;
+
+  for (const [standardUnit, variations] of Object.entries(UNIT_VARIATIONS)) {
+    if (variations.includes(normalized)) {
+      if (quantity === 1) {
+        return standardUnit;
+      } else {
+        // Handle pluralization
+        if (standardUnit === 'cajón') return 'cajones';
+        if (standardUnit.endsWith('z')) return standardUnit.slice(0, -1) + 'ces';
+        return standardUnit + 's';
+      }
+    }
+  }
+
+  // Return as-is if not found
+  return normalized;
+}
+
+/**
+ * Converts a number word to its numeric value
+ */
+function convertNumberWord(word: string): number | null {
+  const normalized = word.toLowerCase().trim();
+  return NUMBER_WORDS[normalized] ?? null;
+}
+
+/**
+ * Converts a fraction word to its numeric value
+ */
+function convertFractionWord(word: string): number | null {
+  const normalized = word.toLowerCase().trim();
+  return FRACTION_WORDS[normalized] ?? null;
+}
+
+/**
+ * Parses a quantity value from a string with enhanced intelligence
+ */
+export function parseQuantityValue(quantityStr: string): number {
+  if (!quantityStr || !quantityStr.trim()) {
+    return 0;
+  }
+
+  const trimmed = quantityStr.trim().toLowerCase();
+
+  // Handle "y medio" or "y media" patterns (e.g., "1 y medio", "2 y media")
+  const yMedioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media)$/);
+  if (yMedioMatch) {
+    const integer = parseFloat(yMedioMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.5;
+    }
+  }
+
+  // Handle "y cuarto" patterns (e.g., "1 y cuarto")
+  const yCuartoMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*cuarto$/);
+  if (yCuartoMatch) {
+    const integer = parseFloat(yCuartoMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.25;
+    }
+  }
+
+  // Handle "y tercio" patterns (e.g., "1 y tercio")
+  const yTercioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*tercio$/);
+  if (yTercioMatch) {
+    const integer = parseFloat(yTercioMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.33;
+    }
+  }
+
+  // Combined integer and fraction with space (e.g., "1 1/2")
+  const combinedSpaceMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (combinedSpaceMatch) {
+    const integer = parseFloat(combinedSpaceMatch[1]);
+    const numerator = parseFloat(combinedSpaceMatch[2]);
+    const denominator = parseFloat(combinedSpaceMatch[3]);
+    
+    if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+      return integer + (numerator / denominator);
+    }
+  }
+
+  // Simple fraction (e.g., "1/2", "3/4")
+  if (trimmed.includes('/')) {
+    const parts = trimmed.split('/');
+    if (parts.length === 2) {
+      const numerator = parseFloat(parts[0].trim());
+      const denominator = parseFloat(parts[1].trim());
+
+      if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+        return numerator / denominator;
+      }
+    }
+  }
+
+  // Number (decimal or integer) - handle both comma and period
+  const numValue = parseFloat(trimmed.replace(',', '.'));
+  if (!isNaN(numValue)) {
+    return numValue;
+  }
+
+  // Text number (e.g., "dos", "tres")
+  const textValue = convertNumberWord(trimmed);
+  if (textValue !== null) {
+    return textValue;
+  }
+
+  // Fraction word (e.g., "medio", "cuarto")
+  const fractionValue = convertFractionWord(trimmed);
+  if (fractionValue !== null) {
+    return fractionValue;
+  }
+
+  console.warn(`Could not parse quantity: "${quantityStr}"`);
+  return 0;
 }
 
 /**
@@ -88,32 +216,33 @@ export function normalizeUnit(unit: string, quantity: number = 1): string {
 function cleanSegment(segment: string): string {
   return segment
     .trim()
-    .replace(/^[-•*·]\s*/, '')
-    .replace(/^\d+[.)]\s*/, '')
+    .replace(/^[-•*·→➤➢▸▹►▻⇒⇨⇾⟹⟶⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿]\s*/, '')
+    .replace(/^\d+[.)]\s*/, '') // Remove numbered list markers (1. or 1))
+    .replace(/^[a-z][.)]\s*/i, '') // Remove lettered list markers (a. or a))
     .trim();
 }
 
 /**
- * Parses a single segment
+ * Advanced segment parser with multiple intelligent strategies
  */
 function parseSegment(segment: string): ParsedOrderItem {
   const trimmed = segment.trim();
-  
+
   if (!trimmed) {
     return { quantity: '#', unit: '', product: trimmed };
   }
 
   const cleaned = cleanSegment(trimmed);
-  
+
   if (!cleaned) {
     return { quantity: '#', unit: '', product: trimmed };
   }
 
-  // Pattern 1: Cantidad + Unidad + "de" + Producto
-  // Examples: "3 kilos de tomates", "2 kg de papas"
-  let match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)\s+de\s+(.+)$/i);
+  // Strategy 1: Integer + Space + Fraction + Unit + "de" + Product
+  // Examples: "1 1/2 kilo de manzanas", "2 3/4 kg de papas"
+  let match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
-    const quantityStr = match[1].replace(',', '.');
+    const quantityStr = match[1];
     const quantity = parseQuantityValue(quantityStr);
     const unitStr = match[2];
     const product = match[3].trim();
@@ -124,59 +253,221 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Pattern 2: Cantidad + Unidad + Producto (sin "de")
-  // Examples: "3 kilos tomates", "2 kg papas"
-  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)\s+(.+)$/i);
+  // Strategy 2: Integer + Space + Fraction + "de" + Product (no explicit unit)
+  // Examples: "1 1/2 de manzanas", "2 3/4 de papas"
+  match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+de\s+(.+)$/i);
   if (match) {
-    const quantityStr = match[1].replace(',', '.');
-    const quantity = parseQuantityValue(quantityStr);
-    const unitStr = match[2];
-    const product = match[3].trim();
-    
-    if (quantity > 0 && product) {
-      const unit = normalizeUnit(unitStr, quantity);
-      return { quantity, unit, product };
-    }
-  }
-
-  // Pattern 3: Cantidad + Producto (sin unidad)
-  // Examples: "3 tomates", "5 pepinos"
-  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(.+)$/i);
-  if (match) {
-    const quantityStr = match[1].replace(',', '.');
+    const quantityStr = match[1];
     const quantity = parseQuantityValue(quantityStr);
     const product = match[2].trim();
     
     if (quantity > 0 && product) {
+      const unit = normalizeUnit('kilo', quantity); // Default to kilo for mixed fractions
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 3: Quantity + "y medio/media/cuarto/tercio" + Unit + "de" + Product
+  // Examples: "1 y medio kilo de manzanas", "2 y media libras de papas"
+  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const baseQuantity = parseFloat(match[1]);
+    const fractionWord = match[2].toLowerCase();
+    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    const quantity = baseQuantity + fractionValue;
+    const unitStr = match[3];
+    const product = match[4].trim();
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 4: Quantity + "y medio/media/cuarto/tercio" + "de" + Product (no explicit unit)
+  // Examples: "1 y medio de manzanas", "2 y media de papas"
+  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
+  if (match) {
+    const baseQuantity = parseFloat(match[1]);
+    const fractionWord = match[2].toLowerCase();
+    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    const quantity = baseQuantity + fractionValue;
+    const product = match[3].trim();
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit('kilo', quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 5: Fraction word + Unit + "de" + Product
+  // Examples: "medio kilo de papas", "un cuarto de lechuga"
+  match = cleaned.match(/^(medio|media|cuarto|tercio|un|uno|una)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityWord = match[1].toLowerCase();
+    const unitStr = match[2];
+    const product = match[3].trim();
+
+    let quantity = 1;
+    if (quantityWord === 'medio' || quantityWord === 'media') {
+      quantity = 0.5;
+    } else if (quantityWord === 'cuarto') {
+      quantity = 0.25;
+    } else if (quantityWord === 'tercio') {
+      quantity = 0.33;
+    }
+
+    if (product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 6: Fraction word + "de" + Product (no explicit unit)
+  // Examples: "medio de papas", "un cuarto de lechuga"
+  match = cleaned.match(/^(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityWord = match[1].toLowerCase();
+    const product = match[2].trim();
+
+    let quantity = 0.5;
+    if (quantityWord === 'cuarto') {
+      quantity = 0.25;
+    } else if (quantityWord === 'tercio') {
+      quantity = 0.33;
+    }
+
+    if (product) {
+      const unit = normalizeUnit('kilo', quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 7: Quantity + Unit + "de" + Product
+  // Examples: "3 kilos de tomates", "2 kg de papas", "dos kilos de cebollas"
+  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1].replace(',', '.');
+    const quantity = parseQuantityValue(quantityStr);
+    const unitStr = match[2];
+    const product = match[3].trim();
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 8: Quantity + Unit + Product (no "de")
+  // Examples: "3 kilos tomates", "2 kg papas"
+  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1].replace(',', '.');
+    const potentialUnit = match[2];
+
+    if (isKnownUnit(potentialUnit)) {
+      const quantity = parseQuantityValue(quantityStr);
+      const product = match[3].trim();
+
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit(potentialUnit, quantity);
+        return { quantity, unit, product };
+      }
+    }
+  }
+
+  // Strategy 9: Quantity + Product (no explicit unit)
+  // Examples: "3 tomates", "5 pepinos", "dos lechugas"
+  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1].replace(',', '.');
+    const quantity = parseQuantityValue(quantityStr);
+    const restOfText = match[2].trim();
+
+    const firstWord = restOfText.split(/\s+/)[0];
+    if (quantity > 0 && restOfText && !isKnownUnit(firstWord)) {
+      const unit = normalizeUnit('', quantity);
+      return { quantity, unit, product: restOfText };
+    }
+  }
+
+  // Strategy 10: Product + Quantity + Unit (reversed order)
+  // Examples: "tomates 3 kilos", "papas 2 kg"
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)$/i);
+  if (match) {
+    const product = match[1].trim();
+    const quantityStr = match[2].replace(',', '.');
+    const unitStr = match[3];
+
+    if (isKnownUnit(unitStr)) {
+      const quantity = parseQuantityValue(quantityStr);
+
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit(unitStr, quantity);
+        return { quantity, unit, product };
+      }
+    }
+  }
+
+  // Strategy 11: Product + Quantity (no unit, reversed order)
+  // Examples: "tomates 3", "pepinos 5"
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)$/i);
+  if (match) {
+    const product = match[1].trim();
+    const quantityStr = match[2].replace(',', '.');
+    const quantity = parseQuantityValue(quantityStr);
+
+    if (quantity > 0 && product && !isKnownUnit(product.split(/\s+/).pop() || '')) {
       const unit = normalizeUnit('', quantity);
       return { quantity, unit, product };
     }
   }
 
-  // Pattern 4: Solo Producto (default to 1 unit)
-  // Examples: "tomates", "cilantro"
-  if (cleaned.length > 0 && !cleaned.match(/^\d/)) {
+  // Strategy 12: Unit + "de" + Product (no explicit quantity, assume 1)
+  // Examples: "kilo de tomates", "bolsa de papas"
+  match = cleaned.match(/^(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const unitStr = match[1];
+    const product = match[2].trim();
+
+    if (isKnownUnit(unitStr) && product) {
+      const quantity = 1;
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 13: Just Product (default to 1 unit)
+  // Examples: "tomates", "cilantro", "lechuga"
+  if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
     return { quantity: 1, unit: 'unidad', product: cleaned };
   }
 
-  // Fallback: unparseable item
+  // Fallback: unparseable item with "#" quantity
   console.warn(`Could not parse: "${cleaned}"`);
   return { quantity: '#', unit: '', product: cleaned };
 }
 
 /**
- * Splits a line into segments
+ * Splits a line into multiple segments
  */
 function splitLineIntoSegments(line: string): string[] {
   const trimmed = line.trim();
-  
+
   if (!trimmed) {
     return [];
   }
 
-  // Split by commas or semicolons
-  if (trimmed.match(/[,;]/)) {
-    return trimmed.split(/[,;]/).map(s => s.trim()).filter(s => s.length > 0);
+  // Split by commas, semicolons, or pipe characters
+  if (trimmed.match(/[,;|]/)) {
+    return trimmed.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 0);
+  }
+
+  // Check for multiple items on same line with "y" separator
+  // Only split if "y" is followed by a number or quantity word
+  const yPattern = /\s+y\s+(?=\d|medio|media|cuarto|tercio|un|uno|una|dos|tres|cuatro|cinco)/i;
+  if (yPattern.test(trimmed)) {
+    return trimmed.split(yPattern).map(s => s.trim()).filter(s => s.length > 0);
   }
 
   return [trimmed];
@@ -194,29 +485,32 @@ export function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
   const lines = message.split('\n');
   const orderItems: ParsedOrderItem[] = [];
 
-  console.log(`\n========== PARSING ${lines.length} LINES ==========`);
+  console.log(`\n========== INTELLIGENT PARSING (${lines.length} lines) ==========`);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    
+
     if (!line) {
       continue;
     }
 
+    console.log(`\n--- Line ${i + 1}: "${line}"`);
+
     const segments = splitLineIntoSegments(line);
+    console.log(`  Segments: ${segments.length}`);
 
     for (const segment of segments) {
       try {
         const parsedItem = parseSegment(segment);
         orderItems.push(parsedItem);
-        
+
         if (parsedItem.quantity === '#') {
-          console.log(`⚠ Unparseable: "${segment}"`);
+          console.log(`  ⚠ Unparseable: "${segment}"`);
         } else {
-          console.log(`✓ Parsed: "${segment}" → ${parsedItem.quantity} ${parsedItem.unit} de ${parsedItem.product}`);
+          console.log(`  ✓ Success: "${segment}" → ${parsedItem.quantity} ${parsedItem.unit} de ${parsedItem.product}`);
         }
       } catch (error) {
-        console.error(`Error parsing segment "${segment}":`, error);
+        console.error(`  ✗ Error parsing segment "${segment}":`, error);
         orderItems.push({ quantity: '#', unit: '', product: segment });
       }
     }
