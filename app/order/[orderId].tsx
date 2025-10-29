@@ -511,29 +511,37 @@ function getUnitFromNotes(notes: string | null | undefined): string {
 function formatProductDisplay(item: OrderItem): string {
   const unit = getUnitFromNotes(item.notes);
   
+  // Handle unparseable items with "#" quantity
+  if (item.quantity === '#') {
+    return `# ${item.product_name} ⚠️`;
+  }
+  
+  // Convert quantity to number for comparison
+  const quantityNum = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
+  
   // Determine the unit text
   let unitText = '';
   if (unit === 'kg' || unit === 'kilo' || unit === 'kilos') {
-    unitText = item.quantity === 1 ? 'kilo' : 'kilos';
+    unitText = quantityNum === 1 ? 'kilo' : 'kilos';
   } else if (unit === 'gr' || unit === 'gramo' || unit === 'gramos') {
-    unitText = item.quantity === 1 ? 'gramo' : 'gramos';
+    unitText = quantityNum === 1 ? 'gramo' : 'gramos';
   } else if (unit === 'lt' || unit === 'litro' || unit === 'litros') {
-    unitText = item.quantity === 1 ? 'litro' : 'litros';
+    unitText = quantityNum === 1 ? 'litro' : 'litros';
   } else if (unit === 'ml') {
     unitText = 'ml';
   } else if (unit === 'un' || unit === 'unidad' || unit === 'unidades') {
-    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+    unitText = quantityNum === 1 ? 'unidad' : 'unidades';
   } else if (unit) {
     // For any other unit (like malla, docena, etc.), use it directly
     // Check if it needs pluralization
-    if (item.quantity === 1) {
+    if (quantityNum === 1) {
       unitText = unit;
     } else {
       // Simple pluralization: add 's' if doesn't end with 's'
       unitText = unit.endsWith('s') ? unit : unit + 's';
     }
   } else {
-    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+    unitText = quantityNum === 1 ? 'unidad' : 'unidades';
   }
   
   return `${item.quantity} ${unitText} de ${item.product_name}`;
@@ -813,11 +821,26 @@ export default function OrderDetailScreen() {
 
     try {
       const supabase = getSupabase();
+      
+      // Handle "#" quantity or numeric quantity
+      let quantityValue: string | number;
+      if (productQuantity.trim() === '#') {
+        quantityValue = '#';
+      } else {
+        const parsed = parseFloat(productQuantity);
+        if (isNaN(parsed) || parsed <= 0) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          Alert.alert('⚠️ Atención', 'La cantidad debe ser un número válido mayor a 0 o "#"');
+          return;
+        }
+        quantityValue = parsed;
+      }
+      
       const { error } = await supabase
         .from('order_items')
         .update({
           product_name: productName,
-          quantity: parseFloat(productQuantity),
+          quantity: quantityValue,
           unit_price: parseFloat(productPrice) || 0,
           notes: productNotes,
         })

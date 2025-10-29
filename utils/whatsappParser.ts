@@ -4,13 +4,14 @@
  * Supports multiple formats for parsing order items from WhatsApp messages
  * Enhanced to handle combined integers and fractions (e.g., "1 kilo y medio", "1 1/2")
  * Enhanced to handle combined quantity and product without spaces (e.g., "1lechuga", "lechuga1")
+ * Enhanced to create products with "#" quantity when parsing fails
  */
 
 /**
  * Represents a parsed order item from a WhatsApp message.
  */
 export interface ParsedOrderItem {
-  quantity: number;
+  quantity: number | string; // Can be number or "#" for unparseable items
   unit: string;
   product: string;
 }
@@ -227,22 +228,23 @@ export function normalizeUnit(unit: string, quantity: number = 1): string {
  * Parses a single line or segment from the WhatsApp message
  * Supports multiple formats including combined integers and fractions
  * Enhanced to handle combined quantity and product without spaces
+ * Enhanced to create products with "#" quantity when parsing fails
  * IMPORTANT: Patterns are ordered from most specific to least specific to avoid incorrect matches
  * @param segment - The segment to parse
- * @returns Parsed order item or null if parsing fails
+ * @returns Parsed order item (never null - returns unparseable item with "#" quantity if parsing fails)
  */
-function parseSegment(segment: string): ParsedOrderItem | null {
+function parseSegment(segment: string): ParsedOrderItem {
   const trimmed = segment.trim();
   
   if (!trimmed) {
-    return null;
+    return { quantity: '#', unit: '', product: trimmed };
   }
 
   // Remove common separators and clean up
   const cleaned = trimmed.replace(/^[-•*]\s*/, '').trim();
   
   if (!cleaned) {
-    return null;
+    return { quantity: '#', unit: '', product: trimmed };
   }
 
   // Try different parsing patterns
@@ -543,8 +545,9 @@ function parseSegment(segment: string): ParsedOrderItem | null {
     return { quantity: 1, unit: 'unidad', product: cleaned };
   }
 
-  console.warn(`✗ Could not parse segment: "${cleaned}"`);
-  return null;
+  // If no pattern matched, create an unparseable item with "#" quantity
+  console.warn(`✗ Could not parse segment: "${cleaned}" - creating unparseable item with "#" quantity`);
+  return { quantity: '#', unit: '', product: cleaned };
 }
 
 /**
@@ -595,16 +598,8 @@ function splitLineIntoSegments(line: string): string[] {
     return [trimmed];
   }
   
-  // Validate that we actually split correctly (each segment should be parseable)
-  const validSegments = segments.filter(seg => {
-    const parsed = parseSegment(seg);
-    return parsed !== null;
-  });
-  
-  // If splitting didn't work well, return the original line
-  if (validSegments.length === 0) {
-    return [trimmed];
-  }
+  // Validate that we actually split correctly (each segment should be parseable or will be marked with #)
+  // We now always return items, so no need to filter
   
   return segments;
 }
@@ -613,8 +608,9 @@ function splitLineIntoSegments(line: string): string[] {
  * Parses a WhatsApp message into a list of order items
  * Supports all specified formats including combined integers and fractions
  * Enhanced to handle combined quantity and product without spaces
+ * Enhanced to create products with "#" quantity when parsing fails
  * @param message - The WhatsApp message to parse
- * @returns An array of parsed order items
+ * @returns An array of parsed order items (never empty - unparseable items get "#" quantity)
  */
 export function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
   if (!message || !message.trim()) {
@@ -640,14 +636,18 @@ export function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
       try {
         const parsedItem = parseSegment(segment);
         
-        if (parsedItem) {
-          orderItems.push(parsedItem);
-          console.log(`✓ Parsed: "${segment}" →`, parsedItem);
+        // Always add the item (even if it has "#" quantity)
+        orderItems.push(parsedItem);
+        
+        if (parsedItem.quantity === '#') {
+          console.log(`⚠ Unparseable: "${segment}" → Created with "#" quantity`);
         } else {
-          console.warn(`✗ Could not parse: "${segment}"`);
+          console.log(`✓ Parsed: "${segment}" →`, parsedItem);
         }
       } catch (error) {
         console.error(`✗ Error parsing segment "${segment}":`, error);
+        // Even on error, create an unparseable item
+        orderItems.push({ quantity: '#', unit: '', product: segment });
       }
     }
   }
@@ -745,6 +745,11 @@ export function testParser() {
     '1 cesta de manzanas',
     '2 gamelas de papas',
     '5 unds de tomates',
+    
+    // Unparseable items (should get "#" quantity)
+    'xyz123abc',
+    '!!!',
+    'producto extraño @#$',
   ];
 
   console.log('=== WhatsApp Parser Test ===\n');
@@ -773,7 +778,9 @@ medio kilo de uvas
 1lechuga
 2tomates
 lechuga1
-tomates2`;
+tomates2
+producto extraño @#$
+xyz123`;
   
   console.log('Input:');
   console.log(multiLineMessage);

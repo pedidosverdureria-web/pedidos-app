@@ -21,7 +21,7 @@ export interface OrderItem {
   id: string;
   order_id: string;
   product_name: string;
-  quantity: number;
+  quantity: number | string; // Can be a number or "#" for unparseable items
   unit_price: number;
   total_price: number;
   notes?: string;
@@ -111,7 +111,7 @@ export interface CreateOrderInput {
   notes?: string;
   items: {
     product_name: string;
-    quantity: number;
+    quantity: number | string; // Can be a number or "#" for unparseable items
     unit_price: number;
     notes?: string;
   }[];

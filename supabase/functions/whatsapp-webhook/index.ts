@@ -290,18 +290,19 @@ function normalizeUnit(unit: string, quantity: number = 1): string {
  * Returns parsed item and detected unknown unit (if any)
  * Enhanced to handle combined integers and fractions
  * Enhanced to handle combined quantity and product without spaces
+ * Enhanced to create products with "#" quantity when parsing fails
  */
-function parseSegment(segment: string): { item: any, unknownUnit?: string } | null {
+function parseSegment(segment: string): { item: any, unknownUnit?: string } {
   const trimmed = segment.trim();
 
   if (!trimmed) {
-    return null;
+    return { item: { quantity: '#', unit: '', product: trimmed } };
   }
 
   const cleaned = trimmed.replace(/^[-•*]\s*/, '').trim();
 
   if (!cleaned) {
-    return null;
+    return { item: { quantity: '#', unit: '', product: trimmed } };
   }
 
   // NEW Pattern: Quantity + Product (no space) - e.g., "1lechuga", "2tomates", "3papas"
@@ -625,8 +626,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } | nu
     return { item: { quantity: 1, unit: 'unidad', product: cleaned } };
   }
 
-  console.warn(`Could not parse segment: "${cleaned}"`);
-  return null;
+  // If no pattern matched, create an unparseable item with "#" quantity
+  console.warn(`Could not parse segment: "${cleaned}" - creating unparseable item with "#" quantity`);
+  return { item: { quantity: '#', unit: '', product: cleaned } };
 }
 
 /**
@@ -668,33 +670,24 @@ function splitLineIntoSegments(line: string): string[] {
     return [trimmed];
   }
 
-  const validSegments = segments.filter(seg => {
-    const parsed = parseSegment(seg);
-    return parsed !== null;
-  });
-
-  if (validSegments.length === 0) {
-    return [trimmed];
-  }
-
   return segments;
 }
 
 /**
  * Parses a WhatsApp message into a list of order items
- * Returns items, list of unknown units detected, and list of unparseable lines
+ * Returns items and list of unknown units detected
  * Enhanced to handle combined quantity and product without spaces
+ * Enhanced to create products with "#" quantity when parsing fails
  */
-function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: string[], unparseableLines: string[] } {
+function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: string[] } {
   if (!message || !message.trim()) {
     console.warn('Empty message provided');
-    return { items: [], unknownUnits: [], unparseableLines: [] };
+    return { items: [], unknownUnits: [] };
   }
 
   const lines = message.split('\n');
   const orderItems: any[] = [];
   const unknownUnits: string[] = [];
-  const unparseableLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -704,33 +697,31 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
     }
 
     const segments = splitLineIntoSegments(line);
-    let lineHadSuccessfulParse = false;
 
     for (const segment of segments) {
       try {
         const parsed = parseSegment(segment);
 
-        if (parsed) {
-          orderItems.push(parsed.item);
-          lineHadSuccessfulParse = true;
-          if (parsed.unknownUnit && !unknownUnits.includes(parsed.unknownUnit)) {
-            unknownUnits.push(parsed.unknownUnit);
-          }
+        // Always add the item (even if it has "#" quantity)
+        orderItems.push(parsed.item);
+        
+        if (parsed.unknownUnit && !unknownUnits.includes(parsed.unknownUnit)) {
+          unknownUnits.push(parsed.unknownUnit);
+        }
+        
+        if (parsed.item.quantity === '#') {
+          console.log(`⚠ Unparseable: "${segment}" → Created with "#" quantity`);
+        } else {
           console.log(`✓ Parsed: "${segment}" →`, parsed.item);
           if (parsed.unknownUnit) {
             console.log(`  ⚠ Unknown unit detected: "${parsed.unknownUnit}"`);
           }
-        } else {
-          console.warn(`✗ Could not parse: "${segment}"`);
         }
       } catch (error) {
         console.error(`✗ Error parsing segment "${segment}":`, error);
+        // Even on error, create an unparseable item
+        orderItems.push({ quantity: '#', unit: '', product: segment });
       }
-    }
-
-    // If no segment from this line was successfully parsed, add to unparseable lines
-    if (!lineHadSuccessfulParse && line.length > 0) {
-      unparseableLines.push(line);
     }
   }
 
@@ -738,11 +729,8 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
   if (unknownUnits.length > 0) {
     console.log(`Detected ${unknownUnits.length} unknown units:`, unknownUnits);
   }
-  if (unparseableLines.length > 0) {
-    console.log(`Could not parse ${unparseableLines.length} lines:`, unparseableLines);
-  }
   
-  return { items: orderItems, unknownUnits, unparseableLines };
+  return { items: orderItems, unknownUnits };
 }
 
 /**
@@ -817,7 +805,9 @@ function formatCLP(amount: number): string {
 function formatItemsList(items: any[], showPrices: boolean = false): string {
   return items.map((item) => {
     const priceText = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    return `${item.quantity} ${item.unit} de ${item.product}`;
+    const quantityDisplay = item.quantity === '#' ? '#' : item.quantity;
+    const unitDisplay = item.unit ? ` ${item.unit}` : '';
+    return `${quantityDisplay}${unitDisplay} de ${item.product}`;
   }).join('\n');
 }
 
@@ -827,6 +817,10 @@ function formatItemsList(items: any[], showPrices: boolean = false): string {
 function createConfirmationMessage(customerName: string, orderNumber: string, items: any[]): string {
   const itemsList = formatItemsList(items, false);
   
+  // Check if there are any unparseable items
+  const hasUnparseableItems = items.some(item => item.quantity === '#');
+  const unparseableNote = hasUnparseableItems ? '\n\n⚠️ *Nota:* Algunos productos tienen cantidad "#" porque no pudieron ser procesados correctamente. Por favor revisa tu pedido y confirma las cantidades.' : '';
+  
   return `✅ *¡Pedido Recibido!*
 
 Hola ${customerName}, hemos recibido tu pedido correctamente.
@@ -834,43 +828,13 @@ Hola ${customerName}, hemos recibido tu pedido correctamente.
 📋 *Número de pedido:* ${orderNumber}
 
 📦 *Productos solicitados:*
-${itemsList}
+${itemsList}${unparseableNote}
 
 💰 Los precios se asignarán y te confirmaremos el total cuando tu pedido esté en preparación.
 
 Te mantendremos informado sobre el estado de tu pedido. ⏰
 
 ¡Gracias por tu preferencia! 😊`;
-}
-
-/**
- * Creates parsing error message for unparseable products
- */
-function createParsingErrorMessage(customerName: string, unparseableLines: string[]): string {
-  const unparseableList = unparseableLines.map(line => `- ${line}`).join('\n');
-  
-  return `⚠️ *Algunos productos no pudieron ser procesados*
-
-Hola ${customerName}, recibimos tu mensaje pero algunos productos no pudieron ser ingresados correctamente.
-
-❌ *Productos no procesados:*
-${unparseableList}
-
-📝 *Por favor, intenta con un formato diferente:*
-
-*Ejemplos válidos:*
-- 3 kilos de tomates
-- 2 kilos de palta
-- 5 pepinos
-- 1 cilantro
-- 1/2 kilo de papas
-- 2 docenas de huevos
-- 1lechuga
-- tomates2
-
-💡 *Tip:* Puedes escribir cada producto en una línea separada o usar comas para separarlos.
-
-¡Gracias por tu comprensión! 😊`;
 }
 
 /**
@@ -1012,6 +976,8 @@ ${itemsList}${additionalInfo}
  */
 function createProductAddedMessage(customerName: string, orderNumber: string, addedProduct: any, allItems: any[]): string {
   const itemsList = formatItemsList(allItems, false);
+  const quantityDisplay = addedProduct.quantity === '#' ? '#' : addedProduct.quantity;
+  const unitDisplay = addedProduct.unit ? ` ${addedProduct.unit}` : '';
 
   return `➕ *Producto Agregado*
 
@@ -1020,7 +986,7 @@ Hola ${customerName}, se ha agregado un producto a tu pedido.
 📋 *Número de pedido:* ${orderNumber}
 
 ✨ *Producto agregado:*
-${addedProduct.quantity} ${addedProduct.unit} de ${addedProduct.product}
+${quantityDisplay}${unitDisplay} de ${addedProduct.product}
 
 📦 *Lista completa de productos:*
 ${itemsList}
@@ -1346,7 +1312,6 @@ Manual Juan Pérez
           const parseResult = parseWhatsAppMessage(orderText);
           const parsedItems = parseResult.items;
           const unknownUnits = parseResult.unknownUnits;
-          const unparseableLines = parseResult.unparseableLines;
           
           // Add unknown units to database
           for (const unknownUnit of unknownUnits) {
@@ -1393,13 +1358,17 @@ Manual Juan Pérez
 
           console.log('Created Manual order:', order.id, 'with number:', order.order_number);
 
-          const orderItems = parsedItems.map((item) => ({
-            order_id: order.id,
-            product_name: `${item.product}`,
-            quantity: item.quantity,
-            unit_price: 0,
-            notes: `Unidad: ${item.unit}`,
-          }));
+          // Create order items (including unparseable ones with "#" quantity)
+          const orderItems = parsedItems.map((item) => {
+            const notes = item.unit ? `Unidad: ${item.unit}` : '';
+            return {
+              order_id: order.id,
+              product_name: `${item.product}`,
+              quantity: item.quantity === '#' ? '#' : item.quantity,
+              unit_price: 0,
+              notes,
+            };
+          });
 
           const { error: itemsError } = await supabase
             .from('order_items')
@@ -1423,18 +1392,6 @@ Manual Juan Pérez
                 confirmationMsg
               );
               console.log('Sent Manual confirmation message to:', customerPhone);
-              
-              // If there were unparseable lines, send error message
-              if (unparseableLines.length > 0) {
-                const errorMsg = createParsingErrorMessage(customCustomerName, unparseableLines);
-                await sendWhatsAppMessage(
-                  config.phone_number_id,
-                  config.access_token,
-                  customerPhone,
-                  errorMsg
-                );
-                console.log('Sent parsing error message to:', customerPhone);
-              }
             } catch (error) {
               console.error('Error sending Manual confirmation message:', error);
             }
@@ -1469,7 +1426,6 @@ Manual Juan Pérez
         const parseResult = parseWhatsAppMessage(processedMessageText);
         const parsedItems = parseResult.items;
         const unknownUnits = parseResult.unknownUnits;
-        const unparseableLines = parseResult.unparseableLines;
 
         // Add unknown units to database
         for (const unknownUnit of unknownUnits) {
@@ -1518,14 +1474,17 @@ Manual Juan Pérez
 
         console.log('Created order:', order.id, 'with number:', order.order_number);
 
-        // Create order items
-        const orderItems = parsedItems.map((item) => ({
-          order_id: order.id,
-          product_name: `${item.product}`,
-          quantity: item.quantity,
-          unit_price: 0,
-          notes: `Unidad: ${item.unit}`,
-        }));
+        // Create order items (including unparseable ones with "#" quantity)
+        const orderItems = parsedItems.map((item) => {
+          const notes = item.unit ? `Unidad: ${item.unit}` : '';
+          return {
+            order_id: order.id,
+            product_name: `${item.product}`,
+            quantity: item.quantity === '#' ? '#' : item.quantity,
+            unit_price: 0,
+            notes,
+          };
+        });
 
         const { error: itemsError } = await supabase
           .from('order_items')
@@ -1550,18 +1509,6 @@ Manual Juan Pérez
               confirmationMsg
             );
             console.log('Sent confirmation message to:', customerPhone);
-            
-            // If there were unparseable lines, send error message
-            if (unparseableLines.length > 0) {
-              const errorMsg = createParsingErrorMessage(customerName, unparseableLines);
-              await sendWhatsAppMessage(
-                config.phone_number_id,
-                config.access_token,
-                customerPhone,
-                errorMsg
-              );
-              console.log('Sent parsing error message to:', customerPhone);
-            }
           } catch (error) {
             console.error('Error sending confirmation message:', error);
           }
