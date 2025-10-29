@@ -61,14 +61,62 @@ let UNIT_VARIATIONS: Record<string, string[]> = {
 };
 
 /**
- * Greeting patterns
+ * Greeting patterns to remove
  */
-const GREETINGS = [
-  'hola', 'buenos días', 'buenas tardes', 'buenas noches',
-  'buen día', 'buena tarde', 'buena noche',
-  'saludos', 'holi', 'holaaa', 'hey', 'ey',
-  'qué tal', 'que tal', 'cómo estás', 'como estas',
-  'cómo están', 'como estan', 'qué onda', 'que onda'
+const GREETING_PATTERNS = [
+  /^hola\s*/i,
+  /^buenos?\s+d[ií]as?\s*/i,
+  /^buenas?\s+tardes?\s*/i,
+  /^buenas?\s+noches?\s*/i,
+  /^buen\s+d[ií]a\s*/i,
+  /^buena\s+tarde\s*/i,
+  /^buena\s+noche\s*/i,
+  /^saludos?\s*/i,
+  /^holi+\s*/i,
+  /^hey\s*/i,
+  /^ey\s*/i,
+  /^qu[eé]\s+tal\s*/i,
+  /^c[oó]mo\s+est[aá]s?\s*/i,
+  /^c[oó]mo\s+est[aá]n\s*/i,
+  /^qu[eé]\s+onda\s*/i,
+];
+
+/**
+ * Closing patterns to remove
+ */
+const CLOSING_PATTERNS = [
+  /\s*gracias\.?$/i,
+  /\s*muchas\s+gracias\.?$/i,
+  /\s*mil\s+gracias\.?$/i,
+  /\s*saludos\.?$/i,
+  /\s*bendiciones\.?$/i,
+  /\s*que\s+est[eé]s?\s+bien\.?$/i,
+  /\s*que\s+est[eé]n\s+bien\.?$/i,
+  /\s*hasta\s+luego\.?$/i,
+  /\s*nos\s+vemos\.?$/i,
+  /\s*chao\.?$/i,
+  /\s*adi[oó]s\.?$/i,
+  /\s*buen\s+d[ií]a\.?$/i,
+  /\s*buena\s+tarde\.?$/i,
+  /\s*buena\s+noche\.?$/i,
+];
+
+/**
+ * Filler patterns to remove
+ */
+const FILLER_PATTERNS = [
+  /^quiero\s+hacer\s+un\s+pedido\s*/i,
+  /^quisiera\s+hacer\s+un\s+pedido\s*/i,
+  /^necesito\s+hacer\s+un\s+pedido\s*/i,
+  /^me\s+gustar[ií]a\s+hacer\s+un\s+pedido\s*/i,
+  /^quiero\s+pedir\s*/i,
+  /^quisiera\s+pedir\s*/i,
+  /^necesito\s+pedir\s*/i,
+  /^me\s+gustar[ií]a\s+pedir\s*/i,
+  /^mi\s+pedido\s+es\s*/i,
+  /^el\s+pedido\s+es\s*/i,
+  /^voy\s+a\s+pedir\s*/i,
+  /^por\s+favor\s*/i,
 ];
 
 /**
@@ -87,6 +135,93 @@ const QUESTION_PATTERNS = [
   'horario', 'horarios', 'abren', 'cierran',
   'entregan', 'entrega', 'delivery', 'envío', 'envio'
 ];
+
+/**
+ * Extracts only the product list from a message, removing greetings, closings, and filler text
+ */
+function extractProductList(message: string): string {
+  let cleaned = message.trim();
+
+  console.log('Original message:', cleaned);
+
+  // Remove greeting patterns from the beginning
+  for (const pattern of GREETING_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // Remove closing patterns from the end
+  for (const pattern of CLOSING_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // Remove filler patterns from the beginning
+  for (const pattern of FILLER_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // Remove lines that are purely greetings or questions (no product info)
+  const lines = cleaned.split('\n');
+  const productLines: string[] = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines
+    if (!trimmedLine) continue;
+
+    // Skip lines that are only greetings
+    let isGreeting = false;
+    for (const pattern of GREETING_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isGreeting = true;
+        break;
+      }
+    }
+    if (isGreeting) continue;
+
+    // Skip lines that are only closings
+    let isClosing = false;
+    for (const pattern of CLOSING_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isClosing = true;
+        break;
+      }
+    }
+    if (isClosing) continue;
+
+    // Skip lines that are only filler text
+    let isFiller = false;
+    for (const pattern of FILLER_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isFiller = true;
+        break;
+      }
+    }
+    if (isFiller) continue;
+
+    // Skip lines that are questions (contain ?)
+    if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
+
+    // Check if line contains product-like patterns (quantity + product)
+    // This helps identify actual product lines vs. conversational text
+    const hasProductPattern = 
+      /\d+/.test(trimmedLine) || // Contains numbers
+      /\b(kilo|kg|gramo|gr|unidad|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
+      /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
+      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
+
+    if (hasProductPattern) {
+      productLines.push(trimmedLine);
+    }
+  }
+
+  // If we found product lines, use them; otherwise use the cleaned message
+  const result = productLines.length > 0 ? productLines.join('\n') : cleaned.trim();
+
+  console.log('Extracted product list:', result);
+
+  return result;
+}
 
 /**
  * Loads known units from database
@@ -702,12 +837,20 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
     return { items: [], unknownUnits: [] };
   }
 
-  const lines = message.split('\n');
+  // First, extract only the product list from the message
+  const productListOnly = extractProductList(message);
+
+  if (!productListOnly || !productListOnly.trim()) {
+    console.log('No product list found after extraction');
+    return { items: [], unknownUnits: [] };
+  }
+
+  const lines = productListOnly.split('\n');
   const orderItems: any[] = [];
   const unknownUnits: string[] = [];
 
   console.log(`\n========== INTELLIGENT PARSING (${lines.length} lines) ==========`);
-  console.log(`Format: ${isHorizontalFormat(message) ? 'HORIZONTAL' : 'VERTICAL'}`);
+  console.log(`Format: ${isHorizontalFormat(productListOnly) ? 'HORIZONTAL' : 'VERTICAL'}`);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -758,8 +901,8 @@ function isGreeting(message: string): boolean {
     return true;
   }
   
-  for (const greeting of GREETINGS) {
-    if (normalized.includes(greeting)) {
+  for (const pattern of GREETING_PATTERNS) {
+    if (pattern.test(normalized)) {
       return true;
     }
   }
