@@ -170,7 +170,7 @@ export default function PrinterSettingsScreen() {
 
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(true);
-  const [textSize, setTextSize] = useState<TextSize>('medium');
+  const [textSize, setTextSize] = useState<TextSize>('small');
   const [paperSize, setPaperSize] = useState<PaperSize>('80mm');
   const [includeLogo, setIncludeLogo] = useState(true);
   const [includeCustomerInfo, setIncludeCustomerInfo] = useState(true);
@@ -189,7 +189,7 @@ export default function PrinterSettingsScreen() {
         
         setAutoPrintEnabled(config.auto_print_enabled ?? false);
         setAutoCutEnabled(config.auto_cut_enabled ?? true);
-        setTextSize(config.text_size || 'medium');
+        setTextSize(config.text_size || 'small');
         setPaperSize(config.paper_size || '80mm');
         setIncludeLogo(config.include_logo ?? true);
         setIncludeCustomerInfo(config.include_customer_info ?? true);
@@ -198,7 +198,7 @@ export default function PrinterSettingsScreen() {
         console.log('[PrinterSettings] No config found, using defaults');
         setAutoPrintEnabled(false);
         setAutoCutEnabled(true);
-        setTextSize('medium');
+        setTextSize('small');
         setPaperSize('80mm');
         setIncludeLogo(true);
         setIncludeCustomerInfo(true);

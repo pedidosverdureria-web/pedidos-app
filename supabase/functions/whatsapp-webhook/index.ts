@@ -682,18 +682,19 @@ function splitLineIntoSegments(line: string): string[] {
 
 /**
  * Parses a WhatsApp message into a list of order items
- * Returns items and list of unknown units detected
+ * Returns items, list of unknown units detected, and list of unparseable lines
  * Enhanced to handle combined quantity and product without spaces
  */
-function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: string[] } {
+function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: string[], unparseableLines: string[] } {
   if (!message || !message.trim()) {
     console.warn('Empty message provided');
-    return { items: [], unknownUnits: [] };
+    return { items: [], unknownUnits: [], unparseableLines: [] };
   }
 
   const lines = message.split('\n');
   const orderItems: any[] = [];
   const unknownUnits: string[] = [];
+  const unparseableLines: string[] = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -703,6 +704,7 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
     }
 
     const segments = splitLineIntoSegments(line);
+    let lineHadSuccessfulParse = false;
 
     for (const segment of segments) {
       try {
@@ -710,6 +712,7 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
 
         if (parsed) {
           orderItems.push(parsed.item);
+          lineHadSuccessfulParse = true;
           if (parsed.unknownUnit && !unknownUnits.includes(parsed.unknownUnit)) {
             unknownUnits.push(parsed.unknownUnit);
           }
@@ -724,14 +727,22 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
         console.error(`✗ Error parsing segment "${segment}":`, error);
       }
     }
+
+    // If no segment from this line was successfully parsed, add to unparseable lines
+    if (!lineHadSuccessfulParse && line.length > 0) {
+      unparseableLines.push(line);
+    }
   }
 
   console.log(`Parsed ${orderItems.length} items from ${lines.length} lines`);
   if (unknownUnits.length > 0) {
     console.log(`Detected ${unknownUnits.length} unknown units:`, unknownUnits);
   }
+  if (unparseableLines.length > 0) {
+    console.log(`Could not parse ${unparseableLines.length} lines:`, unparseableLines);
+  }
   
-  return { items: orderItems, unknownUnits };
+  return { items: orderItems, unknownUnits, unparseableLines };
 }
 
 /**
@@ -830,6 +841,36 @@ ${itemsList}
 Te mantendremos informado sobre el estado de tu pedido. ⏰
 
 ¡Gracias por tu preferencia! 😊`;
+}
+
+/**
+ * Creates parsing error message for unparseable products
+ */
+function createParsingErrorMessage(customerName: string, unparseableLines: string[]): string {
+  const unparseableList = unparseableLines.map(line => `- ${line}`).join('\n');
+  
+  return `⚠️ *Algunos productos no pudieron ser procesados*
+
+Hola ${customerName}, recibimos tu mensaje pero algunos productos no pudieron ser ingresados correctamente.
+
+❌ *Productos no procesados:*
+${unparseableList}
+
+📝 *Por favor, intenta con un formato diferente:*
+
+*Ejemplos válidos:*
+- 3 kilos de tomates
+- 2 kilos de palta
+- 5 pepinos
+- 1 cilantro
+- 1/2 kilo de papas
+- 2 docenas de huevos
+- 1lechuga
+- tomates2
+
+💡 *Tip:* Puedes escribir cada producto en una línea separada o usar comas para separarlos.
+
+¡Gracias por tu comprensión! 😊`;
 }
 
 /**
@@ -985,6 +1026,26 @@ ${addedProduct.quantity} ${addedProduct.unit} de ${addedProduct.product}
 ${itemsList}
 
 ¡Gracias por tu preferencia! 😊`;
+}
+
+/**
+ * Gets status label in Spanish
+ */
+function getStatusLabel(status: string): string {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'preparing':
+      return 'En Preparación';
+    case 'ready':
+      return 'Listo para Entrega';
+    case 'delivered':
+      return 'Entregado';
+    case 'cancelled':
+      return 'Cancelado';
+    default:
+      return status;
+  }
 }
 
 /**
@@ -1158,19 +1219,19 @@ serve(async (req) => {
             console.log('Query saved successfully');
           }
 
-          // Send acknowledgment message
+          // Send immediate acknowledgment message
           if (config.access_token && config.phone_number_id) {
             try {
               const queryResponse = `📋 *Consulta Recibida*
 
 Hola ${activeOrder.customer_name}, hemos recibido tu consulta sobre el pedido ${activeOrder.order_number}.
 
-Tu consulta:
-"${messageText}"
+❓ *Tu consulta:*
+${messageText}
 
-Estado actual: ${getStatusLabel(activeOrder.status)}
+⏰ Estamos revisando tu consulta y te responderemos a la brevedad.
 
-Te responderemos pronto. ¡Gracias por tu paciencia! 😊`;
+¡Gracias por tu paciencia! 😊`;
 
               await sendWhatsAppMessage(
                 config.phone_number_id,
@@ -1285,6 +1346,7 @@ Manual Juan Pérez
           const parseResult = parseWhatsAppMessage(orderText);
           const parsedItems = parseResult.items;
           const unknownUnits = parseResult.unknownUnits;
+          const unparseableLines = parseResult.unparseableLines;
           
           // Add unknown units to database
           for (const unknownUnit of unknownUnits) {
@@ -1361,6 +1423,18 @@ Manual Juan Pérez
                 confirmationMsg
               );
               console.log('Sent Manual confirmation message to:', customerPhone);
+              
+              // If there were unparseable lines, send error message
+              if (unparseableLines.length > 0) {
+                const errorMsg = createParsingErrorMessage(customCustomerName, unparseableLines);
+                await sendWhatsAppMessage(
+                  config.phone_number_id,
+                  config.access_token,
+                  customerPhone,
+                  errorMsg
+                );
+                console.log('Sent parsing error message to:', customerPhone);
+              }
             } catch (error) {
               console.error('Error sending Manual confirmation message:', error);
             }
@@ -1395,6 +1469,7 @@ Manual Juan Pérez
         const parseResult = parseWhatsAppMessage(processedMessageText);
         const parsedItems = parseResult.items;
         const unknownUnits = parseResult.unknownUnits;
+        const unparseableLines = parseResult.unparseableLines;
 
         // Add unknown units to database
         for (const unknownUnit of unknownUnits) {
@@ -1475,6 +1550,18 @@ Manual Juan Pérez
               confirmationMsg
             );
             console.log('Sent confirmation message to:', customerPhone);
+            
+            // If there were unparseable lines, send error message
+            if (unparseableLines.length > 0) {
+              const errorMsg = createParsingErrorMessage(customerName, unparseableLines);
+              await sendWhatsAppMessage(
+                config.phone_number_id,
+                config.access_token,
+                customerPhone,
+                errorMsg
+              );
+              console.log('Sent parsing error message to:', customerPhone);
+            }
           } catch (error) {
             console.error('Error sending confirmation message:', error);
           }
