@@ -32,10 +32,24 @@ const NUMBER_WORDS: Record<string, number> = {
   'trece': 13,
   'catorce': 14,
   'quince': 15,
+  'dieciséis': 16, 'dieciseis': 16,
+  'diecisiete': 17,
+  'dieciocho': 18,
+  'diecinueve': 19,
   'veinte': 20,
+  'veintiuno': 21, 'veintiuna': 21,
+  'veintidós': 22, 'veintidos': 22,
+  'veintitrés': 23, 'veintitres': 23,
+  'veinticuatro': 24,
+  'veinticinco': 25,
   'treinta': 30,
   'cuarenta': 40,
   'cincuenta': 50,
+  'sesenta': 60,
+  'setenta': 70,
+  'ochenta': 80,
+  'noventa': 90,
+  'cien': 100, 'ciento': 100,
 };
 
 /**
@@ -45,6 +59,7 @@ const FRACTION_WORDS: Record<string, number> = {
   'medio': 0.5, 'media': 0.5,
   'cuarto': 0.25,
   'tercio': 0.33,
+  'tres cuartos': 0.75,
 };
 
 /**
@@ -64,6 +79,8 @@ const UNIT_VARIATIONS: Record<string, string[]> = {
   'docena': ['docena', 'docenas'],
   'paquete': ['paquete', 'paquetes'],
   'caja': ['caja', 'cajas'],
+  'litro': ['litro', 'litros', 'lt', 'l'],
+  'metro': ['metro', 'metros', 'm'],
 };
 
 /**
@@ -154,6 +171,15 @@ export function parseQuantityValue(quantityStr: string): number {
     }
   }
 
+  // Handle "y tres cuartos" patterns (e.g., "1 y tres cuartos")
+  const yTresCuartosMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*tres\s+cuartos$/);
+  if (yTresCuartosMatch) {
+    const integer = parseFloat(yTresCuartosMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.75;
+    }
+  }
+
   // Handle "y tercio" patterns (e.g., "1 y tercio")
   const yTercioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*tercio$/);
   if (yTercioMatch) {
@@ -217,8 +243,8 @@ function cleanSegment(segment: string): string {
   return segment
     .trim()
     .replace(/^[-•*·→➤➢▸▹►▻⇒⇨⇾⟹⟶⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿]\s*/, '')
-    .replace(/^\d+[.)]\s*/, '') // Remove numbered list markers (1. or 1))
-    .replace(/^[a-z][.)]\s*/i, '') // Remove lettered list markers (a. or a))
+    .replace(/^\d+[.)]\s*/, '') // Remove numbered list markers (1. or 1)
+    .replace(/^[a-z][.)]\s*/i, '') // Remove lettered list markers (a. or a)
     .trim();
 }
 
@@ -267,13 +293,81 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 3: Quantity + "y medio/media/cuarto/tercio" + Unit + "de" + Product
+  // Strategy 3: Integer + Space + Fraction + Product (no "de", no explicit unit)
+  // Examples: "1 1/2 manzanas", "2 3/4 papas"
+  match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ].+)$/i);
+  if (match) {
+    const quantityStr = match[1];
+    const quantity = parseQuantityValue(quantityStr);
+    const restOfText = match[2].trim();
+    
+    // Check if first word is a unit
+    const firstWord = restOfText.split(/\s+/)[0];
+    if (isKnownUnit(firstWord)) {
+      // It's actually a unit, so extract it
+      const unitStr = firstWord;
+      const product = restOfText.substring(firstWord.length).trim();
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit(unitStr, quantity);
+        return { quantity, unit, product };
+      }
+    } else {
+      // No unit, treat as product
+      if (quantity > 0 && restOfText) {
+        const unit = normalizeUnit('kilo', quantity);
+        return { quantity, unit, product: restOfText };
+      }
+    }
+  }
+
+  // Strategy 4: Number word + "y" + fraction word + Unit + "de" + Product
+  // Examples: "un kilo y medio de manzanas", "una libra y media de papas"
+  match = cleaned.match(/^(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*y\s*(medio|media|cuarto|tercio)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const numberWord = match[1].toLowerCase();
+    const fractionWord = match[2].toLowerCase();
+    const unitStr = match[3];
+    const product = match[4].trim();
+
+    const baseQuantity = convertNumberWord(numberWord) || 1;
+    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    const quantity = baseQuantity + fractionValue;
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 5: Number word + "y" + fraction word + "de" + Product (no explicit unit)
+  // Examples: "un y medio de manzanas", "una y media de papas"
+  match = cleaned.match(/^(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*y\s*(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
+  if (match) {
+    const numberWord = match[1].toLowerCase();
+    const fractionWord = match[2].toLowerCase();
+    const product = match[3].trim();
+
+    const baseQuantity = convertNumberWord(numberWord) || 1;
+    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    const quantity = baseQuantity + fractionValue;
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit('kilo', quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 6: Quantity + "y medio/media/cuarto/tercio" + Unit + "de" + Product
   // Examples: "1 y medio kilo de manzanas", "2 y media libras de papas"
-  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio)\s+(\w+)\s+de\s+(.+)$/i);
+  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio|tres\s+cuartos)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
     const baseQuantity = parseFloat(match[1]);
     const fractionWord = match[2].toLowerCase();
-    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    let fractionValue = 0.5;
+    if (fractionWord === 'cuarto') fractionValue = 0.25;
+    else if (fractionWord === 'tercio') fractionValue = 0.33;
+    else if (fractionWord.includes('tres') && fractionWord.includes('cuartos')) fractionValue = 0.75;
+    
     const quantity = baseQuantity + fractionValue;
     const unitStr = match[3];
     const product = match[4].trim();
@@ -284,13 +378,17 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 4: Quantity + "y medio/media/cuarto/tercio" + "de" + Product (no explicit unit)
+  // Strategy 7: Quantity + "y medio/media/cuarto/tercio" + "de" + Product (no explicit unit)
   // Examples: "1 y medio de manzanas", "2 y media de papas"
-  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
+  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio|tres\s+cuartos)\s+de\s+(.+)$/i);
   if (match) {
     const baseQuantity = parseFloat(match[1]);
     const fractionWord = match[2].toLowerCase();
-    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    let fractionValue = 0.5;
+    if (fractionWord === 'cuarto') fractionValue = 0.25;
+    else if (fractionWord === 'tercio') fractionValue = 0.33;
+    else if (fractionWord.includes('tres') && fractionWord.includes('cuartos')) fractionValue = 0.75;
+    
     const quantity = baseQuantity + fractionValue;
     const product = match[3].trim();
 
@@ -300,9 +398,9 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 5: Fraction word + Unit + "de" + Product
+  // Strategy 8: Fraction word + Unit + "de" + Product
   // Examples: "medio kilo de papas", "un cuarto de lechuga"
-  match = cleaned.match(/^(medio|media|cuarto|tercio|un|uno|una)\s+(\w+)\s+de\s+(.+)$/i);
+  match = cleaned.match(/^(medio|media|cuarto|tercio|tres\s+cuartos|un|uno|una)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
     const quantityWord = match[1].toLowerCase();
     const unitStr = match[2];
@@ -315,6 +413,8 @@ function parseSegment(segment: string): ParsedOrderItem {
       quantity = 0.25;
     } else if (quantityWord === 'tercio') {
       quantity = 0.33;
+    } else if (quantityWord.includes('tres') && quantityWord.includes('cuartos')) {
+      quantity = 0.75;
     }
 
     if (product) {
@@ -323,9 +423,9 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 6: Fraction word + "de" + Product (no explicit unit)
+  // Strategy 9: Fraction word + "de" + Product (no explicit unit)
   // Examples: "medio de papas", "un cuarto de lechuga"
-  match = cleaned.match(/^(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
+  match = cleaned.match(/^(medio|media|cuarto|tercio|tres\s+cuartos)\s+de\s+(.+)$/i);
   if (match) {
     const quantityWord = match[1].toLowerCase();
     const product = match[2].trim();
@@ -335,6 +435,8 @@ function parseSegment(segment: string): ParsedOrderItem {
       quantity = 0.25;
     } else if (quantityWord === 'tercio') {
       quantity = 0.33;
+    } else if (quantityWord.includes('tres') && quantityWord.includes('cuartos')) {
+      quantity = 0.75;
     }
 
     if (product) {
@@ -343,7 +445,7 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 7: Quantity + Unit + "de" + Product
+  // Strategy 10: Quantity + Unit + "de" + Product
   // Examples: "3 kilos de tomates", "2 kg de papas", "dos kilos de cebollas"
   match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
@@ -358,7 +460,7 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 8: Quantity + Unit + Product (no "de")
+  // Strategy 11: Quantity + Unit + Product (no "de")
   // Examples: "3 kilos tomates", "2 kg papas"
   match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+(.+)$/i);
   if (match) {
@@ -376,7 +478,7 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 9: Quantity + Product (no explicit unit)
+  // Strategy 12: Quantity + Product (no explicit unit)
   // Examples: "3 tomates", "5 pepinos", "dos lechugas"
   match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(.+)$/i);
   if (match) {
@@ -391,7 +493,7 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 10: Product + Quantity + Unit (reversed order)
+  // Strategy 13: Product + Quantity + Unit (reversed order)
   // Examples: "tomates 3 kilos", "papas 2 kg"
   match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)$/i);
   if (match) {
@@ -409,7 +511,7 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 11: Product + Quantity (no unit, reversed order)
+  // Strategy 14: Product + Quantity (no unit, reversed order)
   // Examples: "tomates 3", "pepinos 5"
   match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)$/i);
   if (match) {
@@ -423,7 +525,7 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 12: Unit + "de" + Product (no explicit quantity, assume 1)
+  // Strategy 15: Unit + "de" + Product (no explicit quantity, assume 1)
   // Examples: "kilo de tomates", "bolsa de papas"
   match = cleaned.match(/^(\w+)\s+de\s+(.+)$/i);
   if (match) {
@@ -437,7 +539,7 @@ function parseSegment(segment: string): ParsedOrderItem {
     }
   }
 
-  // Strategy 13: Just Product (default to 1 unit)
+  // Strategy 16: Just Product (default to 1 unit)
   // Examples: "tomates", "cilantro", "lechuga"
   if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
     return { quantity: 1, unit: 'unidad', product: cleaned };
@@ -478,7 +580,7 @@ function splitLineIntoSegments(line: string): string[] {
  */
 export function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
   if (!message || !message.trim()) {
-    console.warn('Empty message provided');
+    console.log('Empty message provided');
     return [];
   }
 
