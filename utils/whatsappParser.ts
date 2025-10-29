@@ -89,7 +89,7 @@ function cleanSegment(segment: string): string {
   return segment
     .trim()
     .replace(/^[-•*·]\s*/, '')
-    .replace(/^\d+[.\)]\s*/, '')
+    .replace(/^\d+[.)]\s*/, '')
     .trim();
 }
 
