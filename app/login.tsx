@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
@@ -85,7 +86,11 @@ export default function LoginScreen() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <IconSymbol name="lock.shield.fill" size={80} color={colors.primary} />
+          <Image
+            source={require('@/assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Order Manager</Text>
           <Text style={styles.subtitle}>Ingresa tu PIN para continuar</Text>
         </View>
@@ -173,6 +178,11 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: 48,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 16,
   },
   title: {
     fontSize: 32,

@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Linking,
+  Image,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
@@ -95,9 +96,11 @@ export default function AboutScreen() {
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.logoContainer}>
-          <View style={styles.logo}>
-            <IconSymbol name="cart.fill" size={64} color="#FFFFFF" />
-          </View>
+          <Image
+            source={require('@/assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.appName}>{appInfo.name}</Text>
           <Text style={styles.version}>
             Version {appInfo.version} ({appInfo.buildNumber})
@@ -106,6 +109,99 @@ export default function AboutScreen() {
 
         <View style={styles.descriptionCard}>
           <Text style={styles.description}>{appInfo.description}</Text>
+        </View>
+
+        {/* Quick Start Guide for New Customers */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Guía Rápida para Nuevos Clientes</Text>
+          <View style={styles.card}>
+            <View style={styles.guideSection}>
+              <View style={styles.guideHeader}>
+                <View style={[styles.guideIcon, { backgroundColor: '#3B82F6' }]}>
+                  <IconSymbol name="cart.fill.badge.plus" size={24} color="#FFFFFF" />
+                </View>
+                <Text style={styles.guideTitle}>1. Cómo Hacer un Pedido</Text>
+              </View>
+              <View style={styles.guideContent}>
+                <Text style={styles.guideStep}>• Envía tu pedido por WhatsApp al número configurado</Text>
+                <Text style={styles.guideStep}>• Escribe solo la lista de productos con cantidades</Text>
+                <Text style={styles.guideStep}>• Ejemplo: "2 kg tomate, 1/2 kg cebolla, 3 lechugas"</Text>
+                <Text style={styles.guideStep}>• Recibirás una confirmación automática con el número de pedido</Text>
+                <Text style={styles.guideNote}>
+                  💡 Tip: No incluyas saludos ni texto adicional, solo la lista de productos
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.guideDivider} />
+
+            <View style={styles.guideSection}>
+              <View style={styles.guideHeader}>
+                <View style={[styles.guideIcon, { backgroundColor: '#10B981' }]}>
+                  <IconSymbol name="questionmark.circle.fill" size={24} color="#FFFFFF" />
+                </View>
+                <Text style={styles.guideTitle}>2. Cómo Hacer Consultas</Text>
+              </View>
+              <View style={styles.guideContent}>
+                <Text style={styles.guideStep}>• Envía tu pregunta por WhatsApp mencionando tu número de pedido</Text>
+                <Text style={styles.guideStep}>• Ejemplo: "¿Cuándo estará listo mi pedido #1234?"</Text>
+                <Text style={styles.guideStep}>• El sistema registrará tu consulta automáticamente</Text>
+                <Text style={styles.guideStep}>• Recibirás una respuesta del equipo lo antes posible</Text>
+                <Text style={styles.guideNote}>
+                  💡 Tip: Incluye siempre tu número de pedido para una respuesta más rápida
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.guideDivider} />
+
+            <View style={styles.guideSection}>
+              <View style={styles.guideHeader}>
+                <View style={[styles.guideIcon, { backgroundColor: '#F59E0B' }]}>
+                  <IconSymbol name="arrow.triangle.2.circlepath" size={24} color="#FFFFFF" />
+                </View>
+                <Text style={styles.guideTitle}>3. Pedidos Adicionales</Text>
+              </View>
+              <View style={styles.guideContent}>
+                <Text style={styles.guideStep}>• Puedes enviar un nuevo pedido aunque tengas uno activo</Text>
+                <Text style={styles.guideStep}>• Cada pedido recibirá su propio número de seguimiento</Text>
+                <Text style={styles.guideStep}>• Los pedidos se procesarán en orden de llegada</Text>
+                <Text style={styles.guideStep}>• Recibirás notificaciones del estado de cada pedido</Text>
+                <Text style={styles.guideNote}>
+                  💡 Tip: Puedes consultar el estado de cualquier pedido en cualquier momento
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.guideDivider} />
+
+            <View style={styles.guideSection}>
+              <View style={styles.guideHeader}>
+                <View style={[styles.guideIcon, { backgroundColor: '#8B5CF6' }]}>
+                  <IconSymbol name="info.circle.fill" size={24} color="#FFFFFF" />
+                </View>
+                <Text style={styles.guideTitle}>Estados del Pedido</Text>
+              </View>
+              <View style={styles.guideContent}>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+                  <Text style={styles.statusText}>Pendiente - Tu pedido fue recibido</Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#3B82F6' }]} />
+                  <Text style={styles.statusText}>Preparando - Estamos preparando tu pedido</Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                  <Text style={styles.statusText}>Listo - Tu pedido está listo para recoger</Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#6B7280' }]} />
+                  <Text style={styles.statusText}>Entregado - Pedido completado</Text>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Manuals Section */}
@@ -242,10 +338,6 @@ const styles = StyleSheet.create({
   logo: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginBottom: 16,
   },
   appName: {
@@ -289,6 +381,68 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  guideSection: {
+    marginBottom: 8,
+  },
+  guideHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  guideIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  guideTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  guideContent: {
+    paddingLeft: 52,
+  },
+  guideStep: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  guideNote: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginTop: 8,
+    fontStyle: 'italic',
+    backgroundColor: colors.background,
+    padding: 12,
+    borderRadius: 8,
+  },
+  guideDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 20,
+  },
+  statusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  statusText: {
+    fontSize: 15,
+    color: colors.text,
+    flex: 1,
   },
   manualItem: {
     flexDirection: 'row',
