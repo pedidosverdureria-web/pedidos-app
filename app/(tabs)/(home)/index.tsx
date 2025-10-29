@@ -46,7 +46,7 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
 const PRINTER_CONFIG_KEY = '@printer_config';
 const ORDERS_TO_PRINT_KEY = '@orders_to_print';
 const PRINTED_ORDERS_KEY = '@printed_orders';
-const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
+const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 
 const styles = StyleSheet.create({
   container: {
@@ -670,16 +670,16 @@ export default function HomeScreen() {
     };
   }, [printerConfig?.auto_print_enabled, isConnected, checkAndPrintNewOrders]);
 
-  // Set up auto-refresh interval (every 5 seconds)
+  // Set up auto-refresh interval (every 30 seconds)
   useEffect(() => {
-    console.log('[HomeScreen] Setting up auto-refresh interval (5 seconds)');
+    console.log('[HomeScreen] Setting up auto-refresh interval (30 seconds)');
     
     // Clear any existing interval
     if (autoRefreshIntervalRef.current) {
       clearInterval(autoRefreshIntervalRef.current);
     }
 
-    // Set up interval to refresh orders every 5 seconds
+    // Set up interval to refresh orders every 30 seconds
     autoRefreshIntervalRef.current = setInterval(() => {
       console.log('[HomeScreen] Auto-refresh triggered');
       refetch();
