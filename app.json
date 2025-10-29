@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "order-flow-app-jdvhwd",
@@ -24,8 +23,8 @@
           "processing",
           "audio"
         ],
-        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica y poder imprimir pedidos automáticamente.",
-        "NSBluetoothPeripheralUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica.",
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica y poder imprimir pedidos autom\u00e1ticamente.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica.",
         "BGTaskSchedulerPermittedIdentifiers": [
           "com.anonymous.Natively.background-auto-print",
           "com.anonymous.Natively.background-fetch"

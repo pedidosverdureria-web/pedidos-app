@@ -58,6 +58,27 @@ const FRACTION_WORDS: Record<string, number> = {
 let UNIT_VARIATIONS: Record<string, string[]> = {};
 
 /**
+ * Common product aliases and variations (for fuzzy matching)
+ */
+const PRODUCT_ALIASES: Record<string, string[]> = {
+  'tomate': ['tomate', 'tomates', 'tomatito', 'tomatitos', 'jitomate', 'jitomates'],
+  'papa': ['papa', 'papas', 'patata', 'patatas'],
+  'cebolla': ['cebolla', 'cebollas', 'cebollita', 'cebollitas'],
+  'lechuga': ['lechuga', 'lechugas'],
+  'zanahoria': ['zanahoria', 'zanahorias'],
+  'pepino': ['pepino', 'pepinos'],
+  'palta': ['palta', 'paltas', 'aguacate', 'aguacates'],
+  'limón': ['limón', 'limon', 'limones'],
+  'naranja': ['naranja', 'naranjas'],
+  'manzana': ['manzana', 'manzanas'],
+  'plátano': ['plátano', 'platano', 'plátanos', 'platanos', 'banana', 'bananas', 'banano', 'bananos'],
+  'cilantro': ['cilantro', 'culantro'],
+  'perejil': ['perejil'],
+  'ají': ['ají', 'aji', 'ajíes', 'ajies', 'chile', 'chiles'],
+  'pimentón': ['pimentón', 'pimenton', 'pimentones', 'pimiento', 'pimientos'],
+};
+
+/**
  * Greeting patterns
  */
 const GREETINGS = [
@@ -118,7 +139,6 @@ async function addNewUnit(supabase: any, unitName: string, variation: string) {
     const normalizedUnit = unitName.toLowerCase().trim();
     const normalizedVariation = variation.toLowerCase().trim();
 
-    // Check if unit already exists
     const { data: existing } = await supabase
       .from('known_units')
       .select('id, variations')
@@ -126,9 +146,7 @@ async function addNewUnit(supabase: any, unitName: string, variation: string) {
       .single();
 
     if (existing) {
-      // Unit exists, check if variation is already included
       if (!existing.variations.includes(normalizedVariation)) {
-        // Add variation to existing unit
         const updatedVariations = [...existing.variations, normalizedVariation];
         const { error } = await supabase
           .from('known_units')
@@ -142,12 +160,10 @@ async function addNewUnit(supabase: any, unitName: string, variation: string) {
           console.error('Error updating unit variations:', error);
         } else {
           console.log(`✓ Added variation "${normalizedVariation}" to unit "${normalizedUnit}"`);
-          // Update local cache
           UNIT_VARIATIONS[normalizedUnit] = updatedVariations;
         }
       }
     } else {
-      // Create new unit
       const { error } = await supabase
         .from('known_units')
         .insert({
@@ -160,7 +176,6 @@ async function addNewUnit(supabase: any, unitName: string, variation: string) {
         console.error('Error creating new unit:', error);
       } else {
         console.log(`✓ Created new unit "${normalizedUnit}" with variation "${normalizedVariation}"`);
-        // Update local cache
         UNIT_VARIATIONS[normalizedUnit] = [normalizedVariation, normalizedUnit];
       }
     }
@@ -186,9 +201,32 @@ function convertFractionWord(word: string): number | null {
 }
 
 /**
- * Parses a quantity value from a string, handling fractions, decimals, and text numbers
- * Enhanced to handle combined integers and fractions (e.g., "1 1/2", "1 y medio")
- * SEQUENTIAL VALIDATION: Checks formats in priority order
+ * Normalizes a product name (removes accents, converts to lowercase, handles aliases)
+ */
+function normalizeProductName(product: string): string {
+  if (!product) return '';
+  
+  let normalized = product.toLowerCase().trim();
+  
+  // Remove accents
+  normalized = normalized.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  
+  // Check if it matches any known alias
+  for (const [canonical, aliases] of Object.entries(PRODUCT_ALIASES)) {
+    for (const alias of aliases) {
+      const normalizedAlias = alias.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (normalized === normalizedAlias) {
+        return canonical;
+      }
+    }
+  }
+  
+  return normalized;
+}
+
+/**
+ * Parses a quantity value from a string
+ * INTELLIGENT PARSING with sequential validation
  */
 function parseQuantityValue(quantityStr: string): number {
   if (!quantityStr || !quantityStr.trim()) {
@@ -197,7 +235,7 @@ function parseQuantityValue(quantityStr: string): number {
 
   const trimmed = quantityStr.trim();
 
-  // 1. PRIORITY: Try as combined integer and fraction with space (e.g., "1 1/2", "2 1/4")
+  // 1. PRIORITY: Combined integer and fraction with space (e.g., "1 1/2", "2 1/4")
   const combinedSpaceMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
   if (combinedSpaceMatch) {
     const integer = parseFloat(combinedSpaceMatch[1]);
@@ -209,7 +247,7 @@ function parseQuantityValue(quantityStr: string): number {
     }
   }
 
-  // 2. Try as simple fraction (e.g., "1/2", "1/4", "1/8")
+  // 2. Simple fraction (e.g., "1/2", "1/4", "1/8")
   if (trimmed.includes('/') && !trimmed.includes(' ')) {
     const parts = trimmed.split('/');
     if (parts.length === 2) {
@@ -222,19 +260,19 @@ function parseQuantityValue(quantityStr: string): number {
     }
   }
 
-  // 3. Try as number (decimal or integer)
+  // 3. Number (decimal or integer)
   const numValue = parseFloat(trimmed);
   if (!isNaN(numValue)) {
     return numValue;
   }
 
-  // 4. Try as text number (e.g., "dos", "tres")
+  // 4. Text number (e.g., "dos", "tres")
   const textValue = convertNumberWord(trimmed);
   if (textValue !== null) {
     return textValue;
   }
 
-  // 5. Try as fraction word (e.g., "medio", "cuarto")
+  // 5. Fraction word (e.g., "medio", "cuarto")
   const fractionValue = convertFractionWord(trimmed);
   if (fractionValue !== null) {
     return fractionValue;
@@ -287,21 +325,8 @@ function normalizeUnit(unit: string, quantity: number = 1): string {
 }
 
 /**
- * Parses a single segment from the WhatsApp message
- * Returns parsed item and detected unknown unit (if any)
- * Enhanced to handle combined integers and fractions
- * Enhanced to handle combined quantity and product without spaces
- * Enhanced to create products with "#" quantity when parsing fails
- * 
- * SEQUENTIAL VALIDATION ORDER (from most specific to least specific):
- * 1. Combined quantity+product (no space): "1lechuga", "lechuga1"
- * 2. Integer + Space + Fraction + Unit + "de" + Product: "1 1/2 kilo de manzanas"
- * 3. Integer + Space + Fraction + "de" + Product: "1 1/2 de manzana"
- * 4. Integer + Unit + "y" + Fraction Word + "de" + Product: "1 kilo y medio de manzanas"
- * 5. Fraction Word + Unit + "de" + Product: "medio kilo de papas"
- * 6. Fraction Word + "de" + Product: "medio de papas"
- * 7. Standard patterns (Quantity + Unit + "de" + Product, etc.)
- * 8. Fallback patterns
+ * INTELLIGENT segment parser with context awareness
+ * Uses multiple strategies to extract order information
  */
 function parseSegment(segment: string): { item: any, unknownUnit?: string } {
   const trimmed = segment.trim();
@@ -317,7 +342,7 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
   }
 
   // ============================================================================
-  // SEQUENTIAL VALIDATION - ORDERED FROM MOST SPECIFIC TO LEAST SPECIFIC
+  // INTELLIGENT PARSING - SEQUENTIAL VALIDATION
   // ============================================================================
 
   // PRIORITY 1: Combined quantity+product (no space)
@@ -331,8 +356,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
       
       if (quantity > 0) {
         const unit = normalizeUnit('', quantity);
-        console.log(`✓ [P1] Combined quantity+product: "${cleaned}" → ${quantity} ${unit} de ${productStr}`);
-        return { item: { quantity, unit, product: productStr.toLowerCase() } };
+        const product = normalizeProductName(productStr);
+        console.log(`✓ [P1] Combined quantity+product: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+        return { item: { quantity, unit, product } };
       }
     }
   }
@@ -348,14 +374,14 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
       
       if (quantity > 0) {
         const unit = normalizeUnit('', quantity);
-        console.log(`✓ [P1b] Combined product+quantity: "${cleaned}" → ${quantity} ${unit} de ${productStr}`);
-        return { item: { quantity, unit, product: productStr.toLowerCase() } };
+        const product = normalizeProductName(productStr);
+        console.log(`✓ [P1b] Combined product+quantity: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+        return { item: { quantity, unit, product } };
       }
     }
   }
 
   // PRIORITY 2: Integer + Space + Fraction + Unit + "de" + Product
-  // THIS IS THE MOST CRITICAL PATTERN FOR THE USER'S REQUEST
   match = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
     const integer = parseFloat(match[1]);
@@ -367,8 +393,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0 && product && isKnownUnit(unit)) {
       const quantity = integer + (numerator / denominator);
       const normalizedUnit = normalizeUnit(unit, quantity);
-      console.log(`✓ [P2] Integer+Fraction+Unit: "${cleaned}" → ${quantity} ${normalizedUnit} de ${product}`);
-      return { item: { quantity, unit: normalizedUnit, product } };
+      const normalizedProduct = normalizeProductName(product);
+      console.log(`✓ [P2] Integer+Fraction+Unit: "${cleaned}" → ${quantity} ${normalizedUnit} de ${normalizedProduct}`);
+      return { item: { quantity, unit: normalizedUnit, product: normalizedProduct } };
     }
   }
 
@@ -383,8 +410,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0 && product) {
       const quantity = integer + (numerator / denominator);
       const normalizedUnit = normalizeUnit('', quantity);
-      console.log(`✓ [P3] Integer+Fraction (no unit): "${cleaned}" → ${quantity} ${normalizedUnit} de ${product}`);
-      return { item: { quantity, unit: normalizedUnit, product } };
+      const normalizedProduct = normalizeProductName(product);
+      console.log(`✓ [P3] Integer+Fraction (no unit): "${cleaned}" → ${quantity} ${normalizedUnit} de ${normalizedProduct}`);
+      return { item: { quantity, unit: normalizedUnit, product: normalizedProduct } };
     }
   }
 
@@ -401,8 +429,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     if (!isNaN(integer) && fractionValue !== null && product && isKnownUnit(unit)) {
       const quantity = integer + fractionValue;
       const normalizedUnit = normalizeUnit(unit, quantity);
-      console.log(`✓ [P4] Integer+Unit+y+Fraction: "${cleaned}" → ${quantity} ${normalizedUnit} de ${product}`);
-      return { item: { quantity, unit: normalizedUnit, product } };
+      const normalizedProduct = normalizeProductName(product);
+      console.log(`✓ [P4] Integer+Unit+y+Fraction: "${cleaned}" → ${quantity} ${normalizedUnit} de ${normalizedProduct}`);
+      return { item: { quantity, unit: normalizedUnit, product: normalizedProduct } };
     }
   }
 
@@ -417,8 +446,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     
     if (quantity !== null && product && isKnownUnit(unit)) {
       const normalizedUnit = normalizeUnit(unit, quantity);
-      console.log(`✓ [P5] Fraction+Unit: "${cleaned}" → ${quantity} ${normalizedUnit} de ${product}`);
-      return { item: { quantity, unit: normalizedUnit, product } };
+      const normalizedProduct = normalizeProductName(product);
+      console.log(`✓ [P5] Fraction+Unit: "${cleaned}" → ${quantity} ${normalizedUnit} de ${normalizedProduct}`);
+      return { item: { quantity, unit: normalizedUnit, product: normalizedProduct } };
     }
   }
 
@@ -432,8 +462,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     
     if (quantity !== null && product) {
       const normalizedUnit = normalizeUnit('', quantity);
-      console.log(`✓ [P6] Fraction (no unit): "${cleaned}" → ${quantity} ${normalizedUnit} de ${product}`);
-      return { item: { quantity, unit: normalizedUnit, product } };
+      const normalizedProduct = normalizeProductName(product);
+      console.log(`✓ [P6] Fraction (no unit): "${cleaned}" → ${quantity} ${normalizedUnit} de ${normalizedProduct}`);
+      return { item: { quantity, unit: normalizedUnit, product: normalizedProduct } };
     }
   }
 
@@ -447,10 +478,11 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     if (quantity > 0 && product) {
       const isKnown = isKnownUnit(unitStr);
       const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
+      const normalizedProduct = normalizeProductName(product);
       
-      console.log(`✓ [P7] Standard format: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+      console.log(`✓ [P7] Standard format: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
       return { 
-        item: { quantity, unit, product },
+        item: { quantity, unit, product: normalizedProduct },
         unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
       };
     }
@@ -466,10 +498,11 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     if (quantity > 0 && product) {
       const isKnown = isKnownUnit(unitStr);
       const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
+      const normalizedProduct = normalizeProductName(product);
       
-      console.log(`✓ [P8] Compact format: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+      console.log(`✓ [P8] Compact format: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
       return { 
-        item: { quantity, unit, product },
+        item: { quantity, unit, product: normalizedProduct },
         unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
       };
     }
@@ -485,10 +518,11 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     if (quantity > 0 && product) {
       const isKnown = isKnownUnit(potentialUnit);
       const unit = isKnown ? normalizeUnit(potentialUnit, quantity) : potentialUnit.toLowerCase();
+      const normalizedProduct = normalizeProductName(product);
       
-      console.log(`✓ [P9] Compact no-de: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+      console.log(`✓ [P9] Compact no-de: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
       return { 
-        item: { quantity, unit, product },
+        item: { quantity, unit, product: normalizedProduct },
         unknownUnit: isKnown ? undefined : potentialUnit.toLowerCase()
       };
     }
@@ -506,16 +540,17 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
       
       if (isKnown) {
         const unit = normalizeUnit(potentialUnit, quantity);
-        console.log(`✓ [P10] Standard no-de: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-        return { item: { quantity, unit, product } };
+        const normalizedProduct = normalizeProductName(product);
+        console.log(`✓ [P10] Standard no-de: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
+        return { item: { quantity, unit, product: normalizedProduct } };
       } else {
-        // Check if it might be part of the product name
         const nextWord = product.split(/\s+/)[0];
         if (nextWord && !isKnownUnit(nextWord)) {
           const unit = potentialUnit.toLowerCase();
-          console.log(`✓ [P10b] Unknown unit: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+          const normalizedProduct = normalizeProductName(product);
+          console.log(`✓ [P10b] Unknown unit: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
           return { 
-            item: { quantity, unit, product },
+            item: { quantity, unit, product: normalizedProduct },
             unknownUnit: unit
           };
         }
@@ -531,8 +566,9 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
 
     if (quantity > 0 && product && !isKnownUnit(product.split(/\s+/)[0])) {
       const unit = normalizeUnit('', quantity);
-      console.log(`✓ [P11] Quantity+Product: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { item: { quantity, unit, product } };
+      const normalizedProduct = normalizeProductName(product);
+      console.log(`✓ [P11] Quantity+Product: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
+      return { item: { quantity, unit, product: normalizedProduct } };
     }
   }
 
@@ -548,10 +584,11 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     if (quantity > 0 && product) {
       const isKnown = isKnownUnit(unitStr);
       const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
+      const normalizedProduct = normalizeProductName(product);
       
-      console.log(`✓ [P12] Product+Quantity+Unit: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+      console.log(`✓ [P12] Product+Quantity+Unit: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
       return { 
-        item: { quantity, unit, product },
+        item: { quantity, unit, product: normalizedProduct },
         unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
       };
     }
@@ -571,13 +608,15 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
       
       if (isKnown) {
         const unit = normalizeUnit(unitStr, quantity);
-        console.log(`✓ [P13] Product+Unit+Quantity: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-        return { item: { quantity, unit, product } };
+        const normalizedProduct = normalizeProductName(product);
+        console.log(`✓ [P13] Product+Unit+Quantity: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
+        return { item: { quantity, unit, product: normalizedProduct } };
       } else {
         const unit = unitStr.toLowerCase();
-        console.log(`✓ [P13b] Unknown unit: "${cleaned}" → ${quantity} ${unit} de ${product}`);
+        const normalizedProduct = normalizeProductName(product);
+        console.log(`✓ [P13b] Unknown unit: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
         return { 
-          item: { quantity, unit, product },
+          item: { quantity, unit, product: normalizedProduct },
           unknownUnit: unit
         };
       }
@@ -599,16 +638,18 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
         const isKnown = isKnownUnit(unitStr);
         const qty = parseQuantityValue(quantityMatch[1]);
         const unit = isKnown ? normalizeUnit(unitStr, qty) : unitStr.toLowerCase();
+        const normalizedProduct = normalizeProductName(product);
         
-        console.log(`✓ [P14a] Product+Quantity(with unit): "${cleaned}" → ${qty} ${unit} de ${product}`);
+        console.log(`✓ [P14a] Product+Quantity(with unit): "${cleaned}" → ${qty} ${unit} de ${normalizedProduct}`);
         return { 
-          item: { quantity: qty, unit, product },
+          item: { quantity: qty, unit, product: normalizedProduct },
           unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
         };
       } else {
         const unit = normalizeUnit('', quantity);
-        console.log(`✓ [P14b] Product+Quantity: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-        return { item: { quantity, unit, product } };
+        const normalizedProduct = normalizeProductName(product);
+        console.log(`✓ [P14b] Product+Quantity: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
+        return { item: { quantity, unit, product: normalizedProduct } };
       }
     }
   }
@@ -621,15 +662,17 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
 
     if (quantity > 0 && product) {
       const unit = normalizeUnit('', quantity);
-      console.log(`✓ [P15] Fraction+de: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { item: { quantity, unit, product } };
+      const normalizedProduct = normalizeProductName(product);
+      console.log(`✓ [P15] Fraction+de: "${cleaned}" → ${quantity} ${unit} de ${normalizedProduct}`);
+      return { item: { quantity, unit, product: normalizedProduct } };
     }
   }
 
   // PRIORITY 16: Solo Producto (sin cantidad ni unidad) - DEFAULT TO 1 UNIT
   if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
-    console.log(`✓ [P16] Product only: "${cleaned}" → 1 unidad de ${cleaned}`);
-    return { item: { quantity: 1, unit: 'unidad', product: cleaned } };
+    const normalizedProduct = normalizeProductName(cleaned);
+    console.log(`✓ [P16] Product only: "${cleaned}" → 1 unidad de ${normalizedProduct}`);
+    return { item: { quantity: 1, unit: 'unidad', product: normalizedProduct } };
   }
 
   // FALLBACK: If no pattern matched, create an unparseable item with "#" quantity
@@ -680,11 +723,8 @@ function splitLineIntoSegments(line: string): string[] {
 }
 
 /**
- * Parses a WhatsApp message into a list of order items
- * Returns items and list of unknown units detected
- * Enhanced to handle combined quantity and product without spaces
- * Enhanced to create products with "#" quantity when parsing fails
- * Uses SEQUENTIAL VALIDATION with patterns ordered from most specific to least specific
+ * INTELLIGENT WhatsApp message parser
+ * Enhanced with NLP capabilities to recognize orders in ANY format
  */
 function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: string[] } {
   if (!message || !message.trim()) {
@@ -696,7 +736,7 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
   const orderItems: any[] = [];
   const unknownUnits: string[] = [];
 
-  console.log(`\n========== PARSING MESSAGE (${lines.length} lines) ==========`);
+  console.log(`\n========== INTELLIGENT PARSING (${lines.length} lines) ==========`);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -714,7 +754,6 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
       try {
         const parsed = parseSegment(segment);
 
-        // Always add the item (even if it has "#" quantity)
         orderItems.push(parsed.item);
         
         if (parsed.unknownUnit && !unknownUnits.includes(parsed.unknownUnit)) {
@@ -731,7 +770,6 @@ function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: st
         }
       } catch (error) {
         console.error(`  ✗ Error parsing segment "${segment}":`, error);
-        // Even on error, create an unparseable item
         orderItems.push({ quantity: '#', unit: '', product: segment });
       }
     }
@@ -827,7 +865,6 @@ function formatItemsList(items: any[], showPrices: boolean = false): string {
 function createConfirmationMessage(customerName: string, orderNumber: string, items: any[]): string {
   const itemsList = formatItemsList(items, false);
   
-  // Check if there are any unparseable items
   const hasUnparseableItems = items.some(item => item.quantity === '#');
   const unparseableNote = hasUnparseableItems ? '\n\n⚠️ *Nota:* Algunos productos tienen cantidad "#" porque no pudieron ser procesados correctamente. Por favor revisa tu pedido y confirma las cantidades.' : '';
   
@@ -1225,7 +1262,7 @@ ${messageText}
             }
           }
 
-          continue; // Skip to next message
+          continue;
         }
 
         // If has new order keyword, remove it and process as new order
@@ -1436,7 +1473,7 @@ Manual Juan Pérez
           continue;
         }
 
-        // Parse the message
+        // Parse the message with INTELLIGENT PARSER
         const parseResult = parseWhatsAppMessage(processedMessageText);
         const parsedItems = parseResult.items;
         const unknownUnits = parseResult.unknownUnits;
