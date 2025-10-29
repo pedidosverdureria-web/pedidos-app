@@ -142,10 +142,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  orderHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   orderNumber: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
+  },
+  messageIndicator: {
+    backgroundColor: '#25D366',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  messageCount: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -669,13 +689,25 @@ export default function HomeScreen() {
       0
     ) || 0;
 
+    // Check if order has customer queries/messages
+    const hasMessages = item.queries && item.queries.length > 0;
+    const messageCount = item.queries?.length || 0;
+
     return (
       <TouchableOpacity
         style={[styles.orderCard, { borderLeftColor: getStatusColor(item.status) }]}
         onPress={() => router.push(`/order/${item.id}`)}
       >
         <View style={styles.orderHeader}>
-          <Text style={styles.orderNumber}>{item.order_number}</Text>
+          <View style={styles.orderHeaderLeft}>
+            <Text style={styles.orderNumber}>{item.order_number}</Text>
+            {hasMessages && (
+              <View style={styles.messageIndicator}>
+                <IconSymbol name="message.fill" size={12} color="#fff" />
+                <Text style={styles.messageCount}>{messageCount}</Text>
+              </View>
+            )}
+          </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
             <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
           </View>
