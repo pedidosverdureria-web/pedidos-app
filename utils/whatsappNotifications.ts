@@ -170,7 +170,7 @@ Si tienes alguna pregunta o deseas realizar un nuevo pedido, no dudes en contact
 }
 
 /**
- * Creates query confirmation message (sent immediately when query is received)
+ * Creates query confirmation message (sent immediately when query is received from customer)
  */
 function createQueryConfirmationMessage(
   customerName: string,
@@ -187,6 +187,25 @@ ${queryText}
 ⏰ Te responderemos a la brevedad.
 
 ¡Gracias por tu paciencia! 😊`;
+}
+
+/**
+ * Creates outgoing query message (sent from business to customer)
+ * This follows the same format as incoming queries but indicates it's from the business
+ */
+function createOutgoingQueryMessage(
+  customerName: string,
+  orderNumber: string,
+  queryText: string
+): string {
+  return `💬 *Consulta sobre tu Pedido*
+
+Hola ${customerName}, tenemos una consulta sobre tu pedido ${orderNumber}.
+
+❓ *Nuestra consulta:*
+${queryText}
+
+Por favor responde cuando puedas. ¡Gracias! 😊`;
 }
 
 /**
@@ -524,8 +543,8 @@ export async function sendQueryResponse(
 }
 
 /**
- * Sends an immediate confirmation message when a query is received
- * This is called from the webhook when a customer sends a query
+ * Sends an outgoing query from the business to the customer
+ * This is called when the business initiates a query about an order
  */
 export async function sendQueryConfirmation(
   customerPhone: string,
@@ -541,11 +560,11 @@ export async function sendQueryConfirmation(
 
     if (!config || !config.access_token || !config.phone_number_id) {
       console.log('WhatsApp not configured, skipping confirmation');
-      return;
+      throw new Error('WhatsApp no está configurado');
     }
 
-    // Create and send query confirmation message
-    const message = createQueryConfirmationMessage(
+    // Create and send outgoing query message
+    const message = createOutgoingQueryMessage(
       customerName,
       orderNumber,
       queryText
@@ -558,8 +577,9 @@ export async function sendQueryConfirmation(
       message
     );
 
-    console.log('Sent query confirmation to:', customerPhone);
+    console.log('Sent outgoing query to:', customerPhone);
   } catch (error) {
-    console.error('Error sending query confirmation:', error);
+    console.error('Error sending outgoing query:', error);
+    throw error;
   }
 }

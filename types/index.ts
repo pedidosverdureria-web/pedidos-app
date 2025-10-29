@@ -5,6 +5,8 @@ export type UserRole = 'admin' | 'worker';
 
 export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'order';
 
+export type QueryDirection = 'incoming' | 'outgoing';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -34,6 +36,7 @@ export interface OrderQuery {
   order_id: string;
   customer_phone: string;
   query_text: string;
+  direction: QueryDirection; // 'incoming' (from customer) or 'outgoing' (from business)
   whatsapp_message_id?: string;
   created_at: string;
 }

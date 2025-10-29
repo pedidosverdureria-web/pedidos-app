@@ -345,7 +345,42 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
     borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
+  },
+  queryItemIncoming: {
+    borderLeftColor: '#3B82F6', // Blue for incoming (from customer)
+  },
+  queryItemOutgoing: {
+    borderLeftColor: '#10B981', // Green for outgoing (from business)
+  },
+  queryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  queryDirectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  queryDirectionBadgeIncoming: {
+    backgroundColor: '#DBEAFE', // Light blue
+  },
+  queryDirectionBadgeOutgoing: {
+    backgroundColor: '#D1FAE5', // Light green
+  },
+  queryDirectionText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  queryDirectionTextIncoming: {
+    color: '#1E40AF', // Dark blue
+  },
+  queryDirectionTextOutgoing: {
+    color: '#065F46', // Dark green
   },
   queryText: {
     fontSize: 14,
@@ -1167,13 +1202,14 @@ export default function OrderDetailScreen() {
       setSendingQuery(true);
       const supabase = getSupabase();
 
-      // Save query to database
+      // Save query to database with direction='outgoing'
       const { data: queryData, error: queryError } = await supabase
         .from('order_queries')
         .insert({
           order_id: order.id,
           customer_phone: order.customer_phone,
           query_text: newQueryText,
+          direction: 'outgoing', // Mark as outgoing message from business
         })
         .select()
         .single();
@@ -1571,7 +1607,7 @@ export default function OrderDetailScreen() {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <IconSymbol name="message.fill" size={20} color="#fff" />
+                <IconSymbol name="paperplane.fill" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Enviar Consulta</Text>
               </>
             )}
@@ -1589,30 +1625,64 @@ export default function OrderDetailScreen() {
             <Text style={styles.sectionTitle}>Consultas del Pedido</Text>
             {order.queries
               .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-              .map((query) => (
-                <View key={query.id} style={styles.queryItem}>
-                  <Text style={styles.queryText}>{query.query_text}</Text>
-                  <Text style={styles.queryDate}>
-                    📅 {formatDate(query.created_at)}
-                  </Text>
-                  <View style={styles.queryActions}>
-                    <TouchableOpacity
-                      style={styles.queryButton}
-                      onPress={() => handlePrintQuery(query)}
-                    >
-                      <IconSymbol name="printer" size={14} color="#fff" />
-                      <Text style={styles.queryButtonText}>Imprimir</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.queryButton, styles.queryButtonRespond]}
-                      onPress={() => openResponseModal(query)}
-                    >
-                      <IconSymbol name="message.fill" size={14} color="#fff" />
-                      <Text style={styles.queryButtonText}>Responder</Text>
-                    </TouchableOpacity>
+              .map((query) => {
+                const isIncoming = query.direction === 'incoming';
+                const isOutgoing = query.direction === 'outgoing';
+                
+                return (
+                  <View 
+                    key={query.id} 
+                    style={[
+                      styles.queryItem,
+                      isIncoming && styles.queryItemIncoming,
+                      isOutgoing && styles.queryItemOutgoing,
+                    ]}
+                  >
+                    <View style={styles.queryHeader}>
+                      <View style={[
+                        styles.queryDirectionBadge,
+                        isIncoming && styles.queryDirectionBadgeIncoming,
+                        isOutgoing && styles.queryDirectionBadgeOutgoing,
+                      ]}>
+                        <IconSymbol 
+                          name={isIncoming ? 'arrow.down.circle.fill' : 'arrow.up.circle.fill'} 
+                          size={14} 
+                          color={isIncoming ? '#1E40AF' : '#065F46'} 
+                        />
+                        <Text style={[
+                          styles.queryDirectionText,
+                          isIncoming && styles.queryDirectionTextIncoming,
+                          isOutgoing && styles.queryDirectionTextOutgoing,
+                        ]}>
+                          {isIncoming ? 'ENTRANTE' : 'SALIENTE'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.queryText}>{query.query_text}</Text>
+                    <Text style={styles.queryDate}>
+                      📅 {formatDate(query.created_at)}
+                    </Text>
+                    <View style={styles.queryActions}>
+                      <TouchableOpacity
+                        style={styles.queryButton}
+                        onPress={() => handlePrintQuery(query)}
+                      >
+                        <IconSymbol name="printer" size={14} color="#fff" />
+                        <Text style={styles.queryButtonText}>Imprimir</Text>
+                      </TouchableOpacity>
+                      {isIncoming && (
+                        <TouchableOpacity
+                          style={[styles.queryButton, styles.queryButtonRespond]}
+                          onPress={() => openResponseModal(query)}
+                        >
+                          <IconSymbol name="message.fill" size={14} color="#fff" />
+                          <Text style={styles.queryButtonText}>Responder</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
           </View>
         )}
 
