@@ -237,15 +237,37 @@ export function parseQuantityValue(quantityStr: string): number {
 }
 
 /**
- * Cleans a segment for parsing
+ * Cleans a segment for parsing by removing bullet points, numbering, and other list formatting
  */
 function cleanSegment(segment: string): string {
-  return segment
-    .trim()
-    .replace(/^[-•*·→➤➢▸▹►▻⇒⇨⇾⟹⟶⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿]\s*/, '')
-    .replace(/^\d+[.)]\s*/, '') // Remove numbered list markers (1. or 1)
-    .replace(/^[a-z][.)]\s*/i, '') // Remove lettered list markers (a. or a)
-    .trim();
+  let cleaned = segment.trim();
+  
+  // Remove common bullet point characters at the start
+  // Includes: • ● ○ ◦ ▪ ▫ ■ □ ★ ☆ ✓ ✔ ✗ ✘ ➤ ➢ ► ▸ ▹ ▻ ⇒ ⇨ → ⟶ ⟹ ⟼ ⤏ ⤐ and many more
+  cleaned = cleaned.replace(/^[•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→⟶⟹⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿·\-*+~]\s*/, '');
+  
+  // Remove numbered list markers (1. or 1) or 1- or 1: )
+  cleaned = cleaned.replace(/^\d+[.):\-]\s*/, '');
+  
+  // Remove lettered list markers (a. or a) or A. or A) )
+  cleaned = cleaned.replace(/^[a-zA-Z][.):\-]\s*/, '');
+  
+  // Remove Roman numeral list markers (i. or I. or iv) or IV) )
+  cleaned = cleaned.replace(/^(?:i{1,3}|iv|v|vi{0,3}|ix|x|xi{0,3}|xiv|xv)[.):\-]\s*/i, '');
+  
+  // Remove parenthesized numbers or letters at the start: (1) or (a) or (A)
+  cleaned = cleaned.replace(/^\([0-9a-zA-Z]+\)\s*/, '');
+  
+  // Remove square bracketed numbers or letters at the start: [1] or [a] or [A]
+  cleaned = cleaned.replace(/^\[[0-9a-zA-Z]+\]\s*/, '');
+  
+  // Remove dashes, asterisks, or plus signs that might be used as bullets
+  cleaned = cleaned.replace(/^[\-*+~]\s+/, '');
+  
+  // Remove any remaining leading whitespace
+  cleaned = cleaned.trim();
+  
+  return cleaned;
 }
 
 /**
