@@ -339,79 +339,155 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
-  queryItem: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderLeftWidth: 3,
-  },
-  queryItemIncoming: {
-    borderLeftColor: '#3B82F6', // Blue for incoming (from customer)
-  },
-  queryItemOutgoing: {
-    borderLeftColor: '#10B981', // Green for outgoing (from business)
-  },
-  queryHeader: {
+  historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
-  queryDirectionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+  historyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
   },
-  queryDirectionBadgeIncoming: {
-    backgroundColor: '#DBEAFE', // Light blue
-  },
-  queryDirectionBadgeOutgoing: {
-    backgroundColor: '#D1FAE5', // Light green
-  },
-  queryDirectionText: {
-    fontSize: 11,
+  historyCount: {
+    fontSize: 14,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
-  queryDirectionTextIncoming: {
-    color: '#1E40AF', // Dark blue
+  historyTimeline: {
+    position: 'relative',
   },
-  queryDirectionTextOutgoing: {
-    color: '#065F46', // Dark green
+  messageItem: {
+    marginBottom: 16,
+    position: 'relative',
   },
-  queryText: {
-    fontSize: 14,
-    color: colors.text,
+  messageItemIncoming: {
+    paddingLeft: 20,
+  },
+  messageItemOutgoing: {
+    paddingLeft: 20,
+  },
+  timelineDot: {
+    position: 'absolute',
+    left: 0,
+    top: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+  },
+  timelineDotIncoming: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+  },
+  timelineDotOutgoing: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  timelineLine: {
+    position: 'absolute',
+    left: 5,
+    top: 20,
+    width: 2,
+    bottom: -16,
+    backgroundColor: colors.border,
+  },
+  messageCard: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    padding: 12,
+    borderLeftWidth: 3,
+  },
+  messageCardIncoming: {
+    borderLeftColor: '#3B82F6',
+  },
+  messageCardOutgoing: {
+    borderLeftColor: '#10B981',
+  },
+  messageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 8,
   },
-  queryDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  queryActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  queryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  messageDirection: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  queryButtonText: {
+  messageDirectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  messageDirectionBadgeIncoming: {
+    backgroundColor: '#DBEAFE',
+  },
+  messageDirectionBadgeOutgoing: {
+    backgroundColor: '#D1FAE5',
+  },
+  messageDirectionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  messageDirectionTextIncoming: {
+    color: '#1E40AF',
+  },
+  messageDirectionTextOutgoing: {
+    color: '#065F46',
+  },
+  messageDate: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  messageText: {
+    fontSize: 15,
+    color: colors.text,
+    lineHeight: 22,
+    marginBottom: 10,
+  },
+  messageActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  messageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  messageButtonPrint: {
+    backgroundColor: '#3B82F6',
+  },
+  messageButtonRespond: {
+    backgroundColor: '#25D366',
+  },
+  messageButtonText: {
     color: '#fff',
     fontSize: 12,
     fontWeight: '600',
   },
-  queryButtonRespond: {
-    backgroundColor: '#25D366',
+  emptyHistory: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyHistoryIcon: {
+    marginBottom: 12,
+  },
+  emptyHistoryText: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   responseInput: {
     backgroundColor: colors.background,
@@ -621,6 +697,25 @@ function formatDate(dateString: string): string {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+  });
+}
+
+function formatShortDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Ahora';
+  if (diffMins < 60) return `Hace ${diffMins}m`;
+  if (diffHours < 24) return `Hace ${diffHours}h`;
+  if (diffDays < 7) return `Hace ${diffDays}d`;
+  
+  return date.toLocaleDateString('es-CL', {
+    day: '2-digit',
+    month: 'short',
   });
 }
 
@@ -1357,6 +1452,11 @@ export default function OrderDetailScreen() {
 
   const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
   const availableTransitions = getAvailableStatusTransitions(order.status);
+  
+  // Sort queries by date (oldest first for timeline view)
+  const sortedQueries = order.queries 
+    ? [...order.queries].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    : [];
 
   return (
     <View style={styles.container}>
@@ -1619,70 +1719,118 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {/* Queries Section */}
-        {order.queries && order.queries.length > 0 && (
+        {/* Message History Section - Enhanced Timeline View */}
+        {sortedQueries.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Consultas del Pedido</Text>
-            {order.queries
-              .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-              .map((query) => {
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>Historial de Mensajes</Text>
+              <Text style={styles.historyCount}>
+                {sortedQueries.length} {sortedQueries.length === 1 ? 'mensaje' : 'mensajes'}
+              </Text>
+            </View>
+            
+            <View style={styles.historyTimeline}>
+              {sortedQueries.map((query, index) => {
                 const isIncoming = query.direction === 'incoming';
                 const isOutgoing = query.direction === 'outgoing';
+                const isLast = index === sortedQueries.length - 1;
                 
                 return (
                   <View 
                     key={query.id} 
                     style={[
-                      styles.queryItem,
-                      isIncoming && styles.queryItemIncoming,
-                      isOutgoing && styles.queryItemOutgoing,
+                      styles.messageItem,
+                      isIncoming && styles.messageItemIncoming,
+                      isOutgoing && styles.messageItemOutgoing,
                     ]}
                   >
-                    <View style={styles.queryHeader}>
-                      <View style={[
-                        styles.queryDirectionBadge,
-                        isIncoming && styles.queryDirectionBadgeIncoming,
-                        isOutgoing && styles.queryDirectionBadgeOutgoing,
-                      ]}>
-                        <IconSymbol 
-                          name={isIncoming ? 'arrow.down.circle.fill' : 'arrow.up.circle.fill'} 
-                          size={14} 
-                          color={isIncoming ? '#1E40AF' : '#065F46'} 
-                        />
-                        <Text style={[
-                          styles.queryDirectionText,
-                          isIncoming && styles.queryDirectionTextIncoming,
-                          isOutgoing && styles.queryDirectionTextOutgoing,
-                        ]}>
-                          {isIncoming ? 'ENTRANTE' : 'SALIENTE'}
+                    {/* Timeline dot */}
+                    <View style={[
+                      styles.timelineDot,
+                      isIncoming && styles.timelineDotIncoming,
+                      isOutgoing && styles.timelineDotOutgoing,
+                    ]} />
+                    
+                    {/* Timeline line (except for last item) */}
+                    {!isLast && <View style={styles.timelineLine} />}
+                    
+                    {/* Message card */}
+                    <View style={[
+                      styles.messageCard,
+                      isIncoming && styles.messageCardIncoming,
+                      isOutgoing && styles.messageCardOutgoing,
+                    ]}>
+                      <View style={styles.messageHeader}>
+                        <View style={styles.messageDirection}>
+                          <View style={[
+                            styles.messageDirectionBadge,
+                            isIncoming && styles.messageDirectionBadgeIncoming,
+                            isOutgoing && styles.messageDirectionBadgeOutgoing,
+                          ]}>
+                            <IconSymbol 
+                              name={isIncoming ? 'arrow.down.circle.fill' : 'arrow.up.circle.fill'} 
+                              size={14} 
+                              color={isIncoming ? '#1E40AF' : '#065F46'} 
+                            />
+                            <Text style={[
+                              styles.messageDirectionText,
+                              isIncoming && styles.messageDirectionTextIncoming,
+                              isOutgoing && styles.messageDirectionTextOutgoing,
+                            ]}>
+                              {isIncoming ? 'Cliente' : 'Comercio'}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.messageDate}>
+                          {formatShortDate(query.created_at)}
                         </Text>
                       </View>
-                    </View>
-                    <Text style={styles.queryText}>{query.query_text}</Text>
-                    <Text style={styles.queryDate}>
-                      📅 {formatDate(query.created_at)}
-                    </Text>
-                    <View style={styles.queryActions}>
-                      <TouchableOpacity
-                        style={styles.queryButton}
-                        onPress={() => handlePrintQuery(query)}
-                      >
-                        <IconSymbol name="printer" size={14} color="#fff" />
-                        <Text style={styles.queryButtonText}>Imprimir</Text>
-                      </TouchableOpacity>
-                      {isIncoming && (
+                      
+                      <Text style={styles.messageText}>{query.query_text}</Text>
+                      
+                      <View style={styles.messageActions}>
                         <TouchableOpacity
-                          style={[styles.queryButton, styles.queryButtonRespond]}
-                          onPress={() => openResponseModal(query)}
+                          style={[styles.messageButton, styles.messageButtonPrint]}
+                          onPress={() => handlePrintQuery(query)}
                         >
-                          <IconSymbol name="message.fill" size={14} color="#fff" />
-                          <Text style={styles.queryButtonText}>Responder</Text>
+                          <IconSymbol name="printer" size={14} color="#fff" />
+                          <Text style={styles.messageButtonText}>Imprimir</Text>
                         </TouchableOpacity>
-                      )}
+                        
+                        {isIncoming && (
+                          <TouchableOpacity
+                            style={[styles.messageButton, styles.messageButtonRespond]}
+                            onPress={() => openResponseModal(query)}
+                          >
+                            <IconSymbol name="message.fill" size={14} color="#fff" />
+                            <Text style={styles.messageButtonText}>Responder</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </View>
                 );
               })}
+            </View>
+          </View>
+        )}
+
+        {/* Empty state for no messages */}
+        {sortedQueries.length === 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Historial de Mensajes</Text>
+            <View style={styles.emptyHistory}>
+              <IconSymbol 
+                name="message" 
+                size={48} 
+                color={colors.textSecondary} 
+                style={styles.emptyHistoryIcon}
+              />
+              <Text style={styles.emptyHistoryText}>
+                No hay mensajes en este pedido.{'\n'}
+                Envía una consulta al cliente para comenzar.
+              </Text>
+            </View>
           </View>
         )}
 

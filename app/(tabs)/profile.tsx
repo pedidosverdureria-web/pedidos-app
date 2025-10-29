@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
@@ -65,10 +66,11 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <IconSymbol
-                name={user?.role === 'admin' ? 'person.badge.shield.checkmark.fill' : 'person.fill'}
-                size={48}
-                color={colors.primary}
+              {/* Display app logo instead of user icon */}
+              <Image
+                source={require('@/assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
               />
             </View>
           </View>
@@ -209,11 +211,16 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: colors.primary + '20',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
     borderColor: colors.primary,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 80,
+    height: 80,
   },
   name: {
     fontSize: 24,
