@@ -316,16 +316,16 @@ function cleanSegment(segment: string): string {
   
   // Remove common bullet point characters at the start
   // Includes: • ● ○ ◦ ▪ ▫ ■ □ ★ ☆ ✓ ✔ ✗ ✘ ➤ ➢ ► ▸ ▹ ▻ ⇒ ⇨ → ⟶ ⟹ ⟼ ⤏ ⤐ and many more
-  cleaned = cleaned.replace(/^[•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→⟶⟹⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿·\-*+~]\s*/, '');
+  cleaned = cleaned.replace(/^[•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→⟶⟹⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿·*+~]\s*/, '');
   
   // Remove numbered list markers (1. or 1) or 1- or 1: )
-  cleaned = cleaned.replace(/^\d+[.):\-]\s*/, '');
+  cleaned = cleaned.replace(/^\d+[.):]\s*/, '');
   
   // Remove lettered list markers (a. or a) or A. or A) )
-  cleaned = cleaned.replace(/^[a-zA-Z][.):\-]\s*/, '');
+  cleaned = cleaned.replace(/^[a-zA-Z][.):]\s*/, '');
   
   // Remove Roman numeral list markers (i. or I. or iv) or IV) )
-  cleaned = cleaned.replace(/^(?:i{1,3}|iv|v|vi{0,3}|ix|x|xi{0,3}|xiv|xv)[.):\-]\s*/i, '');
+  cleaned = cleaned.replace(/^(?:i{1,3}|iv|v|vi{0,3}|ix|x|xi{0,3}|xiv|xv)[.):]\s*/i, '');
   
   // Remove parenthesized numbers or letters at the start: (1) or (a) or (A)
   cleaned = cleaned.replace(/^\([0-9a-zA-Z]+\)\s*/, '');
@@ -334,7 +334,7 @@ function cleanSegment(segment: string): string {
   cleaned = cleaned.replace(/^\[[0-9a-zA-Z]+\]\s*/, '');
   
   // Remove dashes, asterisks, or plus signs that might be used as bullets
-  cleaned = cleaned.replace(/^[\-*+~]\s+/, '');
+  cleaned = cleaned.replace(/^[*+~]\s+/, '');
   
   // Remove any remaining leading whitespace
   cleaned = cleaned.trim();
@@ -358,9 +358,58 @@ function parseSegment(segment: string): { item: any, unknownUnit?: string } {
     return { item: { quantity: '#', unit: '', product: trimmed } };
   }
 
+  // NEW Strategy 0a: Integer + Space + Fraction + Space + Product (no unit, no "de")
+  // Examples: "1 1/2 manzana", "2 3/4 papas"
+  // This should be parsed as "1.5 kilos de manzana", "2.75 kilos de papas"
+  let match = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ].+)$/i);
+  if (match) {
+    const integerPart = parseInt(match[1]);
+    const numerator = parseInt(match[2]);
+    const denominator = parseInt(match[3]);
+    const restOfText = match[4].trim();
+    
+    // Check if the first word after the fraction is a known unit
+    const firstWord = restOfText.split(/\s+/)[0];
+    const isFirstWordUnit = isKnownUnit(firstWord);
+    
+    if (!isFirstWordUnit) {
+      // No unit found, so this is "quantity product" format
+      const quantity = integerPart + (numerator / denominator);
+      const product = restOfText;
+      
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit('kilo', quantity);
+        console.log(`✓ Strategy 0a (NEW): "${cleaned}" → ${quantity} ${unit} de ${product}`);
+        return { item: { quantity, unit, product } };
+      }
+    }
+  }
+
+  // NEW Strategy 0b: Integer + Space + Fraction + Unit + Product (no "de")
+  // Examples: "1 1/2 kilo manzana", "2 3/4 kg papas"
+  // This should be parsed as "1.5 kilos de manzana", "2.75 kg de papas"
+  match = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)\s+(\w+)\s+(.+)$/i);
+  if (match) {
+    const integerPart = parseInt(match[1]);
+    const numerator = parseInt(match[2]);
+    const denominator = parseInt(match[3]);
+    const unitStr = match[4];
+    const product = match[5].trim();
+    
+    if (isKnownUnit(unitStr)) {
+      const quantity = integerPart + (numerator / denominator);
+      
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit(unitStr, quantity);
+        console.log(`✓ Strategy 0b (NEW): "${cleaned}" → ${quantity} ${unit} de ${product}`);
+        return { item: { quantity, unit, product } };
+      }
+    }
+  }
+
   // Strategy 1: Integer + Space + Fraction + Unit + "de" + Product
   // Examples: "1 1/2 kilo de manzanas", "2 3/4 kg de papas"
-  let match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+(\w+)\s+de\s+(.+)$/i);
+  match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+(\w+)\s+de\s+(.+)$/i);
   if (match) {
     const quantityStr = match[1];
     const quantity = parseQuantityValue(quantityStr);
@@ -823,6 +872,7 @@ Hola ${customerName}! No pude identificar productos en tu mensaje.
 3k de tomates
 1/2 kilo de papas
 1 1/2 kilo de manzanas
+1 1/2 manzana (se asume kilos)
 1 y medio kilo de papas
 medio kilo de cebollas
 tomates 3 kilos (orden invertido)
@@ -854,6 +904,7 @@ Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de p
 3k de tomates
 1/2 kilo de papas
 1 1/2 kilo de manzanas
+1 1/2 manzana (se asume kilos)
 1 y medio kilo de papas
 medio kilo de cebollas
 tomates 3 kilos
