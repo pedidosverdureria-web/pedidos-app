@@ -46,6 +46,7 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
 const PRINTER_CONFIG_KEY = '@printer_config';
 const ORDERS_TO_PRINT_KEY = '@orders_to_print';
 const PRINTED_ORDERS_KEY = '@printed_orders';
+const AUTO_REFRESH_INTERVAL = 5000; // 5 seconds
 
 const styles = StyleSheet.create({
   container: {
@@ -308,6 +309,7 @@ export default function HomeScreen() {
   const isPrintingRef = useRef(false);
   const lastPrintCheckRef = useRef<number>(0);
   const autoPrintIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const keepAwakeTagRef = useRef<string>('auto-print-home');
   const isKeepAwakeActiveRef = useRef<boolean>(false);
 
@@ -667,6 +669,30 @@ export default function HomeScreen() {
       }
     };
   }, [printerConfig?.auto_print_enabled, isConnected, checkAndPrintNewOrders]);
+
+  // Set up auto-refresh interval (every 5 seconds)
+  useEffect(() => {
+    console.log('[HomeScreen] Setting up auto-refresh interval (5 seconds)');
+    
+    // Clear any existing interval
+    if (autoRefreshIntervalRef.current) {
+      clearInterval(autoRefreshIntervalRef.current);
+    }
+
+    // Set up interval to refresh orders every 5 seconds
+    autoRefreshIntervalRef.current = setInterval(() => {
+      console.log('[HomeScreen] Auto-refresh triggered');
+      refetch();
+    }, AUTO_REFRESH_INTERVAL);
+
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        console.log('[HomeScreen] Clearing auto-refresh interval');
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    };
+  }, [refetch]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

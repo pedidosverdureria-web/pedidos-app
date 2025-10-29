@@ -18,7 +18,8 @@ import {
   sendProductAddedNotification, 
   sendProductRemovedNotification,
   sendOrderDeletedNotification,
-  sendQueryResponse
+  sendQueryResponse,
+  sendQueryConfirmation
 } from '@/utils/whatsappNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getSupabase } from '@/lib/supabase';
@@ -412,6 +413,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
   },
+  sendQueryInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginBottom: 12,
+  },
+  sendQueryButton: {
+    backgroundColor: '#25D366',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
 });
 
 function getStatusColor(status: OrderStatus): string {
@@ -603,6 +625,10 @@ export default function OrderDetailScreen() {
   const [selectedQuery, setSelectedQuery] = useState<OrderQuery | null>(null);
   const [responseText, setResponseText] = useState('');
   const [sendingResponse, setSendingResponse] = useState(false);
+
+  // Send query to customer
+  const [newQueryText, setNewQueryText] = useState('');
+  const [sendingQuery, setSendingQuery] = useState(false);
 
   const loadOrder = useCallback(async () => {
     if (!orderId) return;
@@ -1124,6 +1150,82 @@ export default function OrderDetailScreen() {
     }
   };
 
+  const handleSendQuery = async () => {
+    if (!order || !newQueryText.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('⚠️ Atención', 'Por favor ingresa una consulta');
+      return;
+    }
+
+    if (!order.customer_phone) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('⚠️ Atención', 'Este pedido no tiene un número de teléfono asociado');
+      return;
+    }
+
+    try {
+      setSendingQuery(true);
+      const supabase = getSupabase();
+
+      // Save query to database
+      const { data: queryData, error: queryError } = await supabase
+        .from('order_queries')
+        .insert({
+          order_id: order.id,
+          customer_phone: order.customer_phone,
+          query_text: newQueryText,
+        })
+        .select()
+        .single();
+
+      if (queryError) throw queryError;
+
+      // Send query via WhatsApp
+      await sendQueryConfirmation(
+        order.customer_phone,
+        order.customer_name,
+        order.order_number,
+        newQueryText
+      );
+
+      // Auto-print the query if auto-print is enabled
+      if (printerConfig?.auto_print_enabled && isConnected) {
+        console.log('[OrderDetail] Auto-printing query');
+        try {
+          const receiptText = generateQueryReceiptText(order, newQueryText, printerConfig);
+          const autoCut = printerConfig?.auto_cut_enabled ?? true;
+          const textSize = printerConfig?.text_size || 'medium';
+          const encoding = printerConfig?.encoding || 'CP850';
+
+          await printReceipt(receiptText, autoCut, textSize, encoding);
+          console.log('[OrderDetail] Query auto-printed successfully');
+        } catch (printError) {
+          console.error('[OrderDetail] Error auto-printing query:', printError);
+        }
+      }
+
+      setNewQueryText('');
+      await loadOrder();
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Consulta Enviada',
+        'La consulta se envió correctamente al cliente por WhatsApp y se imprimió automáticamente',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('[OrderDetail] Error sending query:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        'No se pudo enviar la consulta. Verifica la configuración de WhatsApp.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setSendingQuery(false);
+    }
+  };
+
   const handleWhatsApp = async () => {
     if (!order?.customer_phone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -1440,6 +1542,44 @@ export default function OrderDetailScreen() {
                 </TouchableOpacity>
               )}
             </>
+          )}
+        </View>
+
+        {/* Send Query Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Enviar Consulta al Cliente</Text>
+          <Text style={styles.modalSubtitle}>
+            Envía una consulta al cliente por WhatsApp. Se imprimirá automáticamente.
+          </Text>
+          <TextInput
+            style={styles.sendQueryInput}
+            placeholder="Escribe tu consulta aquí..."
+            placeholderTextColor={colors.textSecondary}
+            value={newQueryText}
+            onChangeText={setNewQueryText}
+            multiline
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendQueryButton,
+              (sendingQuery || !newQueryText.trim() || !order.customer_phone) && { opacity: 0.5 }
+            ]}
+            onPress={handleSendQuery}
+            disabled={sendingQuery || !newQueryText.trim() || !order.customer_phone}
+          >
+            {sendingQuery ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <IconSymbol name="message.fill" size={20} color="#fff" />
+                <Text style={styles.addButtonText}>Enviar Consulta</Text>
+              </>
+            )}
+          </TouchableOpacity>
+          {!order.customer_phone && (
+            <Text style={styles.exampleText}>
+              ⚠️ Este pedido no tiene un número de teléfono asociado
+            </Text>
           )}
         </View>
 
