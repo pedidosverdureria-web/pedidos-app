@@ -1000,6 +1000,8 @@ function createHelpMessage(customerName: string): string {
 
 Hola ${customerName}! No pude identificar productos en tu mensaje.
 
+⚠️ *IMPORTANTE:* Envía SOLO la lista de productos, sin saludos ni texto extra. La aplicación detectará automáticamente quién eres.
+
 📝 *Formatos sugeridos:*
 
 *Formato vertical:*
@@ -1021,6 +1023,9 @@ medio kilo de cebollas
 tomates 3 kilos (orden invertido)
 dos kilos de papas (números en texto)
 
+🚫 *NO envíes:* "Hola, quiero pedir...", "Gracias", etc.
+✅ *SÍ envía:* Solo la lista de productos
+
 ¡Gracias por tu comprensión! 😊`;
 }
 
@@ -1030,7 +1035,12 @@ dos kilos de papas (números en texto)
 function createWelcomeMessage(customerName: string): string {
   return `👋 *¡Hola ${customerName}!*
 
-Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de productos que necesitas.
+Gracias por contactarnos. Para hacer un pedido, es muy importante que sigas estas instrucciones:
+
+⚠️ *IMPORTANTE:*
+🔹 Envía SOLO la lista de productos
+🔹 NO incluyas saludos, despedidas ni texto extra
+🔹 La aplicación detectará automáticamente quién eres
 
 📝 *Ejemplos de cómo hacer tu pedido:*
 
@@ -1052,6 +1062,13 @@ Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de p
 medio kilo de cebollas
 tomates 3 kilos
 dos kilos de papas
+
+🚫 *Ejemplo INCORRECTO:*
+"Hola, buenos días, quiero hacer un pedido de 3 kilos de tomates. Gracias"
+
+✅ *Ejemplo CORRECTO:*
+3 kilos de tomates
+2 kilos de paltas
 
 ¿En qué podemos ayudarte hoy? 😊`;
 }
