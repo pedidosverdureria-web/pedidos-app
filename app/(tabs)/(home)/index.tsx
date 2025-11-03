@@ -46,7 +46,6 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 const ORDERS_TO_PRINT_KEY = '@orders_to_print';
-const PRINTED_ORDERS_KEY = '@printed_orders';
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 
 const styles = StyleSheet.create({
@@ -303,13 +302,10 @@ export default function HomeScreen() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
-  const [printedOrderIds, setPrintedOrderIds] = useState<string[]>([]);
-  const [printedQueryIds, setPrintedQueryIds] = useState<string[]>([]);
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const notificationListenerRef = useRef<any>(null);
   const responseListenerRef = useRef<any>(null);
   const isPrintingRef = useRef(false);
-  const lastPrintCheckRef = useRef<number>(0);
   const autoPrintIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const keepAwakeTagRef = useRef<string>('auto-print-home');
@@ -321,7 +317,7 @@ export default function HomeScreen() {
 
   const { isConnected, printReceipt } = usePrinter();
 
-  // Load printer configuration and printed orders
+  // Load printer configuration
   const loadPrinterConfig = useCallback(async () => {
     try {
       console.log('[HomeScreen] Loading printer config...');
@@ -341,26 +337,147 @@ export default function HomeScreen() {
       } else {
         console.log('[HomeScreen] No printer config found');
       }
-
-      // Load printed orders list
-      const printedStr = await AsyncStorage.getItem(PRINTED_ORDERS_KEY);
-      if (printedStr) {
-        const printed: string[] = JSON.parse(printedStr);
-        setPrintedOrderIds(printed);
-        console.log('[HomeScreen] Loaded printed orders:', printed.length);
-      }
     } catch (error) {
       console.error('[HomeScreen] Error loading printer config:', error);
     }
   }, []);
 
-  // Save printed orders to AsyncStorage
-  const savePrintedOrders = useCallback(async (orderIds: string[]) => {
+  // Check if an order has already been printed by checking the database
+  const isOrderAlreadyPrinted = useCallback(async (orderId: string): Promise<boolean> => {
     try {
-      await AsyncStorage.setItem(PRINTED_ORDERS_KEY, JSON.stringify(orderIds));
-      console.log('[HomeScreen] Saved printed orders:', orderIds.length);
+      const supabase = getSupabase();
+      
+      // Check if there's a print queue entry for this order that's already printed
+      const { data, error } = await supabase
+        .from('print_queue')
+        .select('id, status')
+        .eq('item_type', 'order')
+        .eq('item_id', orderId)
+        .in('status', ['printed', 'failed'])
+        .limit(1);
+
+      if (error) {
+        console.error('[HomeScreen] Error checking if order is printed:', error);
+        return false;
+      }
+
+      const alreadyPrinted = data && data.length > 0;
+      if (alreadyPrinted) {
+        console.log('[HomeScreen] Order', orderId, 'already printed (found in print_queue)');
+      }
+      
+      return alreadyPrinted;
     } catch (error) {
-      console.error('[HomeScreen] Error saving printed orders:', error);
+      console.error('[HomeScreen] Error checking if order is printed:', error);
+      return false;
+    }
+  }, []);
+
+  // Check if a query has already been printed by checking the database
+  const isQueryAlreadyPrinted = useCallback(async (queryId: string): Promise<boolean> => {
+    try {
+      const supabase = getSupabase();
+      
+      // Check if there's a print queue entry for this query that's already printed
+      const { data, error } = await supabase
+        .from('print_queue')
+        .select('id, status')
+        .eq('item_type', 'query')
+        .eq('item_id', queryId)
+        .in('status', ['printed', 'failed'])
+        .limit(1);
+
+      if (error) {
+        console.error('[HomeScreen] Error checking if query is printed:', error);
+        return false;
+      }
+
+      const alreadyPrinted = data && data.length > 0;
+      if (alreadyPrinted) {
+        console.log('[HomeScreen] Query', queryId, 'already printed (found in print_queue)');
+      }
+      
+      return alreadyPrinted;
+    } catch (error) {
+      console.error('[HomeScreen] Error checking if query is printed:', error);
+      return false;
+    }
+  }, []);
+
+  // Add order to print queue in database
+  const addOrderToPrintQueue = useCallback(async (orderId: string): Promise<void> => {
+    try {
+      const supabase = getSupabase();
+      
+      // First check if it already exists in the queue
+      const { data: existing } = await supabase
+        .from('print_queue')
+        .select('id')
+        .eq('item_type', 'order')
+        .eq('item_id', orderId)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        console.log('[HomeScreen] Order already in print queue, skipping');
+        return;
+      }
+
+      // Add to print queue
+      const { error } = await supabase
+        .from('print_queue')
+        .insert({
+          item_type: 'order',
+          item_id: orderId,
+          status: 'pending',
+        });
+
+      if (error) {
+        console.error('[HomeScreen] Error adding order to print queue:', error);
+      } else {
+        console.log('[HomeScreen] Order added to print queue:', orderId);
+      }
+    } catch (error) {
+      console.error('[HomeScreen] Error adding order to print queue:', error);
+    }
+  }, []);
+
+  // Mark order as printed in database
+  const markOrderAsPrinted = useCallback(async (orderId: string): Promise<void> => {
+    try {
+      const supabase = getSupabase();
+      
+      // Update or insert print queue entry
+      const { data: existing } = await supabase
+        .from('print_queue')
+        .select('id')
+        .eq('item_type', 'order')
+        .eq('item_id', orderId)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        // Update existing entry
+        await supabase
+          .from('print_queue')
+          .update({
+            status: 'printed',
+            printed_at: new Date().toISOString(),
+          })
+          .eq('id', existing[0].id);
+      } else {
+        // Insert new entry
+        await supabase
+          .from('print_queue')
+          .insert({
+            item_type: 'order',
+            item_id: orderId,
+            status: 'printed',
+            printed_at: new Date().toISOString(),
+          });
+      }
+
+      console.log('[HomeScreen] Order marked as printed in database:', orderId);
+    } catch (error) {
+      console.error('[HomeScreen] Error marking order as printed:', error);
     }
   }, []);
 
@@ -392,9 +509,10 @@ export default function HomeScreen() {
         
         // Process each order
         for (const orderId of ordersToPrint) {
-          // Skip if already printed
-          if (printedOrderIds.includes(orderId)) {
-            console.log('[HomeScreen] Order already printed, skipping:', orderId);
+          // Check if already printed using database
+          const alreadyPrinted = await isOrderAlreadyPrinted(orderId);
+          if (alreadyPrinted) {
+            console.log('[HomeScreen] Order already printed (database check), skipping:', orderId);
             continue;
           }
 
@@ -404,7 +522,6 @@ export default function HomeScreen() {
             
             try {
               console.log('[HomeScreen] Auto-printing order:', order.order_number);
-              console.log('[HomeScreen] Using printer config:', printerConfig);
               
               // Use the centralized receipt generator with the full printer config
               const receiptText = generateReceiptText(order, printerConfig);
@@ -412,22 +529,10 @@ export default function HomeScreen() {
               const textSize = printerConfig?.text_size || 'medium';
               const encoding = printerConfig?.encoding || 'CP850';
               
-              console.log('[HomeScreen] Printing with settings:', {
-                autoCut,
-                textSize,
-                encoding,
-                paper_size: printerConfig?.paper_size,
-                include_logo: printerConfig?.include_logo,
-                include_customer_info: printerConfig?.include_customer_info,
-                include_totals: printerConfig?.include_totals,
-              });
-              
               await printReceipt(receiptText, autoCut, textSize, encoding);
               
-              // Mark as printed
-              const newPrintedIds = [...printedOrderIds, orderId];
-              setPrintedOrderIds(newPrintedIds);
-              await savePrintedOrders(newPrintedIds);
+              // Mark as printed in database
+              await markOrderAsPrinted(orderId);
               
               console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
               
@@ -450,8 +555,9 @@ export default function HomeScreen() {
     console.log('[HomeScreen] Found', pendingOrders.length, 'pending orders');
     
     for (const order of pendingOrders) {
-      // Skip if already printed or currently printing
-      if (printedOrderIds.includes(order.id) || isPrintingRef.current) {
+      // Check if already printed using database
+      const alreadyPrinted = await isOrderAlreadyPrinted(order.id);
+      if (alreadyPrinted || isPrintingRef.current) {
         continue;
       }
 
@@ -459,7 +565,6 @@ export default function HomeScreen() {
       
       try {
         console.log('[HomeScreen] Auto-printing new order:', order.order_number);
-        console.log('[HomeScreen] Using printer config:', printerConfig);
         
         // Use the centralized receipt generator with the full printer config
         const receiptText = generateReceiptText(order, printerConfig);
@@ -467,22 +572,10 @@ export default function HomeScreen() {
         const textSize = printerConfig?.text_size || 'medium';
         const encoding = printerConfig?.encoding || 'CP850';
         
-        console.log('[HomeScreen] Printing with settings:', {
-          autoCut,
-          textSize,
-          encoding,
-          paper_size: printerConfig?.paper_size,
-          include_logo: printerConfig?.include_logo,
-          include_customer_info: printerConfig?.include_customer_info,
-          include_totals: printerConfig?.include_totals,
-        });
-        
         await printReceipt(receiptText, autoCut, textSize, encoding);
         
-        // Mark as printed
-        const newPrintedIds = [...printedOrderIds, order.id];
-        setPrintedOrderIds(newPrintedIds);
-        await savePrintedOrders(newPrintedIds);
+        // Mark as printed in database
+        await markOrderAsPrinted(order.id);
         
         console.log('[HomeScreen] Order auto-printed successfully:', order.order_number);
       } catch (error) {
@@ -495,7 +588,7 @@ export default function HomeScreen() {
       break;
     }
 
-    // NEW: Check for queries that need printing from the print_queue table
+    // Check for queries that need printing from the print_queue table
     try {
       const supabase = getSupabase();
       
@@ -514,8 +607,16 @@ export default function HomeScreen() {
         console.log('[HomeScreen] Found', printQueue.length, 'queries to print');
 
         for (const queueItem of printQueue) {
-          // Skip if already printed or currently printing
-          if (printedQueryIds.includes(queueItem.item_id) || isPrintingRef.current) {
+          // Double-check if already printed
+          const alreadyPrinted = await isQueryAlreadyPrinted(queueItem.item_id);
+          if (alreadyPrinted || isPrintingRef.current) {
+            // If already printed but status is still pending, update it
+            if (alreadyPrinted && queueItem.status === 'pending') {
+              await supabase
+                .from('print_queue')
+                .update({ status: 'printed' })
+                .eq('id', queueItem.id);
+            }
             continue;
           }
 
@@ -568,9 +669,6 @@ export default function HomeScreen() {
               })
               .eq('id', queueItem.id);
 
-            // Add to printed queries list
-            setPrintedQueryIds(prev => [...prev, queueItem.item_id]);
-
             console.log('[HomeScreen] Query auto-printed successfully');
 
             // Small delay between prints
@@ -597,7 +695,24 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('[HomeScreen] Error checking queries to print:', error);
     }
-  }, [orders, printerConfig, isConnected, printedOrderIds, printedQueryIds, printReceipt, savePrintedOrders]);
+
+    // Clean up old printed items from print_queue (older than 7 days)
+    try {
+      const supabase = getSupabase();
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      await supabase
+        .from('print_queue')
+        .delete()
+        .in('status', ['printed', 'failed'])
+        .lt('created_at', sevenDaysAgo.toISOString());
+
+      console.log('[HomeScreen] Cleaned up old print queue items');
+    } catch (error) {
+      console.error('[HomeScreen] Error cleaning up print queue:', error);
+    }
+  }, [orders, printerConfig, isConnected, printReceipt, isOrderAlreadyPrinted, isQueryAlreadyPrinted, markOrderAsPrinted]);
 
   useEffect(() => {
     loadPrinterConfig();
