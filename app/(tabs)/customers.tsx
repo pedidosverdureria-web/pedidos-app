@@ -20,6 +20,11 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { Customer, CustomerPayment, Order } from '@/types';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePrinter } from '@/hooks/usePrinter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PrinterConfig } from '@/utils/receiptGenerator';
+
+const PRINTER_CONFIG_KEY = '@printer_config';
 
 const styles = StyleSheet.create({
   container: {
@@ -222,6 +227,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
   },
+  orderProductCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
   paymentItem: {
     backgroundColor: colors.background,
     borderRadius: 8,
@@ -297,6 +307,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  printButton: {
+    backgroundColor: '#8B5CF6',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  printButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
   emptyPayments: {
     padding: 16,
     alignItems: 'center',
@@ -324,6 +349,126 @@ function formatDate(dateString: string): string {
   });
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('es-CL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function centerText(text: string, width: number): string {
+  const padding = Math.max(0, Math.floor((width - text.length) / 2));
+  return ' '.repeat(padding) + text;
+}
+
+function generatePendingOrdersReceipt(customer: Customer, config?: PrinterConfig): string {
+  const width = config?.paper_size === '58mm' ? 32 : 48;
+  
+  let receipt = '';
+  
+  // Header
+  if (config?.include_logo !== false) {
+    receipt += centerText('ESTADO DE CUENTA', width) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+  }
+  
+  // Customer info
+  receipt += `Cliente: ${customer.name}\n`;
+  if (customer.phone) {
+    receipt += `Telefono: ${customer.phone}\n`;
+  }
+  if (customer.address) {
+    receipt += `Direccion: ${customer.address}\n`;
+  }
+  receipt += `Fecha: ${formatDateTime(new Date().toISOString())}\n`;
+  receipt += '-'.repeat(width) + '\n\n';
+  
+  // Pending orders
+  receipt += 'PEDIDOS PENDIENTES:\n\n';
+  
+  if (customer.orders && customer.orders.length > 0) {
+    for (const order of customer.orders) {
+      receipt += `Pedido: ${order.order_number}\n`;
+      receipt += `Fecha: ${formatDate(order.created_at)}\n`;
+      
+      // Count products
+      const productCount = order.items?.length || 0;
+      receipt += `Productos: ${productCount}\n`;
+      
+      receipt += `Monto: ${formatCLP(order.total_amount)}\n`;
+      receipt += '\n';
+    }
+  } else {
+    receipt += 'No hay pedidos pendientes\n\n';
+  }
+  
+  receipt += '-'.repeat(width) + '\n';
+  
+  // Totals
+  receipt += `DEUDA TOTAL: ${formatCLP(customer.total_debt)}\n`;
+  receipt += `PAGADO: ${formatCLP(customer.total_paid)}\n`;
+  receipt += `PENDIENTE: ${formatCLP(customer.total_debt - customer.total_paid)}\n`;
+  
+  // Footer
+  receipt += '\n' + '='.repeat(width) + '\n';
+  receipt += centerText('Gracias por su preferencia!', width) + '\n\n\n';
+  
+  return receipt;
+}
+
+function generatePaymentReceipt(
+  customer: Customer,
+  paymentAmount: number,
+  paymentNotes: string,
+  config?: PrinterConfig
+): string {
+  const width = config?.paper_size === '58mm' ? 32 : 48;
+  
+  let receipt = '';
+  
+  // Header
+  if (config?.include_logo !== false) {
+    receipt += centerText('RECIBO DE PAGO', width) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+  }
+  
+  // Customer info
+  receipt += `Cliente: ${customer.name}\n`;
+  if (customer.phone) {
+    receipt += `Telefono: ${customer.phone}\n`;
+  }
+  receipt += `Fecha: ${formatDateTime(new Date().toISOString())}\n`;
+  receipt += '-'.repeat(width) + '\n\n';
+  
+  // Payment info
+  receipt += 'PAGO RECIBIDO:\n\n';
+  receipt += `Monto: ${formatCLP(paymentAmount)}\n`;
+  
+  if (paymentNotes.trim()) {
+    receipt += `Notas: ${paymentNotes}\n`;
+  }
+  
+  receipt += '\n' + '-'.repeat(width) + '\n';
+  
+  // Updated balance
+  const previousDebt = customer.total_debt - customer.total_paid;
+  const newDebt = previousDebt - paymentAmount;
+  
+  receipt += `Deuda anterior: ${formatCLP(previousDebt)}\n`;
+  receipt += `Pago recibido: ${formatCLP(paymentAmount)}\n`;
+  receipt += `Deuda restante: ${formatCLP(newDebt)}\n`;
+  
+  // Footer
+  receipt += '\n' + '='.repeat(width) + '\n';
+  receipt += centerText('Gracias por su pago!', width) + '\n\n\n';
+  
+  return receipt;
+}
+
 export default function CustomersScreen() {
   const { user } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -336,6 +481,24 @@ export default function CustomersScreen() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
+
+  const { print, isConnected } = usePrinter();
+
+  // Load printer config
+  useEffect(() => {
+    const loadPrinterConfig = async () => {
+      try {
+        const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+        if (configStr) {
+          setPrinterConfig(JSON.parse(configStr));
+        }
+      } catch (error) {
+        console.error('[CustomersScreen] Error loading printer config:', error);
+      }
+    };
+    loadPrinterConfig();
+  }, []);
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -352,7 +515,14 @@ export default function CustomersScreen() {
             order_number,
             total_amount,
             status,
-            created_at
+            created_at,
+            items:order_items(
+              id,
+              product_name,
+              quantity,
+              unit_price,
+              notes
+            )
           ),
           payments:customer_payments(
             id,
@@ -402,6 +572,30 @@ export default function CustomersScreen() {
     setShowPaymentModal(true);
   }, []);
 
+  const handlePrintPendingOrders = async () => {
+    if (!selectedCustomer) return;
+
+    if (!isConnected) {
+      Alert.alert(
+        '⚠️ Impresora no conectada',
+        'Por favor conecta una impresora en Configuración > Impresora'
+      );
+      return;
+    }
+
+    try {
+      const receiptText = generatePendingOrdersReceipt(selectedCustomer, printerConfig || undefined);
+      await print(receiptText);
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('✅ Impreso', 'El estado de cuenta se imprimió correctamente');
+    } catch (error) {
+      console.error('[CustomersScreen] Error printing pending orders:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('❌ Error', 'No se pudo imprimir el estado de cuenta');
+    }
+  };
+
   const handleAddPayment = async () => {
     if (!selectedCustomer || !paymentAmount.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -430,16 +624,41 @@ export default function CustomersScreen() {
       setSubmittingPayment(true);
       const supabase = getSupabase();
 
+      // Don't include created_by if user.id is not a valid UUID
+      // In PIN-based auth, user.id is like "admin-1762135839969"
+      const paymentData: any = {
+        customer_id: selectedCustomer.id,
+        amount: amount,
+        notes: paymentNotes.trim() || null,
+      };
+
+      // Only add created_by if it's a valid UUID (for future compatibility)
+      if (user?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)) {
+        paymentData.created_by = user.id;
+      }
+
       const { error } = await supabase
         .from('customer_payments')
-        .insert({
-          customer_id: selectedCustomer.id,
-          amount: amount,
-          notes: paymentNotes.trim() || null,
-          created_by: user?.id,
-        });
+        .insert(paymentData);
 
       if (error) throw error;
+
+      // Print payment receipt if printer is connected
+      if (isConnected) {
+        try {
+          const receiptText = generatePaymentReceipt(
+            selectedCustomer,
+            amount,
+            paymentNotes,
+            printerConfig || undefined
+          );
+          await print(receiptText);
+          console.log('[CustomersScreen] Payment receipt printed successfully');
+        } catch (printError) {
+          console.error('[CustomersScreen] Error printing payment receipt:', printError);
+          // Don't show error to user, payment was successful
+        }
+      }
 
       setShowPaymentModal(false);
       setPaymentAmount('');
@@ -458,7 +677,14 @@ export default function CustomersScreen() {
             order_number,
             total_amount,
             status,
-            created_at
+            created_at,
+            items:order_items(
+              id,
+              product_name,
+              quantity,
+              unit_price,
+              notes
+            )
           ),
           payments:customer_payments(
             id,
@@ -482,7 +708,7 @@ export default function CustomersScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         '✅ Pago Registrado',
-        `Se registró el pago de ${formatCLP(amount)} correctamente`,
+        `Se registró el pago de ${formatCLP(amount)} correctamente${isConnected ? ' y se imprimió el recibo' : ''}`,
         [{ text: 'OK' }]
       );
     } catch (error) {
@@ -641,26 +867,32 @@ export default function CustomersScreen() {
                       Pedidos Pendientes ({selectedCustomer.orders?.length || 0})
                     </Text>
                     {selectedCustomer.orders && selectedCustomer.orders.length > 0 ? (
-                      selectedCustomer.orders.map((order: Order) => (
-                        <TouchableOpacity
-                          key={order.id}
-                          style={styles.orderItem}
-                          onPress={() => {
-                            setShowDetailModal(false);
-                            router.push(`/order/${order.id}`);
-                          }}
-                        >
-                          <View style={styles.orderItemHeader}>
-                            <Text style={styles.orderNumber}>{order.order_number}</Text>
-                            <Text style={styles.orderAmount}>
-                              {formatCLP(order.total_amount)}
+                      selectedCustomer.orders.map((order: Order) => {
+                        const productCount = order.items?.length || 0;
+                        return (
+                          <TouchableOpacity
+                            key={order.id}
+                            style={styles.orderItem}
+                            onPress={() => {
+                              setShowDetailModal(false);
+                              router.push(`/order/${order.id}`);
+                            }}
+                          >
+                            <View style={styles.orderItemHeader}>
+                              <Text style={styles.orderNumber}>{order.order_number}</Text>
+                              <Text style={styles.orderAmount}>
+                                {formatCLP(order.total_amount)}
+                              </Text>
+                            </View>
+                            <Text style={styles.orderDate}>
+                              📅 {formatDate(order.created_at)}
                             </Text>
-                          </View>
-                          <Text style={styles.orderDate}>
-                            📅 {formatDate(order.created_at)}
-                          </Text>
-                        </TouchableOpacity>
-                      ))
+                            <Text style={styles.orderProductCount}>
+                              📦 {productCount} {productCount === 1 ? 'producto' : 'productos'}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })
                     ) : (
                       <View style={styles.emptyPayments}>
                         <Text style={styles.emptyPaymentsText}>
@@ -704,6 +936,17 @@ export default function CustomersScreen() {
                     )}
                   </View>
                 </ScrollView>
+
+                {/* Print Pending Orders Button */}
+                {selectedCustomer.orders && selectedCustomer.orders.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.printButton}
+                    onPress={handlePrintPendingOrders}
+                  >
+                    <IconSymbol name="printer" size={20} color="#fff" />
+                    <Text style={styles.printButtonText}>Imprimir Estado de Cuenta</Text>
+                  </TouchableOpacity>
+                )}
 
                 {/* Add Payment Button */}
                 {selectedCustomer.total_debt - selectedCustomer.total_paid > 0 && (

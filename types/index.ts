@@ -110,6 +110,7 @@ export interface PrinterConfig {
   include_logo: boolean;
   include_customer_info: boolean;
   include_totals: boolean;
+  paper_size?: '58mm' | '80mm';
   created_at: string;
   updated_at: string;
 }
