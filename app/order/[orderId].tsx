@@ -10,6 +10,7 @@ import {
   Linking,
   TextInput,
   Modal,
+  FlatList,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -27,7 +28,7 @@ import { usePrinter } from '@/hooks/usePrinter';
 import { generateReceiptText, generateQueryReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import { IconSymbol } from '@/components/IconSymbol';
 import * as Haptics from 'expo-haptics';
-import { Order, OrderStatus, OrderItem, OrderQuery } from '@/types';
+import { Order, OrderStatus, OrderItem, OrderQuery, Customer } from '@/types';
 import React, { useState, useEffect, useCallback } from 'react';
 import { createInAppNotification, sendLocalNotification } from '@/utils/pushNotifications';
 import { colors } from '@/styles/commonStyles';
@@ -545,6 +546,83 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
+  customerSelectionContainer: {
+    marginBottom: 16,
+  },
+  customerSelectionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  customerSelectionButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+  },
+  customerSelectionButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  customerSelectionButtonInactive: {
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+  },
+  customerSelectionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  customerSelectionButtonTextActive: {
+    color: '#fff',
+  },
+  customerSelectionButtonTextInactive: {
+    color: colors.text,
+  },
+  customerListContainer: {
+    maxHeight: 200,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  customerListItem: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  customerListItemLast: {
+    borderBottomWidth: 0,
+  },
+  customerListItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  customerListItemDetails: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  emptyCustomerList: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyCustomerListText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  searchInput: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+    fontSize: 14,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
 });
 
 function getStatusColor(status: OrderStatus): string {
@@ -738,9 +816,13 @@ export default function OrderDetailScreen() {
 
   // Customer info editing
   const [editingCustomer, setEditingCustomer] = useState(false);
+  const [customerInputMode, setCustomerInputMode] = useState<'manual' | 'select'>('manual');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [availableCustomers, setAvailableCustomers] = useState<Customer[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
 
   // Product editing
   const [editingProduct, setEditingProduct] = useState<OrderItem | null>(null);
@@ -822,10 +904,35 @@ export default function OrderDetailScreen() {
     }
   }, []);
 
+  const loadCustomers = useCallback(async () => {
+    try {
+      setLoadingCustomers(true);
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      setAvailableCustomers(data || []);
+    } catch (error) {
+      console.error('[OrderDetail] Error loading customers:', error);
+    } finally {
+      setLoadingCustomers(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadOrder();
     loadPrinterConfig();
   }, [loadOrder, loadPrinterConfig]);
+
+  useEffect(() => {
+    if (editingCustomer && customerInputMode === 'select') {
+      loadCustomers();
+    }
+  }, [editingCustomer, customerInputMode, loadCustomers]);
 
   // Parse WhatsApp input in real-time
   useEffect(() => {
@@ -882,6 +989,13 @@ export default function OrderDetailScreen() {
         [{ text: 'OK' }]
       );
     }
+  };
+
+  const selectCustomer = (customer: Customer) => {
+    setCustomerName(customer.name);
+    setCustomerPhone(customer.phone || '');
+    setCustomerAddress(customer.address || '');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const updateStatus = async (newStatus: OrderStatus) => {
@@ -1514,6 +1628,12 @@ export default function OrderDetailScreen() {
     ? [...order.queries].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
     : [];
 
+  // Filter customers based on search query
+  const filteredCustomers = availableCustomers.filter(customer => 
+    customer.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+    (customer.phone && customer.phone.includes(customerSearchQuery))
+  );
+
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -1585,6 +1705,105 @@ export default function OrderDetailScreen() {
           <Text style={styles.sectionTitle}>Cliente</Text>
           {editingCustomer ? (
             <>
+              {/* Only show customer selection for manual orders */}
+              {order.source === 'manual' && (
+                <View style={styles.customerSelectionContainer}>
+                  <View style={styles.customerSelectionButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.customerSelectionButton,
+                        customerInputMode === 'manual' 
+                          ? styles.customerSelectionButtonActive 
+                          : styles.customerSelectionButtonInactive
+                      ]}
+                      onPress={() => {
+                        setCustomerInputMode('manual');
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[
+                        styles.customerSelectionButtonText,
+                        customerInputMode === 'manual'
+                          ? styles.customerSelectionButtonTextActive
+                          : styles.customerSelectionButtonTextInactive
+                      ]}>
+                        Ingresar Manualmente
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.customerSelectionButton,
+                        customerInputMode === 'select' 
+                          ? styles.customerSelectionButtonActive 
+                          : styles.customerSelectionButtonInactive
+                      ]}
+                      onPress={() => {
+                        setCustomerInputMode('select');
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      }}
+                    >
+                      <Text style={[
+                        styles.customerSelectionButtonText,
+                        customerInputMode === 'select'
+                          ? styles.customerSelectionButtonTextActive
+                          : styles.customerSelectionButtonTextInactive
+                      ]}>
+                        Seleccionar Cliente
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {customerInputMode === 'select' && (
+                    <>
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Buscar cliente..."
+                        placeholderTextColor={colors.textSecondary}
+                        value={customerSearchQuery}
+                        onChangeText={setCustomerSearchQuery}
+                      />
+                      
+                      {loadingCustomers ? (
+                        <View style={styles.emptyCustomerList}>
+                          <ActivityIndicator size="small" color={colors.primary} />
+                        </View>
+                      ) : filteredCustomers.length > 0 ? (
+                        <FlatList
+                          data={filteredCustomers}
+                          keyExtractor={(item) => item.id}
+                          style={styles.customerListContainer}
+                          renderItem={({ item, index }) => (
+                            <TouchableOpacity
+                              style={[
+                                styles.customerListItem,
+                                index === filteredCustomers.length - 1 && styles.customerListItemLast
+                              ]}
+                              onPress={() => selectCustomer(item)}
+                            >
+                              <Text style={styles.customerListItemName}>{item.name}</Text>
+                              {item.phone && (
+                                <Text style={styles.customerListItemDetails}>📞 {item.phone}</Text>
+                              )}
+                              {item.address && (
+                                <Text style={styles.customerListItemDetails}>📍 {item.address}</Text>
+                              )}
+                            </TouchableOpacity>
+                          )}
+                        />
+                      ) : (
+                        <View style={styles.emptyCustomerList}>
+                          <Text style={styles.emptyCustomerListText}>
+                            {customerSearchQuery 
+                              ? 'No se encontraron clientes con ese criterio'
+                              : 'No hay clientes registrados'}
+                          </Text>
+                        </View>
+                      )}
+                    </>
+                  )}
+                </View>
+              )}
+
               <TextInput
                 style={styles.input}
                 placeholder="Nombre"
@@ -1623,7 +1842,10 @@ export default function OrderDetailScreen() {
               )}
               <TouchableOpacity
                 style={[styles.addButton, { marginTop: 12 }]}
-                onPress={() => setEditingCustomer(true)}
+                onPress={() => {
+                  setEditingCustomer(true);
+                  setCustomerInputMode('manual');
+                }}
               >
                 <IconSymbol name="pencil" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Editar</Text>
@@ -1697,6 +1919,12 @@ export default function OrderDetailScreen() {
                 placeholder="Precio"
                 value={productPrice}
                 onChangeText={setProductPrice}
+                onFocus={() => {
+                  // Auto-clear if the value is "0"
+                  if (productPrice === '0') {
+                    setProductPrice('');
+                  }
+                }}
                 keyboardType="numeric"
               />
               <TextInput
@@ -2021,6 +2249,12 @@ export default function OrderDetailScreen() {
                     placeholder="Precio"
                     value={bulkPrices[item.id] || ''}
                     onChangeText={(text) => updateBulkPrice(item.id, text)}
+                    onFocus={() => {
+                      // Auto-clear if the value is "0"
+                      if (bulkPrices[item.id] === '0') {
+                        updateBulkPrice(item.id, '');
+                      }
+                    }}
                     keyboardType="numeric"
                   />
                 </View>
