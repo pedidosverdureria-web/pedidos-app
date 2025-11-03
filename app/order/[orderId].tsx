@@ -1002,7 +1002,13 @@ export default function OrderDetailScreen() {
   const updateStatus = async (newStatus: OrderStatus) => {
     if (!order) return;
 
-    console.log('[OrderDetail] Updating status to:', newStatus);
+    console.log('[OrderDetail] ========== UPDATING STATUS ==========');
+    console.log('[OrderDetail] Order ID:', order.id);
+    console.log('[OrderDetail] Current status:', order.status);
+    console.log('[OrderDetail] New status:', newStatus);
+    console.log('[OrderDetail] Current customer_id:', order.customer_id);
+    console.log('[OrderDetail] Customer name:', order.customer_name);
+    console.log('[OrderDetail] Customer phone:', order.customer_phone);
     
     try {
       setUpdatingStatus(true);
@@ -1015,13 +1021,25 @@ export default function OrderDetailScreen() {
       
       if (newStatus === 'pending_payment') {
         console.log('[OrderDetail] Processing pending_payment status change');
-        console.log('[OrderDetail] Current customer_id:', customerId);
-        console.log('[OrderDetail] Customer phone:', order.customer_phone);
+        
+        // Validate that we have customer information
+        if (!order.customer_name || !order.customer_name.trim()) {
+          console.error('[OrderDetail] Cannot create customer: missing customer name');
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert(
+            '❌ Error',
+            'No se puede cambiar a "Pendiente de Pago" sin un nombre de cliente. Por favor edita la información del cliente primero.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
         
         if (!customerId) {
-          // Check if customer already exists by phone
-          if (order.customer_phone) {
-            console.log('[OrderDetail] Checking for existing customer by phone');
+          console.log('[OrderDetail] No customer_id, checking for existing customer');
+          
+          // Check if customer already exists by phone (if available)
+          if (order.customer_phone && order.customer_phone.trim()) {
+            console.log('[OrderDetail] Searching for customer by phone:', order.customer_phone);
             const { data: existingCustomer, error: searchError } = await supabase
               .from('customers')
               .select('id')
@@ -1030,40 +1048,74 @@ export default function OrderDetailScreen() {
             
             if (searchError) {
               console.error('[OrderDetail] Error searching for customer:', searchError);
+            } else if (existingCustomer) {
+              console.log('[OrderDetail] Found existing customer by phone:', existingCustomer.id);
+              customerId = existingCustomer.id;
             }
+          }
+          
+          // If still no customer, search by name
+          if (!customerId) {
+            console.log('[OrderDetail] Searching for customer by name:', order.customer_name);
+            const { data: existingCustomer, error: searchError } = await supabase
+              .from('customers')
+              .select('id')
+              .eq('name', order.customer_name)
+              .maybeSingle();
             
-            if (existingCustomer) {
-              console.log('[OrderDetail] Found existing customer:', existingCustomer.id);
+            if (searchError) {
+              console.error('[OrderDetail] Error searching for customer by name:', searchError);
+            } else if (existingCustomer) {
+              console.log('[OrderDetail] Found existing customer by name:', existingCustomer.id);
               customerId = existingCustomer.id;
             }
           }
           
           // If customer doesn't exist, create new one
           if (!customerId) {
-            console.log('[OrderDetail] Creating new customer');
+            console.log('[OrderDetail] Creating new customer with data:', {
+              name: order.customer_name,
+              phone: order.customer_phone || null,
+              address: order.customer_address || null,
+            });
+            
             const { data: newCustomer, error: customerError } = await supabase
               .from('customers')
               .insert({
                 name: order.customer_name,
-                phone: order.customer_phone,
-                address: order.customer_address,
+                phone: order.customer_phone || null,
+                address: order.customer_address || null,
+                total_debt: 0,
+                total_paid: 0,
               })
               .select()
               .single();
             
             if (customerError) {
               console.error('[OrderDetail] Error creating customer:', customerError);
-              throw customerError;
+              console.error('[OrderDetail] Error details:', JSON.stringify(customerError, null, 2));
+              throw new Error(`No se pudo crear el cliente: ${customerError.message}`);
             }
             
-            console.log('[OrderDetail] Created new customer:', newCustomer.id);
+            if (!newCustomer) {
+              console.error('[OrderDetail] Customer creation returned no data');
+              throw new Error('No se pudo crear el cliente: no se recibieron datos');
+            }
+            
+            console.log('[OrderDetail] Successfully created new customer:', newCustomer.id);
             customerId = newCustomer.id;
           }
+        } else {
+          console.log('[OrderDetail] Using existing customer_id:', customerId);
         }
       }
       
       // Update order status and customer_id
-      console.log('[OrderDetail] Updating order with status:', newStatus, 'and customer_id:', customerId);
+      console.log('[OrderDetail] Updating order with:', {
+        status: newStatus,
+        customer_id: customerId,
+      });
+      
       const { error: updateError } = await supabase
         .from('orders')
         .update({ 
@@ -1074,13 +1126,15 @@ export default function OrderDetailScreen() {
 
       if (updateError) {
         console.error('[OrderDetail] Error updating order:', updateError);
-        throw updateError;
+        console.error('[OrderDetail] Update error details:', JSON.stringify(updateError, null, 2));
+        throw new Error(`No se pudo actualizar el pedido: ${updateError.message}`);
       }
 
       console.log('[OrderDetail] Order updated successfully');
 
       // Send WhatsApp notification
       try {
+        console.log('[OrderDetail] Sending WhatsApp notification');
         await sendOrderStatusUpdate(order.id, newStatus);
         console.log('[OrderDetail] WhatsApp notification sent');
       } catch (whatsappError) {
@@ -1090,6 +1144,7 @@ export default function OrderDetailScreen() {
 
       // Create in-app notification
       try {
+        console.log('[OrderDetail] Creating in-app notification');
         await createInAppNotification(
           user?.id || '',
           'order_status_changed',
@@ -1102,15 +1157,23 @@ export default function OrderDetailScreen() {
         // Don't throw - notification failure shouldn't block status update
       }
 
+      // Reload order to get updated data
+      console.log('[OrderDetail] Reloading order data');
       await loadOrder();
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       if (newStatus === 'pending_payment') {
+        console.log('[OrderDetail] Status change complete - showing success message');
         Alert.alert(
           '✅ Estado Actualizado',
           `El pedido ahora está en estado: ${getStatusLabel(newStatus)}\n\nEl cliente ha sido ${customerId === order.customer_id ? 'vinculado' : 'creado'} y puede realizar pagos parciales desde el menú de Clientes.`,
-          [{ text: 'OK' }]
+          [{ 
+            text: 'OK',
+            onPress: () => {
+              console.log('[OrderDetail] User acknowledged status change');
+            }
+          }]
         );
       } else {
         Alert.alert(
@@ -1119,12 +1182,16 @@ export default function OrderDetailScreen() {
           [{ text: 'OK' }]
         );
       }
+      
+      console.log('[OrderDetail] ========== STATUS UPDATE COMPLETE ==========');
     } catch (error) {
+      console.error('[OrderDetail] ========== STATUS UPDATE FAILED ==========');
       console.error('[OrderDetail] Error updating status:', error);
+      console.error('[OrderDetail] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         '❌ Error',
-        `No se pudo actualizar el estado del pedido. ${error instanceof Error ? error.message : 'Por favor intenta nuevamente.'}`,
+        `No se pudo actualizar el estado del pedido.\n\n${error instanceof Error ? error.message : 'Por favor intenta nuevamente.'}`,
         [{ text: 'OK' }]
       );
     } finally {
