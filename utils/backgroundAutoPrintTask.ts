@@ -224,6 +224,8 @@ function getStatusLabel(status: string): string {
       return 'Listo';
     case 'delivered':
       return 'Entregado';
+    case 'pending_payment':
+      return 'Pendiente de Pago';
     case 'cancelled':
       return 'Cancelado';
     default:

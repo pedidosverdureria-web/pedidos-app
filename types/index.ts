@@ -1,5 +1,5 @@
 
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment';
 
 export type UserRole = 'admin' | 'worker';
 
@@ -55,10 +55,34 @@ export interface Order {
   whatsapp_message_id?: string;
   is_read: boolean;
   created_by?: string;
+  customer_id?: string;
   created_at: string;
   updated_at: string;
   items?: OrderItem[];
   queries?: OrderQuery[];
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string;
+  address?: string;
+  total_debt: number;
+  total_paid: number;
+  created_at: string;
+  updated_at: string;
+  orders?: Order[];
+  payments?: CustomerPayment[];
+}
+
+export interface CustomerPayment {
+  id: string;
+  customer_id: string;
+  amount: number;
+  payment_date: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
 }
 
 export interface WhatsAppConfig {

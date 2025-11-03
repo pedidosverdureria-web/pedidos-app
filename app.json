@@ -1,8 +1,7 @@
-
 {
   "expo": {
-    "name": "order-flow-app-jdvhwd",
-    "slug": "order-flow-app-jdvhwd",
+    "name": "Pedidos",
+    "slug": "Pedidos",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png",
@@ -24,8 +23,8 @@
           "processing",
           "audio"
         ],
-        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica y poder imprimir pedidos automáticamente.",
-        "NSBluetoothPeripheralUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica.",
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica y poder imprimir pedidos autom\u00e1ticamente.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica.",
         "BGTaskSchedulerPermittedIdentifiers": [
           "com.anonymous.Natively.background-auto-print",
           "com.anonymous.Natively.background-fetch"
@@ -97,5 +96,6 @@
     "extra": {
       "router": {}
     }
-  }
+  },
+  "scheme": "Pedidos"
 }

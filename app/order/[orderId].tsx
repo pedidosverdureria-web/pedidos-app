@@ -559,6 +559,8 @@ function getStatusColor(status: OrderStatus): string {
       return '#6B7280';
     case 'cancelled':
       return '#EF4444';
+    case 'pending_payment':
+      return '#8B5CF6';
     default:
       return '#6B7280';
   }
@@ -576,6 +578,8 @@ function getStatusLabel(status: OrderStatus): string {
       return 'Entregado';
     case 'cancelled':
       return 'Cancelado';
+    case 'pending_payment':
+      return 'Pendiente de Pago';
     default:
       return status;
   }
@@ -593,6 +597,8 @@ function getStatusIcon(status: OrderStatus): string {
       return 'shippingbox';
     case 'cancelled':
       return 'xmark.circle';
+    case 'pending_payment':
+      return 'creditcard';
     default:
       return 'circle';
   }
@@ -607,6 +613,8 @@ function getAvailableStatusTransitions(currentStatus: OrderStatus): OrderStatus[
     case 'ready':
       return ['delivered', 'cancelled'];
     case 'delivered':
+      return ['pending_payment'];
+    case 'pending_payment':
       return [];
     case 'cancelled':
       return [];
@@ -881,9 +889,48 @@ export default function OrderDetailScreen() {
 
     try {
       const supabase = getSupabase();
+      
+      // If changing to pending_payment, create or link customer
+      let customerId = order.customer_id;
+      
+      if (newStatus === 'pending_payment' && !customerId) {
+        // Check if customer already exists by phone
+        if (order.customer_phone) {
+          const { data: existingCustomer } = await supabase
+            .from('customers')
+            .select('id')
+            .eq('phone', order.customer_phone)
+            .single();
+          
+          if (existingCustomer) {
+            customerId = existingCustomer.id;
+          }
+        }
+        
+        // If customer doesn't exist, create new one
+        if (!customerId) {
+          const { data: newCustomer, error: customerError } = await supabase
+            .from('customers')
+            .insert({
+              name: order.customer_name,
+              phone: order.customer_phone,
+              address: order.customer_address,
+            })
+            .select()
+            .single();
+          
+          if (customerError) throw customerError;
+          customerId = newCustomer.id;
+        }
+      }
+      
+      // Update order status and customer_id
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update({ 
+          status: newStatus,
+          customer_id: customerId,
+        })
         .eq('id', order.id);
 
       if (error) throw error;
@@ -899,11 +946,20 @@ export default function OrderDetailScreen() {
       await loadOrder();
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '✅ Estado Actualizado',
-        `El pedido ahora está en estado: ${getStatusLabel(newStatus)}`,
-        [{ text: 'OK' }]
-      );
+      
+      if (newStatus === 'pending_payment') {
+        Alert.alert(
+          '✅ Estado Actualizado',
+          `El pedido ahora está en estado: ${getStatusLabel(newStatus)}\n\nEl cliente ha sido ${customerId === order.customer_id ? 'vinculado' : 'creado'} y puede realizar pagos parciales desde el menú de Clientes.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          '✅ Estado Actualizado',
+          `El pedido ahora está en estado: ${getStatusLabel(newStatus)}`,
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
       console.error('[OrderDetail] Error updating status:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

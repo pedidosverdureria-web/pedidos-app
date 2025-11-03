@@ -66,6 +66,14 @@ function createStatusUpdateMessage(
         additionalInfo += `\n\n💵 *Total pagado:* ${formatCLP(totalAmount)}`;
       }
       break;
+    case 'pending_payment':
+      statusEmoji = '💳';
+      statusText = 'Pendiente de Pago';
+      additionalInfo = '\n\n💰 Tu pedido ha sido entregado y está pendiente de pago. Puedes realizar pagos parciales cuando lo desees.';
+      if (totalAmount && totalAmount > 0) {
+        additionalInfo += `\n\n💵 *Total a pagar:* ${formatCLP(totalAmount)}`;
+      }
+      break;
     case 'cancelled':
       statusEmoji = '❌';
       statusText = 'Cancelado';

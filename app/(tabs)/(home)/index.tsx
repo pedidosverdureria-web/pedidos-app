@@ -41,6 +41,7 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
   'preparing',
   'ready',
   'delivered',
+  'pending_payment',
   'cancelled',
 ];
 
@@ -256,6 +257,8 @@ function getStatusColor(status: OrderStatus): string {
       return '#6B7280';
     case 'cancelled':
       return '#EF4444';
+    case 'pending_payment':
+      return '#8B5CF6';
     default:
       return '#6B7280';
   }
@@ -273,6 +276,8 @@ function getStatusLabel(status: OrderStatus): string {
       return 'Entregado';
     case 'cancelled':
       return 'Cancelado';
+    case 'pending_payment':
+      return 'Pend. Pago';
     default:
       return status;
   }
