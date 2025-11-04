@@ -8,6 +8,16 @@ const corsHeaders = {
 };
 
 /**
+ * Phone numbers that should ALWAYS be treated as new orders, never as queries
+ * These customers never send queries, only new orders
+ */
+const ALWAYS_NEW_ORDER_PHONES = [
+  '+56968782350',
+  '+56993157848',
+  '+56953503831'
+];
+
+/**
  * Map of Spanish number words to their numeric values
  */
 const NUMBER_WORDS: Record<string, number> = {
@@ -1327,8 +1337,13 @@ serve(async (req) => {
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
         console.log('Message text:', messageText);
 
-        // UPDATED LOGIC: Check if customer has an order in active statuses (pending, preparing, ready)
+        // NEW LOGIC: Check if this phone number should ALWAYS be treated as a new order
+        const isAlwaysNewOrderPhone = ALWAYS_NEW_ORDER_PHONES.includes(customerPhone);
+        console.log('Is always-new-order phone:', isAlwaysNewOrderPhone);
+
+        // Check if customer has an order in active statuses (pending, preparing, ready)
         // Orders in delivered, pending_payment, paid, or cancelled statuses should NOT trigger query behavior
+        // UNLESS the phone number is in the ALWAYS_NEW_ORDER_PHONES list
         const { data: existingOrders } = await supabase
           .from('orders')
           .select('id, order_number, customer_name, status, items:order_items(*)')
@@ -1351,8 +1366,9 @@ serve(async (req) => {
         const hasNewOrderKeyword = isNewOrderKeyword(messageText);
         console.log('Has new order keyword:', hasNewOrderKeyword);
 
-        // If customer has active order (pending/preparing/ready) and no new order keyword, treat as query
-        if (hasActiveOrder && !hasNewOrderKeyword && activeOrder) {
+        // If customer has active order (pending/preparing/ready) and no new order keyword, 
+        // AND is NOT in the always-new-order list, treat as query
+        if (hasActiveOrder && !hasNewOrderKeyword && !isAlwaysNewOrderPhone && activeOrder) {
           console.log('Treating message as order query');
           
           // Save query to database with direction='incoming'
@@ -1404,6 +1420,11 @@ ${messageText}
           }
 
           continue;
+        }
+
+        // If phone is in always-new-order list, log it
+        if (isAlwaysNewOrderPhone) {
+          console.log('Phone number is in always-new-order list - bypassing query check and treating as new order');
         }
 
         // If has new order keyword, remove it and process as new order
