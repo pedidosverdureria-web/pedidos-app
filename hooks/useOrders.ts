@@ -5,7 +5,7 @@ import { Order, OrderStatus } from '@/types';
 import { sendLocalNotification } from '@/utils/pushNotifications';
 import { Platform } from 'react-native';
 
-export const useOrders = (statusFilter?: OrderStatus) => {
+export const useOrders = (statusFilter?: OrderStatus, excludeCompleted: boolean = false) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +28,11 @@ export const useOrders = (statusFilter?: OrderStatus) => {
           queries:order_queries(*)
         `)
         .order('created_at', { ascending: false });
+
+      // If excludeCompleted is true, filter out delivered and paid orders
+      if (excludeCompleted) {
+        query = query.not('status', 'in', '(delivered,paid)');
+      }
 
       if (statusFilter) {
         query = query.eq('status', statusFilter);
@@ -52,7 +57,7 @@ export const useOrders = (statusFilter?: OrderStatus) => {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, excludeCompleted]);
 
   const checkForNewOrders = useCallback(async (newOrders: Order[]) => {
     // Get current order IDs

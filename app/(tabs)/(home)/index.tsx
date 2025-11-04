@@ -40,7 +40,6 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
   'pending',
   'preparing',
   'ready',
-  'delivered',
   'pending_payment',
   'cancelled',
 ];
@@ -259,6 +258,8 @@ function getStatusColor(status: OrderStatus): string {
       return '#EF4444';
     case 'pending_payment':
       return '#8B5CF6';
+    case 'paid':
+      return '#10B981';
     default:
       return '#6B7280';
   }
@@ -278,6 +279,8 @@ function getStatusLabel(status: OrderStatus): string {
       return 'Cancelado';
     case 'pending_payment':
       return 'Pend. Pago';
+    case 'paid':
+      return 'Pagado';
     default:
       return status;
   }
@@ -316,8 +319,10 @@ export default function HomeScreen() {
   const keepAwakeTagRef = useRef<string>('auto-print-home');
   const isKeepAwakeActiveRef = useRef<boolean>(false);
 
+  // IMPORTANT: Pass excludeCompleted=true to hide delivered and paid orders from main list
   const { orders, loading, error, refetch } = useOrders(
-    statusFilter === 'all' ? undefined : statusFilter
+    statusFilter === 'all' ? undefined : statusFilter,
+    true // Exclude completed orders (delivered and paid)
   );
 
   const { isConnected, printReceipt } = usePrinter();
@@ -1096,7 +1101,7 @@ export default function HomeScreen() {
         <View style={styles.emptyContainer}>
           <IconSymbol name="tray" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>
-            {searchQuery ? 'No se encontraron pedidos' : 'No hay pedidos'}
+            {searchQuery ? 'No se encontraron pedidos' : 'No hay pedidos activos'}
           </Text>
         </View>
       ) : (
