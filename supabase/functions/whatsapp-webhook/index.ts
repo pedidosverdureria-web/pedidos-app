@@ -1327,28 +1327,31 @@ serve(async (req) => {
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
         console.log('Message text:', messageText);
 
-        // Check if customer has a non-delivered order
+        // UPDATED LOGIC: Check if customer has an order in active statuses (pending, preparing, ready)
+        // Orders in delivered, pending_payment, paid, or cancelled statuses should NOT trigger query behavior
         const { data: existingOrders } = await supabase
           .from('orders')
           .select('id, order_number, customer_name, status, items:order_items(*)')
           .eq('customer_phone', customerPhone)
-          .neq('status', 'delivered')
+          .in('status', ['pending', 'preparing', 'ready']) // Only these statuses trigger query behavior
           .order('created_at', { ascending: false })
           .limit(1);
 
         const hasActiveOrder = existingOrders && existingOrders.length > 0;
         const activeOrder = hasActiveOrder ? existingOrders[0] : null;
 
-        console.log('Has active order:', hasActiveOrder);
+        console.log('Has active order (pending/preparing/ready):', hasActiveOrder);
         if (activeOrder) {
           console.log('Active order:', activeOrder.order_number, 'Status:', activeOrder.status);
+        } else {
+          console.log('No active order found - message will be treated as new order');
         }
 
         // Check for new order keywords
         const hasNewOrderKeyword = isNewOrderKeyword(messageText);
         console.log('Has new order keyword:', hasNewOrderKeyword);
 
-        // If customer has active order and no new order keyword, treat as query
+        // If customer has active order (pending/preparing/ready) and no new order keyword, treat as query
         if (hasActiveOrder && !hasNewOrderKeyword && activeOrder) {
           console.log('Treating message as order query');
           
