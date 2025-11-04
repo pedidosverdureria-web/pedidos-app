@@ -232,6 +232,41 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
   },
+  orderPaymentInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  orderPaymentLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  orderPaymentValue: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  orderPaymentPaid: {
+    color: '#10B981',
+  },
+  orderPaymentPending: {
+    color: '#EF4444',
+  },
+  payButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  payButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   paymentItem: {
     backgroundColor: colors.background,
     borderRadius: 8,
@@ -331,6 +366,72 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  paymentTypeSelector: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  paymentTypeButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  paymentTypeButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}20`,
+  },
+  paymentTypeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  paymentTypeButtonTextActive: {
+    color: colors.primary,
+  },
+  orderSelector: {
+    marginBottom: 16,
+  },
+  orderSelectorLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  orderSelectorItem: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+  },
+  orderSelectorItemActive: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.primary}20`,
+  },
+  orderSelectorItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  orderSelectorItemNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  orderSelectorItemAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#8B5CF6',
+  },
+  orderSelectorItemPending: {
+    fontSize: 12,
+    color: '#EF4444',
+    marginTop: 4,
+  },
 });
 
 function formatCLP(amount: number): string {
@@ -399,7 +500,9 @@ function generatePendingOrdersReceipt(customer: Customer, config?: PrinterConfig
       const productCount = order.items?.length || 0;
       receipt += `Productos: ${productCount}\n`;
       
-      receipt += `Monto: ${formatCLP(order.total_amount)}\n`;
+      receipt += `Total: ${formatCLP(order.total_amount)}\n`;
+      receipt += `Pagado: ${formatCLP(order.paid_amount)}\n`;
+      receipt += `Pendiente: ${formatCLP(order.total_amount - order.paid_amount)}\n`;
       receipt += '\n';
     }
   } else {
@@ -424,6 +527,7 @@ function generatePaymentReceipt(
   customer: Customer,
   paymentAmount: number,
   paymentNotes: string,
+  orderNumber?: string,
   config?: PrinterConfig
 ): string {
   const width = config?.paper_size === '58mm' ? 32 : 48;
@@ -447,6 +551,10 @@ function generatePaymentReceipt(
   // Payment info
   receipt += 'PAGO RECIBIDO:\n\n';
   receipt += `Monto: ${formatCLP(paymentAmount)}\n`;
+  
+  if (orderNumber) {
+    receipt += `Pedido: ${orderNumber}\n`;
+  }
   
   if (paymentNotes.trim()) {
     receipt += `Notas: ${paymentNotes}\n`;
@@ -478,6 +586,8 @@ export default function CustomersScreen() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentType, setPaymentType] = useState<'account' | 'order'>('account');
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
@@ -514,6 +624,7 @@ export default function CustomersScreen() {
             id,
             order_number,
             total_amount,
+            paid_amount,
             status,
             created_at,
             items:order_items(
@@ -537,10 +648,13 @@ export default function CustomersScreen() {
       if (error) throw error;
 
       // Filter orders to only include pending_payment status
-      const customersWithFilteredOrders = data.map(customer => ({
-        ...customer,
-        orders: customer.orders?.filter((order: Order) => order.status === 'pending_payment') || [],
-      }));
+      // and filter out customers with no pending_payment orders
+      const customersWithFilteredOrders = data
+        .map(customer => ({
+          ...customer,
+          orders: customer.orders?.filter((order: Order) => order.status === 'pending_payment') || [],
+        }))
+        .filter(customer => customer.orders.length > 0); // Only show customers with pending orders
 
       setCustomers(customersWithFilteredOrders);
     } catch (error) {
@@ -566,7 +680,9 @@ export default function CustomersScreen() {
     setShowDetailModal(true);
   }, []);
 
-  const openPaymentModal = useCallback(() => {
+  const openPaymentModal = useCallback((type: 'account' | 'order' = 'account', orderId?: string) => {
+    setPaymentType(type);
+    setSelectedOrderId(orderId || null);
     setPaymentAmount('');
     setPaymentNotes('');
     setShowPaymentModal(true);
@@ -610,64 +726,139 @@ export default function CustomersScreen() {
       return;
     }
 
-    const remainingDebt = selectedCustomer.total_debt - selectedCustomer.total_paid;
-    if (amount > remainingDebt) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Atención',
-        `El monto ingresado (${formatCLP(amount)}) es mayor a la deuda pendiente (${formatCLP(remainingDebt)})`
-      );
-      return;
+    // Validate payment amount based on payment type
+    if (paymentType === 'order' && selectedOrderId) {
+      const selectedOrder = selectedCustomer.orders?.find(o => o.id === selectedOrderId);
+      if (!selectedOrder) {
+        Alert.alert('❌ Error', 'No se encontró el pedido seleccionado');
+        return;
+      }
+      
+      const orderPending = selectedOrder.total_amount - selectedOrder.paid_amount;
+      if (amount > orderPending) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          '⚠️ Atención',
+          `El monto ingresado (${formatCLP(amount)}) es mayor al pendiente del pedido (${formatCLP(orderPending)})`
+        );
+        return;
+      }
+    } else {
+      const remainingDebt = selectedCustomer.total_debt - selectedCustomer.total_paid;
+      if (amount > remainingDebt) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          '⚠️ Atención',
+          `El monto ingresado (${formatCLP(amount)}) es mayor a la deuda pendiente (${formatCLP(remainingDebt)})`
+        );
+        return;
+      }
     }
 
     try {
       setSubmittingPayment(true);
       const supabase = getSupabase();
 
-      // Don't include created_by if user.id is not a valid UUID
-      // In PIN-based auth, user.id is like "admin-1762135839969"
-      const paymentData: any = {
-        customer_id: selectedCustomer.id,
-        amount: amount,
-        notes: paymentNotes.trim() || null,
-      };
+      if (paymentType === 'order' && selectedOrderId) {
+        // Pay specific order
+        const paymentData: any = {
+          order_id: selectedOrderId,
+          customer_id: selectedCustomer.id,
+          amount: amount,
+          notes: paymentNotes.trim() || null,
+        };
 
-      // Only add created_by if it's a valid UUID (for future compatibility)
-      if (user?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)) {
-        paymentData.created_by = user.id;
-      }
-
-      const { error } = await supabase
-        .from('customer_payments')
-        .insert(paymentData);
-
-      if (error) throw error;
-
-      // Print payment receipt if printer is connected
-      if (isConnected) {
-        try {
-          const receiptText = generatePaymentReceipt(
-            selectedCustomer,
-            amount,
-            paymentNotes,
-            printerConfig || undefined
-          );
-          await print(receiptText);
-          console.log('[CustomersScreen] Payment receipt printed successfully');
-        } catch (printError) {
-          console.error('[CustomersScreen] Error printing payment receipt:', printError);
-          // Don't show error to user, payment was successful
+        // Only add created_by if it's a valid UUID
+        if (user?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)) {
+          paymentData.created_by = user.id;
         }
+
+        const { error } = await supabase
+          .from('order_payments')
+          .insert(paymentData);
+
+        if (error) throw error;
+
+        // Get order number for receipt
+        const selectedOrder = selectedCustomer.orders?.find(o => o.id === selectedOrderId);
+        const orderNumber = selectedOrder?.order_number;
+
+        // Print payment receipt if printer is connected
+        if (isConnected) {
+          try {
+            const receiptText = generatePaymentReceipt(
+              selectedCustomer,
+              amount,
+              paymentNotes,
+              orderNumber,
+              printerConfig || undefined
+            );
+            await print(receiptText);
+            console.log('[CustomersScreen] Payment receipt printed successfully');
+          } catch (printError) {
+            console.error('[CustomersScreen] Error printing payment receipt:', printError);
+          }
+        }
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '✅ Pago Registrado',
+          `Se registró el pago de ${formatCLP(amount)} para el pedido ${orderNumber}${isConnected ? ' y se imprimió el recibo' : ''}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Pay to account (abono general)
+        const paymentData: any = {
+          customer_id: selectedCustomer.id,
+          amount: amount,
+          notes: paymentNotes.trim() || null,
+        };
+
+        // Only add created_by if it's a valid UUID
+        if (user?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)) {
+          paymentData.created_by = user.id;
+        }
+
+        const { error } = await supabase
+          .from('customer_payments')
+          .insert(paymentData);
+
+        if (error) throw error;
+
+        // Print payment receipt if printer is connected
+        if (isConnected) {
+          try {
+            const receiptText = generatePaymentReceipt(
+              selectedCustomer,
+              amount,
+              paymentNotes,
+              undefined,
+              printerConfig || undefined
+            );
+            await print(receiptText);
+            console.log('[CustomersScreen] Payment receipt printed successfully');
+          } catch (printError) {
+            console.error('[CustomersScreen] Error printing payment receipt:', printError);
+          }
+        }
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '✅ Pago Registrado',
+          `Se registró el abono de ${formatCLP(amount)} a la cuenta${isConnected ? ' y se imprimió el recibo' : ''}`,
+          [{ text: 'OK' }]
+        );
       }
 
       setShowPaymentModal(false);
       setPaymentAmount('');
       setPaymentNotes('');
+      setSelectedOrderId(null);
       
-      // Reload customers and update selected customer
+      // Reload customers
       await loadCustomers();
       
-      // Reload the selected customer's details
+      // If customer still has pending orders, reload their details
       const { data: updatedCustomer } = await supabase
         .from('customers')
         .select(`
@@ -676,6 +867,7 @@ export default function CustomersScreen() {
             id,
             order_number,
             total_amount,
+            paid_amount,
             status,
             created_at,
             items:order_items(
@@ -702,15 +894,19 @@ export default function CustomersScreen() {
           ...updatedCustomer,
           orders: updatedCustomer.orders?.filter((order: Order) => order.status === 'pending_payment') || [],
         };
-        setSelectedCustomer(customerWithFilteredOrders);
+        
+        // If customer has no more pending orders, close the modal
+        if (customerWithFilteredOrders.orders.length === 0) {
+          setShowDetailModal(false);
+          setSelectedCustomer(null);
+        } else {
+          setSelectedCustomer(customerWithFilteredOrders);
+        }
+      } else {
+        // Customer not found or has no pending orders, close modal
+        setShowDetailModal(false);
+        setSelectedCustomer(null);
       }
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '✅ Pago Registrado',
-        `Se registró el pago de ${formatCLP(amount)} correctamente${isConnected ? ' y se imprimió el recibo' : ''}`,
-        [{ text: 'OK' }]
-      );
     } catch (error) {
       console.error('[CustomersScreen] Error adding payment:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -869,28 +1065,57 @@ export default function CustomersScreen() {
                     {selectedCustomer.orders && selectedCustomer.orders.length > 0 ? (
                       selectedCustomer.orders.map((order: Order) => {
                         const productCount = order.items?.length || 0;
+                        const orderPending = order.total_amount - order.paid_amount;
+                        
                         return (
-                          <TouchableOpacity
-                            key={order.id}
-                            style={styles.orderItem}
-                            onPress={() => {
-                              setShowDetailModal(false);
-                              router.push(`/order/${order.id}`);
-                            }}
-                          >
-                            <View style={styles.orderItemHeader}>
-                              <Text style={styles.orderNumber}>{order.order_number}</Text>
-                              <Text style={styles.orderAmount}>
-                                {formatCLP(order.total_amount)}
+                          <View key={order.id} style={styles.orderItem}>
+                            <TouchableOpacity
+                              onPress={() => {
+                                setShowDetailModal(false);
+                                router.push(`/order/${order.id}`);
+                              }}
+                            >
+                              <View style={styles.orderItemHeader}>
+                                <Text style={styles.orderNumber}>{order.order_number}</Text>
+                                <Text style={styles.orderAmount}>
+                                  {formatCLP(order.total_amount)}
+                                </Text>
+                              </View>
+                              <Text style={styles.orderDate}>
+                                📅 {formatDate(order.created_at)}
                               </Text>
-                            </View>
-                            <Text style={styles.orderDate}>
-                              📅 {formatDate(order.created_at)}
-                            </Text>
-                            <Text style={styles.orderProductCount}>
-                              📦 {productCount} {productCount === 1 ? 'producto' : 'productos'}
-                            </Text>
-                          </TouchableOpacity>
+                              <Text style={styles.orderProductCount}>
+                                📦 {productCount} {productCount === 1 ? 'producto' : 'productos'}
+                              </Text>
+                              
+                              <View style={styles.orderPaymentInfo}>
+                                <View>
+                                  <Text style={styles.orderPaymentLabel}>Pagado:</Text>
+                                  <Text style={[styles.orderPaymentValue, styles.orderPaymentPaid]}>
+                                    {formatCLP(order.paid_amount)}
+                                  </Text>
+                                </View>
+                                <View>
+                                  <Text style={styles.orderPaymentLabel}>Pendiente:</Text>
+                                  <Text style={[styles.orderPaymentValue, styles.orderPaymentPending]}>
+                                    {formatCLP(orderPending)}
+                                  </Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                            
+                            {orderPending > 0 && (
+                              <TouchableOpacity
+                                style={styles.payButton}
+                                onPress={() => {
+                                  setShowDetailModal(false);
+                                  openPaymentModal('order', order.id);
+                                }}
+                              >
+                                <Text style={styles.payButtonText}>Pagar Pedido</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
                         );
                       })
                     ) : (
@@ -952,10 +1177,13 @@ export default function CustomersScreen() {
                 {selectedCustomer.total_debt - selectedCustomer.total_paid > 0 && (
                   <TouchableOpacity
                     style={styles.addPaymentButton}
-                    onPress={openPaymentModal}
+                    onPress={() => {
+                      setShowDetailModal(false);
+                      openPaymentModal('account');
+                    }}
                   >
                     <IconSymbol name="plus.circle" size={20} color="#fff" />
-                    <Text style={styles.addPaymentButtonText}>Registrar Pago</Text>
+                    <Text style={styles.addPaymentButtonText}>Abonar a la Cuenta</Text>
                   </TouchableOpacity>
                 )}
 
@@ -991,6 +1219,77 @@ export default function CustomersScreen() {
               </Text>
             )}
 
+            {/* Payment Type Selector */}
+            <View style={styles.paymentTypeSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.paymentTypeButton,
+                  paymentType === 'account' && styles.paymentTypeButtonActive,
+                ]}
+                onPress={() => {
+                  setPaymentType('account');
+                  setSelectedOrderId(null);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.paymentTypeButtonText,
+                    paymentType === 'account' && styles.paymentTypeButtonTextActive,
+                  ]}
+                >
+                  Abono a Cuenta
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.paymentTypeButton,
+                  paymentType === 'order' && styles.paymentTypeButtonActive,
+                ]}
+                onPress={() => setPaymentType('order')}
+              >
+                <Text
+                  style={[
+                    styles.paymentTypeButtonText,
+                    paymentType === 'order' && styles.paymentTypeButtonTextActive,
+                  ]}
+                >
+                  Pagar Pedido
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Order Selector (only for order payment type) */}
+            {paymentType === 'order' && selectedCustomer && (
+              <View style={styles.orderSelector}>
+                <Text style={styles.orderSelectorLabel}>Selecciona un pedido:</Text>
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {selectedCustomer.orders?.map((order: Order) => {
+                    const orderPending = order.total_amount - order.paid_amount;
+                    return (
+                      <TouchableOpacity
+                        key={order.id}
+                        style={[
+                          styles.orderSelectorItem,
+                          selectedOrderId === order.id && styles.orderSelectorItemActive,
+                        ]}
+                        onPress={() => setSelectedOrderId(order.id)}
+                      >
+                        <View style={styles.orderSelectorItemHeader}>
+                          <Text style={styles.orderSelectorItemNumber}>{order.order_number}</Text>
+                          <Text style={styles.orderSelectorItemAmount}>
+                            {formatCLP(order.total_amount)}
+                          </Text>
+                        </View>
+                        <Text style={styles.orderSelectorItemPending}>
+                          Pendiente: {formatCLP(orderPending)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            )}
+
             <TextInput
               style={styles.input}
               placeholder="Monto del pago"
@@ -1012,7 +1311,10 @@ export default function CustomersScreen() {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalButtonCancel]}
-                onPress={() => setShowPaymentModal(false)}
+                onPress={() => {
+                  setShowPaymentModal(false);
+                  setShowDetailModal(true);
+                }}
                 disabled={submittingPayment}
               >
                 <Text style={styles.modalButtonText}>Cancelar</Text>
@@ -1021,10 +1323,10 @@ export default function CustomersScreen() {
                 style={[
                   styles.modalButton,
                   styles.modalButtonConfirm,
-                  (submittingPayment || !paymentAmount.trim()) && { opacity: 0.5 },
+                  (submittingPayment || !paymentAmount.trim() || (paymentType === 'order' && !selectedOrderId)) && { opacity: 0.5 },
                 ]}
                 onPress={handleAddPayment}
-                disabled={submittingPayment || !paymentAmount.trim()}
+                disabled={submittingPayment || !paymentAmount.trim() || (paymentType === 'order' && !selectedOrderId)}
               >
                 {submittingPayment ? (
                   <ActivityIndicator size="small" color="#fff" />

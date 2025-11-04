@@ -5,7 +5,7 @@ import { Order, OrderStatus } from '@/types';
 import { sendLocalNotification } from '@/utils/pushNotifications';
 import { Platform } from 'react-native';
 
-export const useOrders = (statusFilter?: OrderStatus, excludeCompleted: boolean = false) => {
+export const useOrders = (statusFilter?: OrderStatus, excludeCompleted: boolean = true) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +137,14 @@ export const useOrders = (statusFilter?: OrderStatus, excludeCompleted: boolean 
           { event: '*', schema: 'public', table: 'order_queries' },
           (payload) => {
             console.log('Order queries change detected:', payload);
+            fetchOrders();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'order_payments' },
+          (payload) => {
+            console.log('Order payments change detected:', payload);
             fetchOrders();
           }
         )
