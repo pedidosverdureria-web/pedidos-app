@@ -1680,9 +1680,17 @@ export default function OrderDetailScreen() {
   const handleDelete = () => {
     if (!order) return;
 
+    // Build a detailed message about what will happen
+    let deleteMessage = `¿Estás seguro de que deseas eliminar el pedido ${order.order_number}?\n\nEsta acción no se puede deshacer.`;
+    
+    // If order has a customer and is in pending_payment status, inform about account updates
+    if (order.customer_id && order.status === 'pending_payment') {
+      deleteMessage += `\n\n⚠️ Este pedido está vinculado a un cliente y en estado "Pendiente de Pago". Al eliminarlo:\n\n- Se restará ${formatCLP(order.total_amount)} de la deuda del cliente\n- Se actualizarán automáticamente los totales de la cuenta`;
+    }
+
     Alert.alert(
       '🗑️ Eliminar Pedido',
-      `¿Estás seguro de que deseas eliminar el pedido ${order.order_number}? Esta acción no se puede deshacer.`,
+      deleteMessage,
       [
         { 
           text: 'Cancelar', 
@@ -1694,24 +1702,61 @@ export default function OrderDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('[OrderDetail] ========== DELETING ORDER ==========');
+              console.log('[OrderDetail] Order ID:', order.id);
+              console.log('[OrderDetail] Order Number:', order.order_number);
+              console.log('[OrderDetail] Customer ID:', order.customer_id);
+              console.log('[OrderDetail] Order Status:', order.status);
+              console.log('[OrderDetail] Order Total:', order.total_amount);
+              
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               const supabase = getSupabase();
               
-              await supabase.from('order_items').delete().eq('order_id', order.id);
-              await supabase.from('orders').delete().eq('id', order.id);
+              // Delete the order - CASCADE will handle related records
+              // The database trigger will automatically update customer totals
+              console.log('[OrderDetail] Deleting order (CASCADE will handle related records)...');
+              const { error } = await supabase
+                .from('orders')
+                .delete()
+                .eq('id', order.id);
 
-              await sendOrderDeletedNotification(order.id);
+              if (error) {
+                console.error('[OrderDetail] Error deleting order:', error);
+                throw error;
+              }
+
+              console.log('[OrderDetail] Order deleted successfully');
+              console.log('[OrderDetail] Database trigger will update customer totals automatically');
+
+              // Send WhatsApp notification
+              try {
+                console.log('[OrderDetail] Sending deletion notification...');
+                await sendOrderDeletedNotification(order.id);
+                console.log('[OrderDetail] Deletion notification sent');
+              } catch (notifError) {
+                console.error('[OrderDetail] Error sending notification:', notifError);
+                // Don't throw - notification failure shouldn't block deletion
+              }
+
+              console.log('[OrderDetail] ========== ORDER DELETION COMPLETE ==========');
 
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              
+              let successMessage = `El pedido ${order.order_number} se eliminó correctamente`;
+              if (order.customer_id && order.status === 'pending_payment') {
+                successMessage += `\n\nLos totales de la cuenta del cliente se actualizaron automáticamente`;
+              }
+              
               Alert.alert(
                 '✅ Pedido Eliminado',
-                `El pedido ${order.order_number} se eliminó correctamente`,
+                successMessage,
                 [{ 
                   text: 'OK',
                   onPress: () => router.back()
                 }]
               );
             } catch (error) {
+              console.error('[OrderDetail] ========== ORDER DELETION FAILED ==========');
               console.error('[OrderDetail] Error deleting order:', error);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               Alert.alert(
