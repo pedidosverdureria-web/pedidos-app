@@ -123,6 +123,10 @@ export interface PrinterConfig {
   include_customer_info: boolean;
   include_totals: boolean;
   paper_size?: '58mm' | '80mm';
+  text_size?: 'small' | 'medium' | 'large';
+  encoding?: 'UTF-8' | 'CP850' | 'ISO-8859-1';
+  auto_cut_enabled?: boolean;
+  auto_print_queries_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }

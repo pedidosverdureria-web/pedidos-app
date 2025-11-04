@@ -639,6 +639,8 @@ function getStatusColor(status: OrderStatus): string {
       return '#EF4444';
     case 'pending_payment':
       return '#8B5CF6';
+    case 'paid':
+      return '#10B981';
     default:
       return '#6B7280';
   }
@@ -658,6 +660,8 @@ function getStatusLabel(status: OrderStatus): string {
       return 'Cancelado';
     case 'pending_payment':
       return 'Pendiente de Pago';
+    case 'paid':
+      return 'Pagado';
     default:
       return status;
   }
@@ -677,6 +681,8 @@ function getStatusIcon(status: OrderStatus): string {
       return 'xmark.circle';
     case 'pending_payment':
       return 'creditcard';
+    case 'paid':
+      return 'checkmark.circle.fill';
     default:
       return 'circle';
   }
@@ -689,10 +695,12 @@ function getAvailableStatusTransitions(currentStatus: OrderStatus): OrderStatus[
     case 'preparing':
       return ['ready', 'cancelled'];
     case 'ready':
-      return ['delivered', 'cancelled'];
+      return ['delivered', 'pending_payment', 'cancelled'];
     case 'delivered':
-      return ['pending_payment'];
+      return [];
     case 'pending_payment':
+      return [];
+    case 'paid':
       return [];
     case 'cancelled':
       return [];

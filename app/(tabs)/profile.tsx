@@ -101,6 +101,17 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
+            onPress={() => router.push('/completed-orders')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
+              <Text style={styles.menuItemText}>Pedidos Completados</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
             onPress={() => router.push('/settings')}
           >
             <View style={styles.menuItemLeft}>
