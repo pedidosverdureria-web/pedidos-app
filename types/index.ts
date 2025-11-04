@@ -1,5 +1,5 @@
 
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment' | 'paid';
 
 export type UserRole = 'admin' | 'worker';
 
@@ -60,6 +60,7 @@ export interface Order {
   updated_at: string;
   items?: OrderItem[];
   queries?: OrderQuery[];
+  order_payments?: OrderPayment[];
 }
 
 export interface Customer {
@@ -77,6 +78,17 @@ export interface Customer {
 
 export interface CustomerPayment {
   id: string;
+  customer_id: string;
+  amount: number;
+  payment_date: string;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface OrderPayment {
+  id: string;
+  order_id: string;
   customer_id: string;
   amount: number;
   payment_date: string;
