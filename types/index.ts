@@ -70,6 +70,7 @@ export interface Order {
 export interface Customer {
   id: string;
   name: string;
+  rut?: string;
   phone?: string;
   address?: string;
   total_debt: number;

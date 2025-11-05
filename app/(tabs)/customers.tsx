@@ -13,6 +13,8 @@ import {
   Modal,
   ScrollView,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { getSupabase } from '@/lib/supabase';
@@ -332,10 +334,18 @@ const styles = StyleSheet.create({
   modalButtonCancel: {
     backgroundColor: colors.border,
   },
+  modalButtonPrimary: {
+    backgroundColor: colors.primary,
+  },
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  modalButtonTextPrimary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
   emptySection: {
     padding: 16,
@@ -345,6 +355,78 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  editSection: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 20,
+  },
+  editSectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  inputGroup: {
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: colors.text,
+  },
+  editButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  editButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  editButtonCancel: {
+    backgroundColor: colors.border,
+  },
+  editButtonSave: {
+    backgroundColor: colors.primary,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  editButtonTextSave: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  editModeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  editModeButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+    marginLeft: 8,
   },
 });
 
@@ -398,6 +480,11 @@ export default function CustomersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [editedRut, setEditedRut] = useState('');
+  const [editedPhone, setEditedPhone] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -450,8 +537,73 @@ export default function CustomersScreen() {
 
   const openCustomerDetail = useCallback((customer: Customer) => {
     setSelectedCustomer(customer);
+    setEditedName(customer.name);
+    setEditedRut(customer.rut || '');
+    setEditedPhone(customer.phone || '');
+    setIsEditMode(false);
     setShowDetailModal(true);
   }, []);
+
+  const handleSaveCustomerInfo = async () => {
+    if (!selectedCustomer) return;
+
+    if (!editedName.trim()) {
+      Alert.alert('⚠️ Error', 'El nombre del cliente es obligatorio');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const supabase = getSupabase();
+      const { error } = await supabase
+        .from('customers')
+        .update({
+          name: editedName.trim(),
+          rut: editedRut.trim() || null,
+          phone: editedPhone.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedCustomer.id);
+
+      if (error) throw error;
+
+      console.log('[CustomersScreen] Customer info updated successfully');
+      
+      // Update local state
+      setCustomers(prev => 
+        prev.map(c => 
+          c.id === selectedCustomer.id 
+            ? { ...c, name: editedName.trim(), rut: editedRut.trim() || undefined, phone: editedPhone.trim() || undefined }
+            : c
+        )
+      );
+
+      setSelectedCustomer(prev => 
+        prev ? { ...prev, name: editedName.trim(), rut: editedRut.trim() || undefined, phone: editedPhone.trim() || undefined } : null
+      );
+
+      setIsEditMode(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('✅ Éxito', 'Información del cliente actualizada correctamente');
+    } catch (error) {
+      console.error('[CustomersScreen] Error updating customer info:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('❌ Error', 'No se pudo actualizar la información del cliente');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (selectedCustomer) {
+      setEditedName(selectedCustomer.name);
+      setEditedRut(selectedCustomer.rut || '');
+      setEditedPhone(selectedCustomer.phone || '');
+    }
+    setIsEditMode(false);
+  };
 
   const calculateCustomerStats = (customer: Customer) => {
     const orders = customer.orders || [];
@@ -513,6 +665,7 @@ export default function CustomersScreen() {
   const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
       customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (customer.rut && customer.rut.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (customer.phone && customer.phone.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (customer.address && customer.address.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSearch;
@@ -530,8 +683,8 @@ export default function CustomersScreen() {
         <View style={styles.customerHeader}>
           <View style={styles.customerNameContainer}>
             <Text style={styles.customerName}>{item.name}</Text>
-            {item.phone && (
-              <Text style={styles.customerRut}>RUT: {item.phone}</Text>
+            {item.rut && (
+              <Text style={styles.customerRut}>RUT: {item.rut}</Text>
             )}
           </View>
           {isBlocked && (
@@ -628,9 +781,16 @@ export default function CustomersScreen() {
         visible={showDetailModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowDetailModal(false)}
+        onRequestClose={() => {
+          if (!isEditMode) {
+            setShowDetailModal(false);
+          }
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             {selectedCustomer && (() => {
               const stats = calculateCustomerStats(selectedCustomer);
@@ -642,153 +802,236 @@ export default function CustomersScreen() {
                 <>
                   <View style={styles.modalHeader}>
                     <Text style={styles.modalTitle}>{selectedCustomer.name}</Text>
-                    {selectedCustomer.phone && (
-                      <View style={styles.modalInfoRow}>
-                        <IconSymbol name="phone.fill" size={16} color={colors.textSecondary} />
-                        <Text style={styles.modalInfoText}>{selectedCustomer.phone}</Text>
-                      </View>
-                    )}
-                    {selectedCustomer.address && (
-                      <View style={styles.modalInfoRow}>
-                        <IconSymbol name="location.fill" size={16} color={colors.textSecondary} />
-                        <Text style={styles.modalInfoText}>{selectedCustomer.address}</Text>
-                      </View>
-                    )}
-                    {selectedCustomer.blocked && (
-                      <View style={styles.modalInfoRow}>
-                        <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#DC2626" />
-                        <Text style={[styles.modalInfoText, { color: '#DC2626' }]}>Cliente bloqueado</Text>
-                      </View>
+                    {!isEditMode && (
+                      <>
+                        {selectedCustomer.rut && (
+                          <View style={styles.modalInfoRow}>
+                            <IconSymbol name="person.text.rectangle.fill" size={16} color={colors.textSecondary} />
+                            <Text style={styles.modalInfoText}>RUT: {selectedCustomer.rut}</Text>
+                          </View>
+                        )}
+                        {selectedCustomer.phone && (
+                          <View style={styles.modalInfoRow}>
+                            <IconSymbol name="phone.fill" size={16} color={colors.textSecondary} />
+                            <Text style={styles.modalInfoText}>{selectedCustomer.phone}</Text>
+                          </View>
+                        )}
+                        {selectedCustomer.address && (
+                          <View style={styles.modalInfoRow}>
+                            <IconSymbol name="location.fill" size={16} color={colors.textSecondary} />
+                            <Text style={styles.modalInfoText}>{selectedCustomer.address}</Text>
+                          </View>
+                        )}
+                        {selectedCustomer.blocked && (
+                          <View style={styles.modalInfoRow}>
+                            <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#DC2626" />
+                            <Text style={[styles.modalInfoText, { color: '#DC2626' }]}>Cliente bloqueado</Text>
+                          </View>
+                        )}
+                      </>
                     )}
                   </View>
 
-                  <ScrollView style={styles.modalScrollView}>
-                    <Text style={styles.sectionTitle}>Estadísticas Generales</Text>
-                    <View style={styles.statsGrid}>
-                      <View style={styles.statCard}>
-                        <Text style={styles.statCardValue}>{stats.totalOrders}</Text>
-                        <Text style={styles.statCardLabel}>Total Pedidos</Text>
+                  {isEditMode ? (
+                    <View style={styles.editSection}>
+                      <Text style={styles.editSectionTitle}>Editar Información</Text>
+                      
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Nombre *</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={editedName}
+                          onChangeText={setEditedName}
+                          placeholder="Nombre del cliente"
+                          placeholderTextColor={colors.textSecondary}
+                        />
                       </View>
-                      <View style={styles.statCard}>
-                        <Text style={styles.statCardValue}>{stats.pendingOrders}</Text>
-                        <Text style={styles.statCardLabel}>Pendientes</Text>
+
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>RUT</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={editedRut}
+                          onChangeText={setEditedRut}
+                          placeholder="12.345.678-9"
+                          placeholderTextColor={colors.textSecondary}
+                        />
                       </View>
-                      <View style={styles.statCard}>
-                        <Text style={styles.statCardValue}>{stats.deliveredOrders}</Text>
-                        <Text style={styles.statCardLabel}>Entregados</Text>
+
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Teléfono</Text>
+                        <TextInput
+                          style={styles.input}
+                          value={editedPhone}
+                          onChangeText={setEditedPhone}
+                          placeholder="+56912345678"
+                          placeholderTextColor={colors.textSecondary}
+                          keyboardType="phone-pad"
+                        />
                       </View>
-                      <View style={styles.statCard}>
-                        <Text style={styles.statCardValue}>{stats.cancelledOrders}</Text>
-                        <Text style={styles.statCardLabel}>Cancelados</Text>
-                      </View>
-                      <View style={[styles.statCard, styles.statCardFull]}>
-                        <Text style={styles.statCardValue}>{formatCLP(stats.allTimeTotal)}</Text>
-                        <Text style={styles.statCardLabel}>Total Histórico</Text>
-                      </View>
-                      <View style={[styles.statCard, styles.statCardFull]}>
-                        <Text style={styles.statCardValue}>{formatCLP(stats.averageOrderValue)}</Text>
-                        <Text style={styles.statCardLabel}>Promedio por Pedido</Text>
+
+                      <View style={styles.editButtons}>
+                        <TouchableOpacity
+                          style={[styles.editButton, styles.editButtonCancel]}
+                          onPress={handleCancelEdit}
+                          disabled={isSaving}
+                        >
+                          <Text style={styles.editButtonText}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.editButton, styles.editButtonSave]}
+                          onPress={handleSaveCustomerInfo}
+                          disabled={isSaving}
+                        >
+                          {isSaving ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={styles.editButtonTextSave}>Guardar</Text>
+                          )}
+                        </TouchableOpacity>
                       </View>
                     </View>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={styles.editModeButton}
+                        onPress={() => setIsEditMode(true)}
+                      >
+                        <IconSymbol name="pencil" size={16} color="#fff" />
+                        <Text style={styles.editModeButtonText}>Editar Información</Text>
+                      </TouchableOpacity>
 
-                    <Text style={styles.sectionTitle}>Compras del Mes</Text>
-                    <View style={styles.purchasesByPeriod}>
-                      <View style={styles.periodCard}>
-                        <View style={styles.periodHeader}>
-                          <Text style={styles.periodLabel}>Mes Actual</Text>
-                          <Text style={styles.periodValue}>{formatCLP(stats.thisMonthTotal)}</Text>
+                      <ScrollView style={styles.modalScrollView}>
+                        <Text style={styles.sectionTitle}>Estadísticas Generales</Text>
+                        <View style={styles.statsGrid}>
+                          <View style={styles.statCard}>
+                            <Text style={styles.statCardValue}>{stats.totalOrders}</Text>
+                            <Text style={styles.statCardLabel}>Total Pedidos</Text>
+                          </View>
+                          <View style={styles.statCard}>
+                            <Text style={styles.statCardValue}>{stats.pendingOrders}</Text>
+                            <Text style={styles.statCardLabel}>Pendientes</Text>
+                          </View>
+                          <View style={styles.statCard}>
+                            <Text style={styles.statCardValue}>{stats.deliveredOrders}</Text>
+                            <Text style={styles.statCardLabel}>Entregados</Text>
+                          </View>
+                          <View style={styles.statCard}>
+                            <Text style={styles.statCardValue}>{stats.cancelledOrders}</Text>
+                            <Text style={styles.statCardLabel}>Cancelados</Text>
+                          </View>
+                          <View style={[styles.statCard, styles.statCardFull]}>
+                            <Text style={styles.statCardValue}>{formatCLP(stats.allTimeTotal)}</Text>
+                            <Text style={styles.statCardLabel}>Total Histórico</Text>
+                          </View>
+                          <View style={[styles.statCard, styles.statCardFull]}>
+                            <Text style={styles.statCardValue}>{formatCLP(stats.averageOrderValue)}</Text>
+                            <Text style={styles.statCardLabel}>Promedio por Pedido</Text>
+                          </View>
                         </View>
-                        <Text style={styles.periodDetails}>
-                          {stats.thisMonthCount} {stats.thisMonthCount === 1 ? 'pedido' : 'pedidos'}
-                        </Text>
-                      </View>
-                    </View>
 
-                    <Text style={styles.sectionTitle}>Compras por Mes</Text>
-                    <View style={styles.purchasesByPeriod}>
-                      {Object.entries(stats.ordersByMonth)
-                        .sort(([a], [b]) => b.localeCompare(a))
-                        .slice(0, 6)
-                        .map(([month, data]) => {
-                          const [year, monthNum] = month.split('-');
-                          const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
-                          return (
-                            <View key={month} style={styles.periodCard}>
-                              <View style={styles.periodHeader}>
-                                <Text style={styles.periodLabel}>{monthName}</Text>
-                                <Text style={styles.periodValue}>{formatCLP(data.total)}</Text>
-                              </View>
-                              <Text style={styles.periodDetails}>
-                                {data.count} {data.count === 1 ? 'pedido' : 'pedidos'}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                    </View>
-
-                    <Text style={styles.sectionTitle}>Compras por Año</Text>
-                    <View style={styles.purchasesByPeriod}>
-                      {Object.entries(stats.ordersByYear)
-                        .sort(([a], [b]) => b.localeCompare(a))
-                        .map(([year, data]) => (
-                          <View key={year} style={styles.periodCard}>
+                        <Text style={styles.sectionTitle}>Compras del Mes</Text>
+                        <View style={styles.purchasesByPeriod}>
+                          <View style={styles.periodCard}>
                             <View style={styles.periodHeader}>
-                              <Text style={styles.periodLabel}>{year}</Text>
-                              <Text style={styles.periodValue}>{formatCLP(data.total)}</Text>
+                              <Text style={styles.periodLabel}>Mes Actual</Text>
+                              <Text style={styles.periodValue}>{formatCLP(stats.thisMonthTotal)}</Text>
                             </View>
                             <Text style={styles.periodDetails}>
-                              {data.count} {data.count === 1 ? 'pedido' : 'pedidos'}
+                              {stats.thisMonthCount} {stats.thisMonthCount === 1 ? 'pedido' : 'pedidos'}
                             </Text>
                           </View>
-                        ))}
-                    </View>
-
-                    <Text style={styles.sectionTitle}>Pedidos Recientes</Text>
-                    <View style={styles.ordersList}>
-                      {recentOrders.length > 0 ? (
-                        recentOrders.map((order: Order) => {
-                          const statusStyle = `orderCard${order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', '')}`;
-                          return (
-                            <TouchableOpacity
-                              key={order.id}
-                              style={[styles.orderCard, styles[statusStyle as keyof typeof styles]]}
-                              onPress={() => {
-                                setShowDetailModal(false);
-                                router.push(`/order/${order.id}`);
-                              }}
-                            >
-                              <View style={styles.orderHeader}>
-                                <Text style={styles.orderNumber}>{order.order_number}</Text>
-                                <Text style={styles.orderAmount}>{formatCLP(order.total_amount)}</Text>
-                              </View>
-                              <Text style={styles.orderDate}>📅 {formatDate(order.created_at)}</Text>
-                              <Text style={[styles.orderStatus, { color: getStatusColor(order.status) }]}>
-                                {getStatusLabel(order.status)}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })
-                      ) : (
-                        <View style={styles.emptySection}>
-                          <Text style={styles.emptySectionText}>No hay pedidos registrados</Text>
                         </View>
-                      )}
-                    </View>
-                  </ScrollView>
 
-                  <View style={styles.modalButtons}>
-                    <TouchableOpacity
-                      style={[styles.modalButton, styles.modalButtonCancel]}
-                      onPress={() => setShowDetailModal(false)}
-                    >
-                      <Text style={styles.modalButtonText}>Cerrar</Text>
-                    </TouchableOpacity>
-                  </View>
+                        <Text style={styles.sectionTitle}>Compras por Mes</Text>
+                        <View style={styles.purchasesByPeriod}>
+                          {Object.entries(stats.ordersByMonth)
+                            .sort(([a], [b]) => b.localeCompare(a))
+                            .slice(0, 6)
+                            .map(([month, data]) => {
+                              const [year, monthNum] = month.split('-');
+                              const monthName = new Date(parseInt(year), parseInt(monthNum) - 1).toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+                              return (
+                                <View key={month} style={styles.periodCard}>
+                                  <View style={styles.periodHeader}>
+                                    <Text style={styles.periodLabel}>{monthName}</Text>
+                                    <Text style={styles.periodValue}>{formatCLP(data.total)}</Text>
+                                  </View>
+                                  <Text style={styles.periodDetails}>
+                                    {data.count} {data.count === 1 ? 'pedido' : 'pedidos'}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                        </View>
+
+                        <Text style={styles.sectionTitle}>Compras por Año</Text>
+                        <View style={styles.purchasesByPeriod}>
+                          {Object.entries(stats.ordersByYear)
+                            .sort(([a], [b]) => b.localeCompare(a))
+                            .map(([year, data]) => (
+                              <View key={year} style={styles.periodCard}>
+                                <View style={styles.periodHeader}>
+                                  <Text style={styles.periodLabel}>{year}</Text>
+                                  <Text style={styles.periodValue}>{formatCLP(data.total)}</Text>
+                                </View>
+                                <Text style={styles.periodDetails}>
+                                  {data.count} {data.count === 1 ? 'pedido' : 'pedidos'}
+                                </Text>
+                              </View>
+                            ))}
+                        </View>
+
+                        <Text style={styles.sectionTitle}>Pedidos Recientes</Text>
+                        <View style={styles.ordersList}>
+                          {recentOrders.length > 0 ? (
+                            recentOrders.map((order: Order) => {
+                              const statusStyle = `orderCard${order.status.charAt(0).toUpperCase() + order.status.slice(1).replace('_', '')}`;
+                              return (
+                                <TouchableOpacity
+                                  key={order.id}
+                                  style={[styles.orderCard, styles[statusStyle as keyof typeof styles]]}
+                                  onPress={() => {
+                                    setShowDetailModal(false);
+                                    router.push(`/order/${order.id}`);
+                                  }}
+                                >
+                                  <View style={styles.orderHeader}>
+                                    <Text style={styles.orderNumber}>{order.order_number}</Text>
+                                    <Text style={styles.orderAmount}>{formatCLP(order.total_amount)}</Text>
+                                  </View>
+                                  <Text style={styles.orderDate}>📅 {formatDate(order.created_at)}</Text>
+                                  <Text style={[styles.orderStatus, { color: getStatusColor(order.status) }]}>
+                                    {getStatusLabel(order.status)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })
+                          ) : (
+                            <View style={styles.emptySection}>
+                              <Text style={styles.emptySectionText}>No hay pedidos registrados</Text>
+                            </View>
+                          )}
+                        </View>
+                      </ScrollView>
+                    </>
+                  )}
+
+                  {!isEditMode && (
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={[styles.modalButton, styles.modalButtonCancel]}
+                        onPress={() => setShowDetailModal(false)}
+                      >
+                        <Text style={styles.modalButtonText}>Cerrar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </>
               );
             })()}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
