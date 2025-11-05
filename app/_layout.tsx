@@ -17,7 +17,7 @@ SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
   const colorScheme = useColorScheme();
-  const { currentTheme, themeVersion } = useTheme();
+  const { currentTheme } = useTheme();
 
   // Create a custom navigation theme based on the current app theme
   const navigationTheme = useMemo(() => {
@@ -35,9 +35,8 @@ function RootNavigator() {
         notification: currentTheme.colors.accent,
       },
     };
-  }, [colorScheme, currentTheme, themeVersion]);
+  }, [colorScheme, currentTheme]);
 
-  console.log('[RootNavigator] Theme version:', themeVersion);
   console.log('[RootNavigator] Current theme:', currentTheme.name);
 
   return (

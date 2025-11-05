@@ -344,7 +344,114 @@ export default function PrinterQueueScreen() {
     }
   }, []);
 
-  // Auto-print function
+  // handlePrintItem function - defined before being used in checkAndPrintNewOrders
+  const handlePrintItem = useCallback(async (item: PrintQueueItem) => {
+    if (!isConnected) {
+      Alert.alert('Error', 'No hay impresora conectada. Ve a Configuración > Impresora para conectar una.');
+      return;
+    }
+
+    try {
+      setPrinting(item.id);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const supabase = getSupabase();
+      let receiptText = '';
+
+      if (item.item_type === 'order') {
+        const { data: order, error } = await supabase
+          .from('orders')
+          .select('*, items:order_items(*)')
+          .eq('id', item.item_id)
+          .single();
+
+        if (error || !order) {
+          throw new Error('No se pudo cargar el pedido');
+        }
+
+        receiptText = generateReceiptText(order as Order, printerConfig || undefined);
+      } else if (item.item_type === 'query') {
+        const { data: query, error: queryError } = await supabase
+          .from('order_queries')
+          .select('*')
+          .eq('id', item.item_id)
+          .single();
+
+        if (queryError || !query) {
+          throw new Error('No se pudo cargar la consulta');
+        }
+
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .select('*, items:order_items(*)')
+          .eq('id', query.order_id)
+          .single();
+
+        if (orderError || !order) {
+          throw new Error('No se pudo cargar el pedido de la consulta');
+        }
+
+        receiptText = generateQueryReceiptText(
+          order as Order,
+          query.query_text,
+          printerConfig || undefined
+        );
+      } else if (item.item_type === 'customer_orders') {
+        const customerId = item.metadata?.customer_id;
+        if (!customerId) {
+          throw new Error('No se encontró el ID del cliente');
+        }
+
+        const { data: customer, error } = await supabase
+          .from('customers')
+          .select('*, orders(*)')
+          .eq('id', customerId)
+          .single();
+
+        if (error || !customer) {
+          throw new Error('No se pudo cargar el cliente');
+        }
+
+        receiptText = generatePendingOrdersReceipt(customer as Customer);
+      } else if (item.item_type === 'payment') {
+        const { customer_id, amount, notes } = item.metadata || {};
+        if (!customer_id) {
+          throw new Error('No se encontró el ID del cliente');
+        }
+
+        const { data: customer, error } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('id', customer_id)
+          .single();
+
+        if (error || !customer) {
+          throw new Error('No se pudo cargar el cliente');
+        }
+
+        receiptText = generatePaymentReceipt(customer as Customer, amount, notes || '');
+      }
+
+      const autoCut = printerConfig?.auto_cut_enabled ?? true;
+      const textSize = printerConfig?.text_size || 'medium';
+      
+      await printReceipt(receiptText, autoCut, textSize);
+      await markAsPrinted(item.id);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      loadData();
+    } catch (error: any) {
+      console.error('[PrinterQueue] Error printing:', error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await markAsFailed(item.id, error.message || 'Error desconocido');
+      Alert.alert('Error de Impresión', error.message || 'No se pudo imprimir el documento');
+      loadData();
+    } finally {
+      setPrinting(null);
+    }
+  }, [isConnected, printerConfig, printReceipt, loadData]);
+
+  // Auto-print function - now includes handlePrintItem in dependencies
   const checkAndPrintNewOrders = useCallback(async () => {
     if (!autoPrintEnabled || !isConnected || isPrintingRef.current) {
       return;
@@ -405,7 +512,7 @@ export default function PrinterQueueScreen() {
       
       break; // Only print one at a time
     }
-  }, [autoPrintEnabled, isConnected, incomingOrders, queueItems, printerConfig, printReceipt, isOrderAlreadyPrinted, markOrderAsPrinted, loadData]);
+  }, [autoPrintEnabled, isConnected, incomingOrders, queueItems, printerConfig, printReceipt, isOrderAlreadyPrinted, markOrderAsPrinted, loadData, handlePrintItem]);
 
   // Auto-print interval
   useEffect(() => {
@@ -550,112 +657,6 @@ export default function PrinterQueueScreen() {
       console.error('[PrinterQueue] Error printing order:', error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error de Impresión', error.message || 'No se pudo imprimir el pedido');
-    } finally {
-      setPrinting(null);
-    }
-  };
-
-  const handlePrintItem = async (item: PrintQueueItem) => {
-    if (!isConnected) {
-      Alert.alert('Error', 'No hay impresora conectada. Ve a Configuración > Impresora para conectar una.');
-      return;
-    }
-
-    try {
-      setPrinting(item.id);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      const supabase = getSupabase();
-      let receiptText = '';
-
-      if (item.item_type === 'order') {
-        const { data: order, error } = await supabase
-          .from('orders')
-          .select('*, items:order_items(*)')
-          .eq('id', item.item_id)
-          .single();
-
-        if (error || !order) {
-          throw new Error('No se pudo cargar el pedido');
-        }
-
-        receiptText = generateReceiptText(order as Order, printerConfig || undefined);
-      } else if (item.item_type === 'query') {
-        const { data: query, error: queryError } = await supabase
-          .from('order_queries')
-          .select('*')
-          .eq('id', item.item_id)
-          .single();
-
-        if (queryError || !query) {
-          throw new Error('No se pudo cargar la consulta');
-        }
-
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .select('*, items:order_items(*)')
-          .eq('id', query.order_id)
-          .single();
-
-        if (orderError || !order) {
-          throw new Error('No se pudo cargar el pedido de la consulta');
-        }
-
-        receiptText = generateQueryReceiptText(
-          order as Order,
-          query.query_text,
-          printerConfig || undefined
-        );
-      } else if (item.item_type === 'customer_orders') {
-        const customerId = item.metadata?.customer_id;
-        if (!customerId) {
-          throw new Error('No se encontró el ID del cliente');
-        }
-
-        const { data: customer, error } = await supabase
-          .from('customers')
-          .select('*, orders(*)')
-          .eq('id', customerId)
-          .single();
-
-        if (error || !customer) {
-          throw new Error('No se pudo cargar el cliente');
-        }
-
-        receiptText = generatePendingOrdersReceipt(customer as Customer);
-      } else if (item.item_type === 'payment') {
-        const { customer_id, amount, notes } = item.metadata || {};
-        if (!customer_id) {
-          throw new Error('No se encontró el ID del cliente');
-        }
-
-        const { data: customer, error } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('id', customer_id)
-          .single();
-
-        if (error || !customer) {
-          throw new Error('No se pudo cargar el cliente');
-        }
-
-        receiptText = generatePaymentReceipt(customer as Customer, amount, notes || '');
-      }
-
-      const autoCut = printerConfig?.auto_cut_enabled ?? true;
-      const textSize = printerConfig?.text_size || 'medium';
-      
-      await printReceipt(receiptText, autoCut, textSize);
-      await markAsPrinted(item.id);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      
-      loadData();
-    } catch (error: any) {
-      console.error('[PrinterQueue] Error printing:', error);
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      await markAsFailed(item.id, error.message || 'Error desconocido');
-      Alert.alert('Error de Impresión', error.message || 'No se pudo imprimir el documento');
-      loadData();
     } finally {
       setPrinting(null);
     }
