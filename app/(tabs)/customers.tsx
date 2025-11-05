@@ -18,419 +18,13 @@ import {
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { getSupabase } from '@/lib/supabase';
-import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Customer, Order } from '@/types';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
+import { useThemedStyles } from '@/hooks/useThemedStyles';
 
 const { width } = Dimensions.get('window');
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    padding: 16,
-    paddingTop: 60,
-    backgroundColor: colors.primary,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 16,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    color: '#fff',
-    fontSize: 16,
-  },
-  content: {
-    flex: 1,
-  },
-  customerCard: {
-    backgroundColor: colors.card,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  customerCardBlocked: {
-    borderLeftColor: '#6B7280',
-    opacity: 0.7,
-  },
-  customerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  customerNameContainer: {
-    flex: 1,
-    marginRight: 8,
-  },
-  customerName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  customerRut: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  blockedBadge: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  blockedBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#DC2626',
-  },
-  customerInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  customerInfoText: {
-    fontSize: 14,
-    color: colors.text,
-    marginLeft: 8,
-  },
-  customerStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 24,
-    width: '90%',
-    maxWidth: 500,
-    maxHeight: '85%',
-  },
-  modalHeader: {
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  modalInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  modalInfoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginLeft: 8,
-  },
-  modalScrollView: {
-    maxHeight: 400,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 20,
-  },
-  statCard: {
-    width: '48%',
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    marginRight: '2%',
-  },
-  statCardFull: {
-    width: '100%',
-    marginRight: 0,
-  },
-  statCardValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  statCardLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  ordersList: {
-    marginBottom: 20,
-  },
-  orderCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-  },
-  orderCardPending: {
-    borderLeftColor: '#F59E0B',
-  },
-  orderCardPreparing: {
-    borderLeftColor: '#3B82F6',
-  },
-  orderCardReady: {
-    borderLeftColor: '#10B981',
-  },
-  orderCardDelivered: {
-    borderLeftColor: '#6B7280',
-  },
-  orderCardCancelled: {
-    borderLeftColor: '#EF4444',
-  },
-  orderCardPendingPayment: {
-    borderLeftColor: '#8B5CF6',
-  },
-  orderCardPaid: {
-    borderLeftColor: '#059669',
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  orderNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  orderAmount: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  orderDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  orderStatus: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  purchasesByPeriod: {
-    marginBottom: 20,
-  },
-  periodCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-  },
-  periodHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  periodLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  periodValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  periodDetails: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  modalButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalButtonCancel: {
-    backgroundColor: colors.border,
-  },
-  modalButtonPrimary: {
-    backgroundColor: colors.primary,
-  },
-  modalButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  modalButtonTextPrimary: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  emptySection: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  emptySectionText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  editSection: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
-  },
-  editSectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
-  editButtons: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 12,
-  },
-  editButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  editButtonCancel: {
-    backgroundColor: colors.border,
-  },
-  editButtonSave: {
-    backgroundColor: colors.primary,
-  },
-  editButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  editButtonTextSave: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  editModeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-  },
-  editModeButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-    marginLeft: 8,
-  },
-});
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', {
@@ -476,6 +70,7 @@ function getStatusColor(status: string): string {
 
 export default function CustomersScreen() {
   const { user } = useAuth();
+  const { colors } = useThemedStyles();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -487,6 +82,412 @@ export default function CustomersScreen() {
   const [editedRut, setEditedRut] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      padding: 16,
+      paddingTop: 60,
+      backgroundColor: colors.primary,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: '#fff',
+      marginBottom: 16,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 8,
+      paddingHorizontal: 12,
+    },
+    searchIcon: {
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      height: 40,
+      color: '#fff',
+      fontSize: 16,
+    },
+    content: {
+      flex: 1,
+    },
+    customerCard: {
+      backgroundColor: colors.card,
+      marginHorizontal: 16,
+      marginVertical: 8,
+      padding: 16,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    customerCardBlocked: {
+      borderLeftColor: '#6B7280',
+      opacity: 0.7,
+    },
+    customerHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    customerNameContainer: {
+      flex: 1,
+      marginRight: 8,
+    },
+    customerName: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    customerRut: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    blockedBadge: {
+      backgroundColor: '#FEE2E2',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    blockedBadgeText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: '#DC2626',
+    },
+    customerInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    customerInfoText: {
+      fontSize: 14,
+      color: colors.text,
+      marginLeft: 8,
+    },
+    customerStats: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 12,
+      paddingTop: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    statItem: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    emptyText: {
+      fontSize: 18,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 16,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 24,
+      width: '90%',
+      maxWidth: 500,
+      maxHeight: '85%',
+    },
+    modalHeader: {
+      marginBottom: 20,
+    },
+    modalTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    modalSubtitle: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    modalInfoRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    modalInfoText: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginLeft: 8,
+    },
+    modalScrollView: {
+      maxHeight: 400,
+    },
+    statsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      marginBottom: 20,
+    },
+    statCard: {
+      width: '48%',
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      marginRight: '2%',
+    },
+    statCardFull: {
+      width: '100%',
+      marginRight: 0,
+    },
+    statCardValue: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    statCardLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 12,
+      marginTop: 8,
+    },
+    ordersList: {
+      marginBottom: 20,
+    },
+    orderCard: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 8,
+      borderLeftWidth: 3,
+    },
+    orderCardPending: {
+      borderLeftColor: '#F59E0B',
+    },
+    orderCardPreparing: {
+      borderLeftColor: '#3B82F6',
+    },
+    orderCardReady: {
+      borderLeftColor: '#10B981',
+    },
+    orderCardDelivered: {
+      borderLeftColor: '#6B7280',
+    },
+    orderCardCancelled: {
+      borderLeftColor: '#EF4444',
+    },
+    orderCardPendingPayment: {
+      borderLeftColor: '#8B5CF6',
+    },
+    orderCardPaid: {
+      borderLeftColor: '#059669',
+    },
+    orderHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    orderNumber: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    orderAmount: {
+      fontSize: 14,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+    orderDate: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    orderStatus: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    purchasesByPeriod: {
+      marginBottom: 20,
+    },
+    periodCard: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 8,
+    },
+    periodHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    periodLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    periodValue: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+    periodDetails: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 16,
+    },
+    modalButton: {
+      flex: 1,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    modalButtonCancel: {
+      backgroundColor: colors.border,
+    },
+    modalButtonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    modalButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    modalButtonTextPrimary: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#fff',
+    },
+    emptySection: {
+      padding: 16,
+      alignItems: 'center',
+    },
+    emptySectionText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    editSection: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 16,
+      marginBottom: 20,
+    },
+    editSectionTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    inputGroup: {
+      marginBottom: 12,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 6,
+    },
+    input: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: colors.text,
+    },
+    editButtons: {
+      flexDirection: 'row',
+      gap: 12,
+      marginTop: 12,
+    },
+    editButton: {
+      flex: 1,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    editButtonCancel: {
+      backgroundColor: colors.border,
+    },
+    editButtonSave: {
+      backgroundColor: colors.primary,
+    },
+    editButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    editButtonTextSave: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#fff',
+    },
+    editModeButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+    },
+    editModeButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#fff',
+      marginLeft: 8,
+    },
+  });
 
   const loadCustomers = useCallback(async () => {
     try {
@@ -573,7 +574,6 @@ export default function CustomersScreen() {
 
       console.log('[CustomersScreen] Customer info updated successfully');
       
-      // Update local state
       setCustomers(prev => 
         prev.map(c => 
           c.id === selectedCustomer.id 
@@ -613,7 +613,6 @@ export default function CustomersScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowDetailModal(false);
     
-    // Navigate to customer orders screen with filter
     router.push({
       pathname: '/customer-orders/[customerId]',
       params: {
