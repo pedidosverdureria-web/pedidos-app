@@ -645,6 +645,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
   },
+  customerInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  addCustomerButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 20,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });
 
 function getStatusColor(status: OrderStatus): string {
@@ -845,6 +858,8 @@ export default function OrderDetailScreen() {
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [customerBlocked, setCustomerBlocked] = useState(false);
+  const [customerExistsInMenu, setCustomerExistsInMenu] = useState(false);
+  const [checkingCustomer, setCheckingCustomer] = useState(false);
 
   // Customer info editing
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -882,6 +897,38 @@ export default function OrderDetailScreen() {
   const [newQueryText, setNewQueryText] = useState('');
   const [sendingQuery, setSendingQuery] = useState(false);
 
+  const checkIfCustomerExists = useCallback(async (phone: string) => {
+    if (!phone || !phone.trim()) {
+      setCustomerExistsInMenu(false);
+      return;
+    }
+
+    try {
+      setCheckingCustomer(true);
+      const supabase = getSupabase();
+      
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('phone', phone.trim())
+        .maybeSingle();
+
+      if (error) {
+        console.error('[OrderDetail] Error checking customer:', error);
+        setCustomerExistsInMenu(false);
+        return;
+      }
+
+      setCustomerExistsInMenu(!!data);
+      console.log('[OrderDetail] Customer exists in menu:', !!data);
+    } catch (error) {
+      console.error('[OrderDetail] Error checking customer:', error);
+      setCustomerExistsInMenu(false);
+    } finally {
+      setCheckingCustomer(false);
+    }
+  }, []);
+
   const loadOrder = useCallback(async () => {
     if (!orderId) return;
 
@@ -910,6 +957,11 @@ export default function OrderDetailScreen() {
           .maybeSingle();
         
         setCustomerBlocked(customerData?.blocked || false);
+        
+        // Check if customer exists in menu
+        await checkIfCustomerExists(data.customer_phone);
+      } else {
+        setCustomerExistsInMenu(false);
       }
     } catch (error) {
       console.error('[OrderDetail] Error loading order:', error);
@@ -922,7 +974,7 @@ export default function OrderDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, checkIfCustomerExists]);
 
   const loadPrinterConfig = useCallback(async () => {
     try {
@@ -991,6 +1043,110 @@ export default function OrderDetailScreen() {
       setParsedProducts([]);
     }
   }, [whatsappInput]);
+
+  const handleAddCustomerToMenu = async () => {
+    if (!order) return;
+
+    if (!order.customer_name || !order.customer_name.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Atención',
+        'No se puede agregar el cliente sin un nombre. Por favor edita la información del cliente primero.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    if (!order.customer_phone || !order.customer_phone.trim()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Atención',
+        'No se puede agregar el cliente sin un número de teléfono. Por favor edita la información del cliente primero.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      '➕ Agregar Cliente',
+      `¿Deseas agregar a ${order.customer_name} al menú de Clientes?\n\nEsto permitirá gestionar sus pedidos y pagos desde el menú de Clientes.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        },
+        {
+          text: 'Agregar',
+          onPress: async () => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const supabase = getSupabase();
+
+              console.log('[OrderDetail] Creating customer with data:', {
+                name: order.customer_name,
+                phone: order.customer_phone,
+                address: order.customer_address || null,
+              });
+
+              const { data: newCustomer, error: customerError } = await supabase
+                .from('customers')
+                .insert({
+                  name: order.customer_name,
+                  phone: order.customer_phone,
+                  address: order.customer_address || null,
+                  total_debt: 0,
+                  total_paid: 0,
+                  blocked: false,
+                })
+                .select()
+                .single();
+
+              if (customerError) {
+                console.error('[OrderDetail] Error creating customer:', customerError);
+                throw new Error(`No se pudo crear el cliente: ${customerError.message}`);
+              }
+
+              if (!newCustomer) {
+                throw new Error('No se pudo crear el cliente: no se recibieron datos');
+              }
+
+              console.log('[OrderDetail] Successfully created customer:', newCustomer.id);
+
+              // Update the order with the new customer_id
+              const { error: updateError } = await supabase
+                .from('orders')
+                .update({ customer_id: newCustomer.id })
+                .eq('id', order.id);
+
+              if (updateError) {
+                console.error('[OrderDetail] Error updating order with customer_id:', updateError);
+                // Don't throw - customer was created successfully
+              }
+
+              // Reload order to get updated data
+              await loadOrder();
+
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert(
+                '✅ Cliente Agregado',
+                `${order.customer_name} se agregó correctamente al menú de Clientes.\n\nAhora puedes gestionar sus pedidos y pagos desde el menú de Clientes.`,
+                [{ text: 'OK' }]
+              );
+            } catch (error) {
+              console.error('[OrderDetail] Error adding customer:', error);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert(
+                '❌ Error',
+                `No se pudo agregar el cliente.\n\n${error instanceof Error ? error.message : 'Por favor intenta nuevamente.'}`,
+                [{ text: 'OK' }]
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const updateCustomerInfo = async () => {
     if (!order) return;
@@ -2131,7 +2287,22 @@ export default function OrderDetailScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cliente</Text>
+          <View style={styles.customerInfoRow}>
+            <Text style={styles.sectionTitle}>Cliente</Text>
+            {!editingCustomer && !customerExistsInMenu && order.customer_phone && (
+              <TouchableOpacity
+                style={styles.addCustomerButton}
+                onPress={handleAddCustomerToMenu}
+                disabled={checkingCustomer}
+              >
+                {checkingCustomer ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <IconSymbol name="plus" size={20} color="#fff" />
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
           {editingCustomer ? (
             <>
               {/* Only show customer selection for manual orders */}
