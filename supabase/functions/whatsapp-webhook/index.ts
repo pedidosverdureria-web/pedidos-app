@@ -8,16 +8,6 @@ const corsHeaders = {
 };
 
 /**
- * Phone numbers that should ALWAYS be treated as new orders, never as queries
- * These customers never send queries, only new orders
- */
-const ALWAYS_NEW_ORDER_PHONES = [
-  '+56968782350',
-  '+56993157848',
-  '+56953503831'
-];
-
-/**
  * Map of Spanish number words to their numeric values
  */
 const NUMBER_WORDS: Record<string, number> = {
@@ -255,6 +245,29 @@ async function loadKnownUnits(supabase: any) {
     console.log(`Loaded ${Object.keys(UNIT_VARIATIONS).length} known units`);
   } catch (error) {
     console.error('Exception loading known units:', error);
+  }
+}
+
+/**
+ * Loads authorized phone numbers from database
+ */
+async function loadAuthorizedPhones(supabase: any): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from('authorized_phones')
+      .select('phone_number');
+
+    if (error) {
+      console.error('Error loading authorized phones:', error);
+      return [];
+    }
+
+    const phoneNumbers = data.map((row: any) => row.phone_number);
+    console.log(`Loaded ${phoneNumbers.length} authorized phone numbers`);
+    return phoneNumbers;
+  } catch (error) {
+    console.error('Exception loading authorized phones:', error);
+    return [];
   }
 }
 
@@ -1240,9 +1253,6 @@ async function addQueryToPrintQueue(supabase: any, queryId: string) {
   try {
     console.log('[WhatsApp Webhook] Adding query to print queue:', queryId);
     
-    // Get existing print queue
-    const QUERIES_TO_PRINT_KEY = '@queries_to_print';
-    
     // We can't directly access AsyncStorage from Edge Function,
     // so we'll use a database table to track queries that need printing
     const { error } = await supabase
@@ -1302,6 +1312,9 @@ serve(async (req) => {
 
     // Load known units from database
     await loadKnownUnits(supabase);
+
+    // Load authorized phone numbers from database
+    const authorizedPhones = await loadAuthorizedPhones(supabase);
 
     // GET request - webhook verification
     if (req.method === 'GET') {
@@ -1401,13 +1414,13 @@ serve(async (req) => {
           continue; // Skip processing this message
         }
 
-        // NEW LOGIC: Check if this phone number should ALWAYS be treated as a new order
-        const isAlwaysNewOrderPhone = ALWAYS_NEW_ORDER_PHONES.includes(customerPhone);
+        // NEW LOGIC: Check if this phone number is in the authorized list
+        const isAlwaysNewOrderPhone = authorizedPhones.includes(customerPhone);
         console.log('Is always-new-order phone:', isAlwaysNewOrderPhone);
 
         // Check if customer has an order in active statuses (pending, preparing, ready)
         // Orders in delivered, pending_payment, paid, or cancelled statuses should NOT trigger query behavior
-        // UNLESS the phone number is in the ALWAYS_NEW_ORDER_PHONES list
+        // UNLESS the phone number is in the authorized list
         const { data: existingOrders } = await supabase
           .from('orders')
           .select('id, order_number, customer_name, status, items:order_items(*)')
@@ -1431,7 +1444,7 @@ serve(async (req) => {
         console.log('Has new order keyword:', hasNewOrderKeyword);
 
         // If customer has active order (pending/preparing/ready) and no new order keyword, 
-        // AND is NOT in the always-new-order list, treat as query
+        // AND is NOT in the authorized list, treat as query
         if (hasActiveOrder && !hasNewOrderKeyword && !isAlwaysNewOrderPhone && activeOrder) {
           console.log('Treating message as order query');
           
@@ -1486,9 +1499,9 @@ ${messageText}
           continue;
         }
 
-        // If phone is in always-new-order list, log it
+        // If phone is in authorized list, log it
         if (isAlwaysNewOrderPhone) {
-          console.log('Phone number is in always-new-order list - bypassing query check and treating as new order');
+          console.log('Phone number is in authorized list - bypassing query check and treating as new order');
         }
 
         // If has new order keyword, remove it and process as new order
