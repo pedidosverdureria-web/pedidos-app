@@ -607,6 +607,23 @@ export default function CustomersScreen() {
     setIsEditMode(false);
   };
 
+  const handleStatCardPress = (status: string) => {
+    if (!selectedCustomer) return;
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowDetailModal(false);
+    
+    // Navigate to customer orders screen with filter
+    router.push({
+      pathname: '/customer-orders/[customerId]',
+      params: {
+        customerId: selectedCustomer.id,
+        status: status,
+        customerName: selectedCustomer.name,
+      },
+    });
+  };
+
   const calculateCustomerStats = (customer: Customer) => {
     const orders = customer.orders || [];
     const totalOrders = orders.length;
@@ -906,22 +923,34 @@ export default function CustomersScreen() {
                       <ScrollView style={styles.modalScrollView}>
                         <Text style={styles.sectionTitle}>Estadísticas Generales</Text>
                         <View style={styles.statsGrid}>
-                          <View style={styles.statCard}>
+                          <TouchableOpacity 
+                            style={styles.statCard}
+                            onPress={() => handleStatCardPress('all')}
+                          >
                             <Text style={styles.statCardValue}>{stats.totalOrders}</Text>
                             <Text style={styles.statCardLabel}>Total Pedidos</Text>
-                          </View>
-                          <View style={styles.statCard}>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.statCard}
+                            onPress={() => handleStatCardPress('pending')}
+                          >
                             <Text style={styles.statCardValue}>{stats.pendingOrders}</Text>
                             <Text style={styles.statCardLabel}>Pendientes</Text>
-                          </View>
-                          <View style={styles.statCard}>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.statCard}
+                            onPress={() => handleStatCardPress('delivered')}
+                          >
                             <Text style={styles.statCardValue}>{stats.deliveredOrders}</Text>
                             <Text style={styles.statCardLabel}>Entregados</Text>
-                          </View>
-                          <View style={styles.statCard}>
+                          </TouchableOpacity>
+                          <TouchableOpacity 
+                            style={styles.statCard}
+                            onPress={() => handleStatCardPress('cancelled')}
+                          >
                             <Text style={styles.statCardValue}>{stats.cancelledOrders}</Text>
                             <Text style={styles.statCardLabel}>Cancelados</Text>
-                          </View>
+                          </TouchableOpacity>
                           <View style={[styles.statCard, styles.statCardFull]}>
                             <Text style={styles.statCardValue}>{formatCLP(stats.allTimeTotal)}</Text>
                             <Text style={styles.statCardLabel}>Total Histórico</Text>
