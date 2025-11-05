@@ -1,6 +1,7 @@
 
 import { StyleSheet, ViewStyle, TextStyle } from 'react-native';
 
+// Default colors (blue theme) - kept for backward compatibility
 export const colors = {
   background: '#F5F5F5',
   text: '#212121',
@@ -24,6 +25,11 @@ export const colors = {
   error: '#F44336',
   warning: '#FF9800',
   info: '#2196F3',
+};
+
+// Function to create themed colors
+export const createThemedColors = (themeColors?: typeof colors) => {
+  return themeColors || colors;
 };
 
 export const buttonStyles = StyleSheet.create({

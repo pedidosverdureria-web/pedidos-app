@@ -2,81 +2,82 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginLeft: 4,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  menuItemLast: {
-    borderBottomWidth: 0,
-  },
-  menuIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuContent: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  menuDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  menuChevron: {
-    marginLeft: 8,
-  },
-});
 
 export default function SettingsScreen() {
   const { user } = useAuth();
+  const { currentTheme } = useTheme();
   const isAdmin = user?.role === 'admin';
 
   const handleNavigation = (path: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(path as any);
   };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: currentTheme.colors.background,
+    },
+    content: {
+      padding: 16,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: currentTheme.colors.textSecondary,
+      marginLeft: 4,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
+    card: {
+      backgroundColor: currentTheme.colors.card,
+      borderRadius: 12,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+    },
+    menuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: currentTheme.colors.border,
+    },
+    menuItemLast: {
+      borderBottomWidth: 0,
+    },
+    menuIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    menuContent: {
+      flex: 1,
+    },
+    menuTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: currentTheme.colors.text,
+      marginBottom: 2,
+    },
+    menuDescription: {
+      fontSize: 13,
+      color: currentTheme.colors.textSecondary,
+    },
+    menuChevron: {
+      marginLeft: 8,
+    },
+  });
 
   return (
     <View style={styles.container}>
@@ -93,6 +94,27 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <TouchableOpacity
               style={styles.menuItem}
+              onPress={() => handleNavigation('/settings/theme')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: currentTheme.colors.primary }]}>
+                <IconSymbol name="paintbrush.fill" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Color de la App</Text>
+                <Text style={styles.menuDescription}>
+                  Personaliza el color principal de la aplicación
+                </Text>
+              </View>
+              <IconSymbol
+                name="chevron.right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
               onPress={() => handleNavigation('/settings/permissions')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#3B82F6' }]}>
@@ -107,7 +129,7 @@ export default function SettingsScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={20}
-                color={colors.textSecondary}
+                color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
               />
             </TouchableOpacity>
@@ -128,7 +150,7 @@ export default function SettingsScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={20}
-                color={colors.textSecondary}
+                color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
               />
             </TouchableOpacity>
@@ -149,7 +171,7 @@ export default function SettingsScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={20}
-                color={colors.textSecondary}
+                color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
               />
             </TouchableOpacity>
@@ -176,7 +198,7 @@ export default function SettingsScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={20}
-                color={colors.textSecondary}
+                color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
               />
             </TouchableOpacity>
@@ -204,7 +226,7 @@ export default function SettingsScreen() {
                 <IconSymbol
                   name="chevron.right"
                   size={20}
-                  color={colors.textSecondary}
+                  color={currentTheme.colors.textSecondary}
                   style={styles.menuChevron}
                 />
               </TouchableOpacity>
@@ -232,7 +254,7 @@ export default function SettingsScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={20}
-                color={colors.textSecondary}
+                color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
               />
             </TouchableOpacity>
@@ -253,7 +275,7 @@ export default function SettingsScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={20}
-                color={colors.textSecondary}
+                color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
               />
             </TouchableOpacity>
@@ -280,7 +302,7 @@ export default function SettingsScreen() {
               <IconSymbol
                 name="chevron.right"
                 size={20}
-                color={colors.textSecondary}
+                color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
               />
             </TouchableOpacity>
