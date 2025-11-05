@@ -826,6 +826,10 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!isAuthenticated || !user) return;
 
+    // Capture ref values at the start of the effect
+    let notificationListener: any = null;
+    let responseListener: any = null;
+
     const setupNotifications = async () => {
       try {
         const hasPermissions = await checkNotificationPermissions();
@@ -844,13 +848,16 @@ export default function HomeScreen() {
         
         await registerForPushNotificationsAsync(user.id);
         
-        responseListenerRef.current = setupNotificationResponseHandler((response) => {
+        responseListener = setupNotificationResponseHandler((response) => {
           console.log('Notification tapped:', response);
           const orderId = response.notification.request.content.data?.orderId;
           if (orderId) {
             router.push(`/order/${orderId}`);
           }
         });
+        
+        // Store in ref for potential use elsewhere
+        responseListenerRef.current = responseListener;
       } catch (error) {
         console.error('Error setting up notifications:', error);
       }
@@ -859,10 +866,7 @@ export default function HomeScreen() {
     setupNotifications();
 
     return () => {
-      // Capture current ref values inside the effect to avoid stale references in cleanup
-      const notificationListener = notificationListenerRef.current;
-      const responseListener = responseListenerRef.current;
-      
+      // Use the captured variables from the effect scope
       if (notificationListener) {
         notificationListener.remove();
       }
