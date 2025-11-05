@@ -1,11 +1,15 @@
 
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment' | 'paid';
 
-export type UserRole = 'admin' | 'worker';
+export type UserRole = 'admin' | 'worker' | 'printer';
 
 export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'order';
 
 export type QueryDirection = 'incoming' | 'outgoing';
+
+export type PrintQueueStatus = 'pending' | 'printed' | 'failed';
+
+export type PrintQueueItemType = 'order' | 'query' | 'payment' | 'customer_orders';
 
 export interface Profile {
   id: string;
@@ -96,6 +100,17 @@ export interface OrderPayment {
   notes?: string;
   created_by?: string;
   created_at: string;
+}
+
+export interface PrintQueueItem {
+  id: string;
+  item_type: PrintQueueItemType;
+  item_id: string;
+  status: PrintQueueStatus;
+  created_at: string;
+  printed_at?: string;
+  error_message?: string;
+  metadata?: any; // Additional data like customer_id for customer_orders type
 }
 
 export interface WhatsAppConfig {

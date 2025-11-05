@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePrinter } from '@/hooks/usePrinter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PrinterConfig } from '@/utils/receiptGenerator';
+import { addToPrintQueue } from '@/utils/printQueue';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
@@ -846,6 +847,37 @@ export default function CustomersScreen() {
     }
   };
 
+  const handleSendPendingOrdersToPrinter = async () => {
+    if (!selectedCustomer) return;
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      const result = await addToPrintQueue('customer_orders', selectedCustomer.id, {
+        customer_id: selectedCustomer.id,
+      });
+      
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '✅ Enviado a Impresor',
+          'El estado de cuenta se agregó a la cola de impresión. El perfil Impresor lo imprimirá.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(result.error || 'Error desconocido');
+      }
+    } catch (error: any) {
+      console.error('[CustomersScreen] Error sending to printer:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        `No se pudo enviar a la cola de impresión: ${error.message}`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   const handleAddPayment = async () => {
     if (!selectedCustomer || !paymentAmount.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -1323,13 +1355,23 @@ export default function CustomersScreen() {
 
                 {/* Print Pending Orders Button */}
                 {selectedCustomer.orders && selectedCustomer.orders.length > 0 && (
-                  <TouchableOpacity
-                    style={styles.printButton}
-                    onPress={handlePrintPendingOrders}
-                  >
-                    <IconSymbol name="printer" size={20} color="#fff" />
-                    <Text style={styles.printButtonText}>Imprimir Estado de Cuenta</Text>
-                  </TouchableOpacity>
+                  isConnected ? (
+                    <TouchableOpacity
+                      style={styles.printButton}
+                      onPress={handlePrintPendingOrders}
+                    >
+                      <IconSymbol name="printer" size={20} color="#fff" />
+                      <Text style={styles.printButtonText}>Imprimir Estado de Cuenta</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.printButton, { backgroundColor: '#8B5CF6' }]}
+                      onPress={handleSendPendingOrdersToPrinter}
+                    >
+                      <IconSymbol name="paperplane.fill" size={20} color="#fff" />
+                      <Text style={styles.printButtonText}>Enviar a Impresor</Text>
+                    </TouchableOpacity>
+                  )
                 )}
 
                 {/* Add Payment Button */}

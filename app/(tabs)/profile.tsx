@@ -80,16 +80,32 @@ export default function ProfileScreen() {
             <View
               style={[
                 styles.roleBadge,
-                { backgroundColor: user?.role === 'admin' ? colors.success + '20' : colors.info + '20' },
+                { 
+                  backgroundColor: user?.role === 'admin' 
+                    ? colors.success + '20' 
+                    : user?.role === 'printer'
+                      ? '#8B5CF6' + '20'
+                      : colors.info + '20' 
+                },
               ]}
             >
               <Text
                 style={[
                   styles.roleText,
-                  { color: user?.role === 'admin' ? colors.success : colors.info },
+                  { 
+                    color: user?.role === 'admin' 
+                      ? colors.success 
+                      : user?.role === 'printer'
+                        ? '#8B5CF6'
+                        : colors.info 
+                  },
                 ]}
               >
-                {user?.role === 'admin' ? 'Administrador' : 'Trabajador'}
+                {user?.role === 'admin' 
+                  ? 'Administrador' 
+                  : user?.role === 'printer'
+                    ? 'Impresor'
+                    : 'Trabajador'}
               </Text>
             </View>
           </View>
@@ -99,16 +115,29 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Acciones Rápidas</Text>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push('/completed-orders')}
-          >
-            <View style={styles.menuItemLeft}>
-              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
-              <Text style={styles.menuItemText}>Pedidos Completados</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+          {user?.role === 'printer' ? (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/printer-queue')}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol name="printer.fill" size={24} color="#8B5CF6" />
+                <Text style={styles.menuItemText}>Cola de Impresión</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/completed-orders')}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
+                <Text style={styles.menuItemText}>Pedidos Completados</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.menuItem}
@@ -121,27 +150,31 @@ export default function ProfileScreen() {
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push('/activity')}
-          >
-            <View style={styles.menuItemLeft}>
-              <IconSymbol name="clock.fill" size={24} color={colors.primary} />
-              <Text style={styles.menuItemText}>Actividad</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+          {user?.role !== 'printer' && (
+            <>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push('/activity')}
+              >
+                <View style={styles.menuItemLeft}>
+                  <IconSymbol name="clock.fill" size={24} color={colors.primary} />
+                  <Text style={styles.menuItemText}>Actividad</Text>
+                </View>
+                <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push('/stats')}
-          >
-            <View style={styles.menuItemLeft}>
-              <IconSymbol name="chart.bar.fill" size={24} color={colors.primary} />
-              <Text style={styles.menuItemText}>Estadísticas</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push('/stats')}
+              >
+                <View style={styles.menuItemLeft}>
+                  <IconSymbol name="chart.bar.fill" size={24} color={colors.primary} />
+                  <Text style={styles.menuItemText}>Estadísticas</Text>
+                </View>
+                <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Admin Only Section */}

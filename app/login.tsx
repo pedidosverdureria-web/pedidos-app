@@ -22,13 +22,17 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const { signInWithPin, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Redirect to home if already authenticated
+  // Redirect based on user role
   useEffect(() => {
-    if (isAuthenticated && !authLoading) {
-      console.log('[Login] User authenticated, redirecting to home');
-      router.replace('/(tabs)/(home)/');
+    if (isAuthenticated && !authLoading && user) {
+      console.log('[Login] User authenticated, redirecting based on role:', user.role);
+      if (user.role === 'printer') {
+        router.replace('/printer-queue');
+      } else {
+        router.replace('/(tabs)/(home)/');
+      }
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, user]);
 
   const handleLogin = async () => {
     // Validate PIN

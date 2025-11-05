@@ -33,6 +33,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createInAppNotification, sendLocalNotification } from '@/utils/pushNotifications';
 import { colors } from '@/styles/commonStyles';
 import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
+import { addToPrintQueue } from '@/utils/printQueue';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
@@ -1518,6 +1519,35 @@ export default function OrderDetailScreen() {
     }
   };
 
+  const handleSendToPrinter = async () => {
+    if (!order) return;
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      const result = await addToPrintQueue('order', order.id);
+      
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          '✅ Enviado a Impresor',
+          'El pedido se agregó a la cola de impresión. El perfil Impresor lo imprimirá.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error(result.error || 'Error desconocido');
+      }
+    } catch (error: any) {
+      console.error('[OrderDetail] Error sending to printer:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '❌ Error',
+        `No se pudo enviar a la cola de impresión: ${error.message}`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
   const handlePrintQuery = async (query: OrderQuery) => {
     if (!order) return;
 
@@ -2536,13 +2566,23 @@ export default function OrderDetailScreen() {
         </View>
 
         {/* Action Buttons with Icons and Colors */}
-        <TouchableOpacity 
-          style={[styles.actionButton, styles.printButton]} 
-          onPress={handlePrint}
-        >
-          <IconSymbol name="printer" size={22} color="#fff" />
-          <Text style={styles.actionButtonText}>Imprimir Pedido</Text>
-        </TouchableOpacity>
+        {isConnected ? (
+          <TouchableOpacity 
+            style={[styles.actionButton, styles.printButton]} 
+            onPress={handlePrint}
+          >
+            <IconSymbol name="printer" size={22} color="#fff" />
+            <Text style={styles.actionButtonText}>Imprimir Pedido</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]} 
+            onPress={handleSendToPrinter}
+          >
+            <IconSymbol name="paperplane.fill" size={22} color="#fff" />
+            <Text style={styles.actionButtonText}>Enviar a Impresor</Text>
+          </TouchableOpacity>
+        )}
 
         {order.customer_phone && (
           <TouchableOpacity
