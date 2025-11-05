@@ -15,6 +15,12 @@ export default function TabLayout() {
       label: 'Pedidos',
     },
     {
+      name: 'pending-payments',
+      route: '/(tabs)/pending-payments',
+      icon: 'doc.text.fill',
+      label: 'Vales Pendientes',
+    },
+    {
       name: 'customers',
       route: '/(tabs)/customers',
       icon: 'person.2.fill',
@@ -34,6 +40,10 @@ export default function TabLayout() {
         <NativeTabs.Trigger name="(home)">
           <Icon sf="house.fill" drawable="ic_home" />
           <Label>Pedidos</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="pending-payments">
+          <Icon sf="doc.text.fill" drawable="ic_pending_payments" />
+          <Label>Vales Pendientes</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="customers">
           <Icon sf="person.2.fill" drawable="ic_customers" />
@@ -56,6 +66,7 @@ export default function TabLayout() {
         }}
       >
         <Stack.Screen name="(home)" />
+        <Stack.Screen name="pending-payments" />
         <Stack.Screen name="customers" />
         <Stack.Screen name="profile" />
       </Stack>
