@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,13 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
+  Switch,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
-import { PrintQueueItem, Order, OrderQuery, Customer } from '@/types';
+import { PrintQueueItem, Order, OrderQuery, Customer, OrderStatus } from '@/types';
 import { getSupabase } from '@/lib/supabase';
 import { usePrinter } from '@/hooks/usePrinter';
 import { generateReceiptText, generateQueryReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
@@ -27,15 +28,17 @@ import {
 } from '@/utils/printQueue';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
+import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
+const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+const AUTO_PRINT_CHECK_INTERVAL = 5000; // 5 seconds
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleString('es-CL', {
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -46,6 +49,48 @@ function formatCLP(amount: number): string {
     style: 'currency',
     currency: 'CLP',
   }).format(amount);
+}
+
+function getStatusColor(status: OrderStatus): string {
+  switch (status) {
+    case 'pending':
+      return '#F59E0B';
+    case 'preparing':
+      return '#3B82F6';
+    case 'ready':
+      return '#10B981';
+    case 'delivered':
+      return '#6B7280';
+    case 'cancelled':
+      return '#EF4444';
+    case 'pending_payment':
+      return '#8B5CF6';
+    case 'paid':
+      return '#10B981';
+    default:
+      return '#6B7280';
+  }
+}
+
+function getStatusLabel(status: OrderStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'preparing':
+      return 'Preparando';
+    case 'ready':
+      return 'Listo';
+    case 'delivered':
+      return 'Entregado';
+    case 'cancelled':
+      return 'Cancelado';
+    case 'pending_payment':
+      return 'Pend. Pago';
+    case 'paid':
+      return 'Pagado';
+    default:
+      return status;
+  }
 }
 
 function centerText(text: string, width: number): string {
@@ -132,10 +177,19 @@ export default function PrinterQueueScreen() {
   const { user } = useAuth();
   const { isConnected, printReceipt } = usePrinter();
   const [queueItems, setQueueItems] = useState<PrintQueueItem[]>([]);
+  const [incomingOrders, setIncomingOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
   const [printing, setPrinting] = useState<string | null>(null);
+  const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
+  const [viewMode, setViewMode] = useState<'orders' | 'queue'>('orders');
+  
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoPrintIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPrintingRef = useRef(false);
+  const keepAwakeTagRef = useRef<string>('printer-profile');
+  const isKeepAwakeActiveRef = useRef<boolean>(false);
 
   // Redirect if not printer role
   useEffect(() => {
@@ -151,6 +205,8 @@ export default function PrinterQueueScreen() {
       if (configJson) {
         const config = JSON.parse(configJson);
         setPrinterConfig(config);
+        setAutoPrintEnabled(config.auto_print_enabled ?? false);
+        console.log('[PrinterQueue] Printer config loaded:', config);
       }
     } catch (error) {
       console.error('[PrinterQueue] Error loading printer config:', error);
@@ -164,21 +220,315 @@ export default function PrinterQueueScreen() {
       setQueueItems(items);
     } catch (error) {
       console.error('[PrinterQueue] Error loading queue:', error);
-      Alert.alert('Error', 'No se pudo cargar la cola de impresión');
+    }
+  }, []);
+
+  const loadIncomingOrders = useCallback(async () => {
+    try {
+      console.log('[PrinterQueue] Loading incoming orders');
+      const supabase = getSupabase();
+      
+      // Get all pending and preparing orders
+      const { data: orders, error } = await supabase
+        .from('orders')
+        .select('*, items:order_items(*), queries:order_queries(*)')
+        .in('status', ['pending', 'preparing'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('[PrinterQueue] Error loading orders:', error);
+        return;
+      }
+
+      setIncomingOrders(orders || []);
+      console.log('[PrinterQueue] Loaded', orders?.length || 0, 'incoming orders');
+    } catch (error) {
+      console.error('[PrinterQueue] Error loading incoming orders:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
+  const loadData = useCallback(async () => {
+    await Promise.all([loadQueue(), loadIncomingOrders()]);
+  }, [loadQueue, loadIncomingOrders]);
+
   useEffect(() => {
     loadPrinterConfig();
-    loadQueue();
-  }, [loadQueue, loadPrinterConfig]);
+    loadData();
+  }, [loadPrinterConfig, loadData]);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    console.log('[PrinterQueue] Setting up auto-refresh (30 seconds)');
+    
+    if (autoRefreshIntervalRef.current) {
+      clearInterval(autoRefreshIntervalRef.current);
+    }
+
+    autoRefreshIntervalRef.current = setInterval(() => {
+      console.log('[PrinterQueue] Auto-refresh triggered');
+      loadData();
+    }, AUTO_REFRESH_INTERVAL);
+
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        console.log('[PrinterQueue] Clearing auto-refresh interval');
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    };
+  }, [loadData]);
+
+  // Check if order already printed
+  const isOrderAlreadyPrinted = useCallback(async (orderId: string): Promise<boolean> => {
+    try {
+      const supabase = getSupabase();
+      
+      const { data, error } = await supabase
+        .from('print_queue')
+        .select('id, status')
+        .eq('item_type', 'order')
+        .eq('item_id', orderId)
+        .in('status', ['printed', 'failed'])
+        .limit(1);
+
+      if (error) {
+        console.error('[PrinterQueue] Error checking if order is printed:', error);
+        return false;
+      }
+
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('[PrinterQueue] Error checking if order is printed:', error);
+      return false;
+    }
+  }, []);
+
+  // Mark order as printed
+  const markOrderAsPrinted = useCallback(async (orderId: string): Promise<void> => {
+    try {
+      const supabase = getSupabase();
+      
+      const { data: existing } = await supabase
+        .from('print_queue')
+        .select('id')
+        .eq('item_type', 'order')
+        .eq('item_id', orderId)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('print_queue')
+          .update({
+            status: 'printed',
+            printed_at: new Date().toISOString(),
+          })
+          .eq('id', existing[0].id);
+      } else {
+        await supabase
+          .from('print_queue')
+          .insert({
+            item_type: 'order',
+            item_id: orderId,
+            status: 'printed',
+            printed_at: new Date().toISOString(),
+          });
+      }
+
+      console.log('[PrinterQueue] Order marked as printed:', orderId);
+    } catch (error) {
+      console.error('[PrinterQueue] Error marking order as printed:', error);
+    }
+  }, []);
+
+  // Auto-print function
+  const checkAndPrintNewOrders = useCallback(async () => {
+    if (!autoPrintEnabled || !isConnected || isPrintingRef.current) {
+      return;
+    }
+
+    console.log('[PrinterQueue] Checking for orders to auto-print...');
+
+    // Check pending orders
+    const pendingOrders = incomingOrders.filter(o => o.status === 'pending');
+    
+    for (const order of pendingOrders) {
+      const alreadyPrinted = await isOrderAlreadyPrinted(order.id);
+      if (alreadyPrinted || isPrintingRef.current) {
+        continue;
+      }
+
+      isPrintingRef.current = true;
+      
+      try {
+        console.log('[PrinterQueue] Auto-printing order:', order.order_number);
+        
+        const receiptText = generateReceiptText(order, printerConfig || undefined);
+        const autoCut = printerConfig?.auto_cut_enabled ?? true;
+        const textSize = printerConfig?.text_size || 'medium';
+        
+        await printReceipt(receiptText, autoCut, textSize);
+        await markOrderAsPrinted(order.id);
+        
+        console.log('[PrinterQueue] Order auto-printed successfully');
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        
+        // Reload data
+        loadData();
+      } catch (error) {
+        console.error('[PrinterQueue] Error auto-printing order:', error);
+      } finally {
+        isPrintingRef.current = false;
+      }
+      
+      break; // Only print one at a time
+    }
+
+    // Check print queue
+    const pendingQueue = queueItems.filter(item => item.status === 'pending');
+    
+    for (const queueItem of pendingQueue) {
+      if (isPrintingRef.current) break;
+      
+      isPrintingRef.current = true;
+      
+      try {
+        await handlePrintItem(queueItem);
+      } catch (error) {
+        console.error('[PrinterQueue] Error auto-printing queue item:', error);
+      } finally {
+        isPrintingRef.current = false;
+      }
+      
+      break; // Only print one at a time
+    }
+  }, [autoPrintEnabled, isConnected, incomingOrders, queueItems, printerConfig, printReceipt, isOrderAlreadyPrinted, markOrderAsPrinted, loadData]);
+
+  // Auto-print interval
+  useEffect(() => {
+    if (autoPrintIntervalRef.current) {
+      clearInterval(autoPrintIntervalRef.current);
+      autoPrintIntervalRef.current = null;
+    }
+
+    if (autoPrintEnabled && isConnected) {
+      console.log('[PrinterQueue] Setting up auto-print interval');
+      
+      checkAndPrintNewOrders();
+      
+      autoPrintIntervalRef.current = setInterval(() => {
+        console.log('[PrinterQueue] Auto-print interval triggered');
+        checkAndPrintNewOrders();
+      }, AUTO_PRINT_CHECK_INTERVAL);
+    }
+
+    return () => {
+      if (autoPrintIntervalRef.current) {
+        console.log('[PrinterQueue] Clearing auto-print interval');
+        clearInterval(autoPrintIntervalRef.current);
+        autoPrintIntervalRef.current = null;
+      }
+    };
+  }, [autoPrintEnabled, isConnected, checkAndPrintNewOrders]);
+
+  // Keep awake management
+  useEffect(() => {
+    const shouldKeepAwake = autoPrintEnabled && isConnected;
+    const keepAwakeTag = keepAwakeTagRef.current;
+    
+    const manageKeepAwake = async () => {
+      if (shouldKeepAwake) {
+        if (!isKeepAwakeActiveRef.current) {
+          try {
+            console.log('[PrinterQueue] Activating keep awake');
+            await activateKeepAwake(keepAwakeTag);
+            isKeepAwakeActiveRef.current = true;
+          } catch (error) {
+            console.error('[PrinterQueue] Error activating keep awake:', error);
+          }
+        }
+      } else {
+        if (isKeepAwakeActiveRef.current) {
+          try {
+            console.log('[PrinterQueue] Deactivating keep awake');
+            await deactivateKeepAwake(keepAwakeTag);
+            isKeepAwakeActiveRef.current = false;
+          } catch (error) {
+            console.error('[PrinterQueue] Error deactivating keep awake:', error);
+          }
+        }
+      }
+    };
+
+    manageKeepAwake();
+
+    return () => {
+      if (isKeepAwakeActiveRef.current) {
+        console.log('[PrinterQueue] Cleanup: Deactivating keep awake');
+        deactivateKeepAwake(keepAwakeTag).catch((error) => {
+          console.error('[PrinterQueue] Error deactivating keep awake in cleanup:', error);
+        });
+        isKeepAwakeActiveRef.current = false;
+      }
+    };
+  }, [autoPrintEnabled, isConnected]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadQueue();
+    loadData();
+  };
+
+  const handleToggleAutoPrint = async (value: boolean) => {
+    try {
+      setAutoPrintEnabled(value);
+      
+      const config = {
+        ...printerConfig,
+        auto_print_enabled: value,
+      };
+      
+      await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(config));
+      setPrinterConfig(config);
+      
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      console.log('[PrinterQueue] Auto-print', value ? 'enabled' : 'disabled');
+    } catch (error) {
+      console.error('[PrinterQueue] Error toggling auto-print:', error);
+    }
+  };
+
+  const handlePrintOrder = async (order: Order) => {
+    if (!isConnected) {
+      Alert.alert('Error', 'No hay impresora conectada. Ve a Configuración > Impresora para conectar una.');
+      return;
+    }
+
+    try {
+      setPrinting(order.id);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const receiptText = generateReceiptText(order, printerConfig || undefined);
+      const autoCut = printerConfig?.auto_cut_enabled ?? true;
+      const textSize = printerConfig?.text_size || 'medium';
+      
+      await printReceipt(receiptText, autoCut, textSize);
+      await markOrderAsPrinted(order.id);
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('Éxito', 'Pedido impreso correctamente');
+      
+      loadData();
+    } catch (error: any) {
+      console.error('[PrinterQueue] Error printing order:', error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Error de Impresión', error.message || 'No se pudo imprimir el pedido');
+    } finally {
+      setPrinting(null);
+    }
   };
 
   const handlePrintItem = async (item: PrintQueueItem) => {
@@ -194,7 +544,6 @@ export default function PrinterQueueScreen() {
       const supabase = getSupabase();
       let receiptText = '';
 
-      // Fetch the item data based on type
       if (item.item_type === 'order') {
         const { data: order, error } = await supabase
           .from('orders')
@@ -269,28 +618,20 @@ export default function PrinterQueueScreen() {
         receiptText = generatePaymentReceipt(customer as Customer, amount, notes || '');
       }
 
-      // Print the receipt
-      await printReceipt(
-        receiptText,
-        printerConfig?.auto_cut_enabled !== false,
-        printerConfig?.text_size || 'medium'
-      );
-
-      // Mark as printed
+      const autoCut = printerConfig?.auto_cut_enabled ?? true;
+      const textSize = printerConfig?.text_size || 'medium';
+      
+      await printReceipt(receiptText, autoCut, textSize);
       await markAsPrinted(item.id);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Reload queue
-      loadQueue();
+      loadData();
     } catch (error: any) {
       console.error('[PrinterQueue] Error printing:', error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      
-      // Mark as failed
       await markAsFailed(item.id, error.message || 'Error desconocido');
-      
       Alert.alert('Error de Impresión', error.message || 'No se pudo imprimir el documento');
-      loadQueue();
+      loadData();
     } finally {
       setPrinting(null);
     }
@@ -307,7 +648,7 @@ export default function PrinterQueueScreen() {
           style: 'destructive',
           onPress: async () => {
             await deletePrintQueueItem(item.id);
-            loadQueue();
+            loadData();
           },
         },
       ]
@@ -324,7 +665,7 @@ export default function PrinterQueueScreen() {
           text: 'Limpiar',
           onPress: async () => {
             await clearPrintedItems();
-            loadQueue();
+            loadData();
           },
         },
       ]
@@ -361,6 +702,60 @@ export default function PrinterQueueScreen() {
     }
   };
 
+  const renderOrderCard = ({ item }: { item: Order }) => {
+    const isPrinting = printing === item.id;
+    const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
+    const itemCount = item.items?.length || 0;
+
+    return (
+      <View style={styles.orderCard}>
+        <View style={styles.orderHeader}>
+          <View style={styles.orderHeaderLeft}>
+            <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+            <View style={styles.orderInfo}>
+              <Text style={styles.orderNumber}>{item.order_number}</Text>
+              <Text style={styles.orderCustomer}>{item.customer_name}</Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={[styles.printButton, isPrinting && styles.printButtonDisabled]}
+            onPress={() => handlePrintOrder(item)}
+            disabled={isPrinting || !isConnected}
+          >
+            {isPrinting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+        </View>
+        
+        <View style={styles.orderDetails}>
+          <View style={styles.orderDetailRow}>
+            <IconSymbol name="clock.fill" size={14} color={colors.textSecondary} />
+            <Text style={styles.orderDetailText}>{formatDate(item.created_at)}</Text>
+          </View>
+          <View style={styles.orderDetailRow}>
+            <IconSymbol name="bag.fill" size={14} color={colors.textSecondary} />
+            <Text style={styles.orderDetailText}>
+              {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
+            </Text>
+          </View>
+          {total > 0 && (
+            <View style={styles.orderDetailRow}>
+              <IconSymbol name="dollarsign.circle.fill" size={14} color={colors.textSecondary} />
+              <Text style={styles.orderDetailText}>{formatCLP(total)}</Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+        </View>
+      </View>
+    );
+  };
+
   const renderQueueItem = ({ item }: { item: PrintQueueItem }) => {
     const isPrinting = printing === item.id;
 
@@ -380,14 +775,14 @@ export default function PrinterQueueScreen() {
           </View>
           <View style={styles.queueItemActions}>
             <TouchableOpacity
-              style={[styles.printButton, isPrinting && styles.printButtonDisabled]}
+              style={[styles.printButtonSmall, isPrinting && styles.printButtonDisabled]}
               onPress={() => handlePrintItem(item)}
               disabled={isPrinting || !isConnected}
             >
               {isPrinting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
+                <IconSymbol name="printer.fill" size={18} color="#FFFFFF" />
               )}
             </TouchableOpacity>
             <TouchableOpacity
@@ -395,7 +790,7 @@ export default function PrinterQueueScreen() {
               onPress={() => handleDeleteItem(item)}
               disabled={isPrinting}
             >
-              <IconSymbol name="trash.fill" size={20} color={colors.error} />
+              <IconSymbol name="trash.fill" size={18} color={colors.error} />
             </TouchableOpacity>
           </View>
         </View>
@@ -407,16 +802,19 @@ export default function PrinterQueueScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Cargando cola de impresión...</Text>
+        <Text style={styles.loadingText}>Cargando...</Text>
       </View>
     );
   }
+
+  const pendingOrders = incomingOrders.filter(o => o.status === 'pending');
+  const preparingOrders = incomingOrders.filter(o => o.status === 'preparing');
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'Cola de Impresión',
+          title: 'Perfil Impresor',
           headerRight: () => (
             <TouchableOpacity
               onPress={() => router.push('/settings/printer')}
@@ -428,16 +826,18 @@ export default function PrinterQueueScreen() {
         }}
       />
       <View style={styles.container}>
-        {/* Connection Status */}
+        {/* Status Bar */}
         <View style={[styles.statusBar, isConnected ? styles.statusConnected : styles.statusDisconnected]}>
-          <IconSymbol
-            name={isConnected ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
-            size={20}
-            color="#FFFFFF"
-          />
-          <Text style={styles.statusText}>
-            {isConnected ? 'Impresora Conectada' : 'Sin Impresora Conectada'}
-          </Text>
+          <View style={styles.statusLeft}>
+            <IconSymbol
+              name={isConnected ? 'checkmark.circle.fill' : 'exclamationmark.triangle.fill'}
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.statusText}>
+              {isConnected ? 'Impresora Conectada' : 'Sin Impresora'}
+            </Text>
+          </View>
           {!isConnected && (
             <TouchableOpacity
               style={styles.connectButton}
@@ -448,42 +848,104 @@ export default function PrinterQueueScreen() {
           )}
         </View>
 
-        {/* Queue List */}
-        {queueItems.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <IconSymbol name="tray.fill" size={64} color={colors.textSecondary} />
-            <Text style={styles.emptyTitle}>Cola Vacía</Text>
-            <Text style={styles.emptyText}>
-              No hay documentos pendientes de impresión
-            </Text>
+        {/* Auto-Print Toggle */}
+        <View style={styles.autoPrintBar}>
+          <View style={styles.autoPrintLeft}>
+            <IconSymbol
+              name={autoPrintEnabled ? 'bolt.fill' : 'bolt.slash.fill'}
+              size={20}
+              color={autoPrintEnabled ? colors.success : colors.textSecondary}
+            />
+            <Text style={styles.autoPrintText}>Auto-impresión</Text>
           </View>
-        ) : (
-          <FlatList
-            data={queueItems}
-            renderItem={renderQueueItem}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-                tintColor={colors.primary}
-              />
-            }
+          <Switch
+            value={autoPrintEnabled}
+            onValueChange={handleToggleAutoPrint}
+            trackColor={{ false: colors.border, true: colors.success }}
+            disabled={!isConnected}
           />
-        )}
+        </View>
 
-        {/* Clear Button */}
-        {queueItems.length > 0 && (
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.clearButton}
-              onPress={handleClearPrinted}
-            >
-              <IconSymbol name="trash.fill" size={20} color={colors.error} />
-              <Text style={styles.clearButtonText}>Limpiar Impresos</Text>
-            </TouchableOpacity>
-          </View>
+        {/* View Mode Toggle */}
+        <View style={styles.viewModeBar}>
+          <TouchableOpacity
+            style={[styles.viewModeButton, viewMode === 'orders' && styles.viewModeButtonActive]}
+            onPress={() => setViewMode('orders')}
+          >
+            <Text style={[styles.viewModeText, viewMode === 'orders' && styles.viewModeTextActive]}>
+              Pedidos ({pendingOrders.length + preparingOrders.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.viewModeButton, viewMode === 'queue' && styles.viewModeButtonActive]}
+            onPress={() => setViewMode('queue')}
+          >
+            <Text style={[styles.viewModeText, viewMode === 'queue' && styles.viewModeTextActive]}>
+              Cola ({queueItems.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content */}
+        {viewMode === 'orders' ? (
+          incomingOrders.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol name="tray.fill" size={64} color={colors.textSecondary} />
+              <Text style={styles.emptyTitle}>Sin Pedidos</Text>
+              <Text style={styles.emptyText}>
+                No hay pedidos pendientes o en preparación
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={incomingOrders}
+              renderItem={renderOrderCard}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={handleRefresh}
+                  tintColor={colors.primary}
+                />
+              }
+            />
+          )
+        ) : (
+          queueItems.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <IconSymbol name="tray.fill" size={64} color={colors.textSecondary} />
+              <Text style={styles.emptyTitle}>Cola Vacía</Text>
+              <Text style={styles.emptyText}>
+                No hay documentos pendientes de impresión
+              </Text>
+            </View>
+          ) : (
+            <>
+              <FlatList
+                data={queueItems}
+                renderItem={renderQueueItem}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={handleRefresh}
+                    tintColor={colors.primary}
+                  />
+                }
+              />
+              <View style={styles.footer}>
+                <TouchableOpacity
+                  style={styles.clearButton}
+                  onPress={handleClearPrinted}
+                >
+                  <IconSymbol name="trash.fill" size={20} color={colors.error} />
+                  <Text style={styles.clearButtonText}>Limpiar Impresos</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )
         )}
       </View>
     </>
@@ -509,8 +971,8 @@ const styles = StyleSheet.create({
   statusBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     padding: 16,
-    gap: 12,
   },
   statusConnected: {
     backgroundColor: colors.success,
@@ -518,8 +980,12 @@ const styles = StyleSheet.create({
   statusDisconnected: {
     backgroundColor: colors.warning,
   },
+  statusLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   statusText: {
-    flex: 1,
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
@@ -535,8 +1001,127 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  autoPrintBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  autoPrintLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  autoPrintText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  viewModeBar: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  viewModeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  viewModeButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  viewModeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  viewModeTextActive: {
+    color: '#FFFFFF',
+  },
   listContent: {
     padding: 16,
+  },
+  orderCard: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  orderHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  orderInfo: {
+    flex: 1,
+  },
+  orderNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  orderCustomer: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  orderDetails: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  orderDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  orderDetailText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  printButton: {
+    backgroundColor: colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  printButtonDisabled: {
+    opacity: 0.6,
   },
   queueItem: {
     backgroundColor: colors.card,
@@ -574,22 +1159,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
-  printButton: {
+  printButtonSmall: {
     backgroundColor: colors.primary,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  printButtonDisabled: {
-    opacity: 0.6,
-  },
   deleteButton: {
     backgroundColor: colors.error + '20',
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
