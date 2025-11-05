@@ -230,6 +230,12 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: '#EF4444',
   },
+  blockButton: {
+    backgroundColor: '#EF4444',
+  },
+  unblockButton: {
+    backgroundColor: '#10B981',
+  },
   actionButtonText: {
     color: '#fff',
     fontSize: 16,
@@ -623,6 +629,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  blockedBanner: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  blockedBannerText: {
+    fontSize: 14,
+    color: '#DC2626',
+    fontWeight: '600',
+    flex: 1,
+  },
 });
 
 function getStatusColor(status: OrderStatus): string {
@@ -822,6 +843,7 @@ export default function OrderDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [customerBlocked, setCustomerBlocked] = useState(false);
 
   // Customer info editing
   const [editingCustomer, setEditingCustomer] = useState(false);
@@ -877,6 +899,17 @@ export default function OrderDetailScreen() {
       setCustomerName(data.customer_name);
       setCustomerPhone(data.customer_phone || '');
       setCustomerAddress(data.customer_address || '');
+
+      // Check if customer is blocked
+      if (data.customer_phone) {
+        const { data: customerData } = await supabase
+          .from('customers')
+          .select('blocked')
+          .eq('phone', data.customer_phone)
+          .maybeSingle();
+        
+        setCustomerBlocked(customerData?.blocked || false);
+      }
     } catch (error) {
       console.error('[OrderDetail] Error loading order:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -1771,6 +1804,197 @@ export default function OrderDetailScreen() {
     );
   };
 
+  const handleBlockCustomer = () => {
+    if (!order?.customer_phone) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Sin Número de Teléfono',
+        'Este pedido no tiene un número de teléfono asociado para bloquear',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // First confirmation
+    Alert.alert(
+      '⚠️ Bloquear Cliente - Confirmación 1/2',
+      `¿Estás seguro de que deseas bloquear a ${order.customer_name}?\n\nEl cliente no podrá enviar pedidos ni mensajes por WhatsApp mientras esté bloqueado.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => {
+            // Second confirmation
+            Alert.alert(
+              '🚫 Bloquear Cliente - Confirmación 2/2',
+              `Esta es tu última oportunidad para cancelar.\n\n¿Realmente deseas bloquear a ${order.customer_name}?`,
+              [
+                {
+                  text: 'Cancelar',
+                  style: 'cancel',
+                  onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                },
+                {
+                  text: 'Bloquear',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                      const supabase = getSupabase();
+
+                      // Find or create customer
+                      let customerId = order.customer_id;
+
+                      if (!customerId) {
+                        // Search for customer by phone
+                        const { data: existingCustomer } = await supabase
+                          .from('customers')
+                          .select('id')
+                          .eq('phone', order.customer_phone)
+                          .maybeSingle();
+
+                        if (existingCustomer) {
+                          customerId = existingCustomer.id;
+                        } else {
+                          // Create customer if doesn't exist
+                          const { data: newCustomer, error: createError } = await supabase
+                            .from('customers')
+                            .insert({
+                              name: order.customer_name,
+                              phone: order.customer_phone,
+                              address: order.customer_address || null,
+                              total_debt: 0,
+                              total_paid: 0,
+                              blocked: true,
+                            })
+                            .select()
+                            .single();
+
+                          if (createError) throw createError;
+                          customerId = newCustomer.id;
+                        }
+                      }
+
+                      // Block the customer
+                      const { error } = await supabase
+                        .from('customers')
+                        .update({ blocked: true })
+                        .eq('id', customerId);
+
+                      if (error) throw error;
+
+                      // Update order with customer_id if it wasn't set
+                      if (!order.customer_id) {
+                        await supabase
+                          .from('orders')
+                          .update({ customer_id: customerId })
+                          .eq('id', order.id);
+                      }
+
+                      setCustomerBlocked(true);
+                      await loadOrder();
+
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      Alert.alert(
+                        '✅ Cliente Bloqueado',
+                        `${order.customer_name} ha sido bloqueado correctamente.\n\nNo podrá enviar pedidos ni mensajes por WhatsApp.`,
+                        [{ text: 'OK' }]
+                      );
+                    } catch (error) {
+                      console.error('[OrderDetail] Error blocking customer:', error);
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                      Alert.alert(
+                        '❌ Error',
+                        'No se pudo bloquear al cliente. Por favor intenta nuevamente.',
+                        [{ text: 'OK' }]
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnblockCustomer = async () => {
+    if (!order?.customer_phone) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Sin Número de Teléfono',
+        'Este pedido no tiene un número de teléfono asociado',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      '✅ Desbloquear Cliente',
+      `¿Estás seguro de que deseas desbloquear a ${order.customer_name}?\n\nEl cliente podrá volver a enviar pedidos y mensajes por WhatsApp.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+        },
+        {
+          text: 'Desbloquear',
+          onPress: async () => {
+            try {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              const supabase = getSupabase();
+
+              // Find customer by phone
+              const { data: customer } = await supabase
+                .from('customers')
+                .select('id')
+                .eq('phone', order.customer_phone)
+                .maybeSingle();
+
+              if (!customer) {
+                Alert.alert('❌ Error', 'No se encontró el cliente');
+                return;
+              }
+
+              // Unblock the customer
+              const { error } = await supabase
+                .from('customers')
+                .update({ blocked: false })
+                .eq('id', customer.id);
+
+              if (error) throw error;
+
+              setCustomerBlocked(false);
+              await loadOrder();
+
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert(
+                '✅ Cliente Desbloqueado',
+                `${order.customer_name} ha sido desbloqueado correctamente.\n\nPodrá volver a enviar pedidos y mensajes por WhatsApp.`,
+                [{ text: 'OK' }]
+              );
+            } catch (error) {
+              console.error('[OrderDetail] Error unblocking customer:', error);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert(
+                '❌ Error',
+                'No se pudo desbloquear al cliente. Por favor intenta nuevamente.',
+                [{ text: 'OK' }]
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -2015,6 +2239,17 @@ export default function OrderDetailScreen() {
               {order.customer_address && (
                 <Text style={styles.productDetails}>📍 {order.customer_address}</Text>
               )}
+              
+              {/* Blocked customer banner */}
+              {customerBlocked && (
+                <View style={styles.blockedBanner}>
+                  <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#DC2626" />
+                  <Text style={styles.blockedBannerText}>
+                    Este cliente está bloqueado y no puede enviar pedidos
+                  </Text>
+                </View>
+              )}
+              
               <TouchableOpacity
                 style={[styles.addButton, { marginTop: 12 }]}
                 onPress={() => {
@@ -2326,6 +2561,27 @@ export default function OrderDetailScreen() {
           <IconSymbol name="trash" size={22} color="#fff" />
           <Text style={styles.actionButtonText}>Eliminar Pedido</Text>
         </TouchableOpacity>
+
+        {/* Block/Unblock Customer Button */}
+        {order.customer_phone && (
+          customerBlocked ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.unblockButton]}
+              onPress={handleUnblockCustomer}
+            >
+              <IconSymbol name="checkmark.circle" size={22} color="#fff" />
+              <Text style={styles.actionButtonText}>Desbloquear Cliente</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.blockButton]}
+              onPress={handleBlockCustomer}
+            >
+              <IconSymbol name="xmark.circle" size={22} color="#fff" />
+              <Text style={styles.actionButtonText}>Bloquear Cliente</Text>
+            </TouchableOpacity>
+          )
+        )}
       </ScrollView>
 
       {/* WhatsApp-style Add Product Modal */}
