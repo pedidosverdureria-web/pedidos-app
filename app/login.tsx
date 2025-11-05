@@ -20,7 +20,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 export default function LoginScreen() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signInWithPin, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { signInWithPin, isAuthenticated, isLoading: authLoading, user } = useAuth();
 
   // Redirect based on user role
   useEffect(() => {
