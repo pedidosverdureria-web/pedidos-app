@@ -174,7 +174,7 @@ function generatePaymentReceipt(customer: Customer, paymentAmount: number, payme
 }
 
 export default function PrinterQueueScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { isConnected, printReceipt } = usePrinter();
   const [queueItems, setQueueItems] = useState<PrintQueueItem[]>([]);
   const [incomingOrders, setIncomingOrders] = useState<Order[]>([]);
@@ -499,6 +499,30 @@ export default function PrinterQueueScreen() {
     } catch (error) {
       console.error('[PrinterQueue] Error toggling auto-print:', error);
     }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Cerrar Sesión',
+      '¿Estás seguro que deseas cerrar sesión?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar Sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              await signOut();
+              router.replace('/login');
+            } catch (error) {
+              console.error('[PrinterQueue] Error signing out:', error);
+              Alert.alert('Error', 'No se pudo cerrar sesión');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handlePrintOrder = async (order: Order) => {
@@ -947,6 +971,17 @@ export default function PrinterQueueScreen() {
             </>
           )
         )}
+
+        {/* Logout Button */}
+        <View style={styles.logoutContainer}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+          >
+            <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#FFFFFF" />
+            <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </>
   );
@@ -1049,6 +1084,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    paddingBottom: 100,
   },
   orderCard: {
     backgroundColor: colors.card,
@@ -1106,11 +1142,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
   },
   printButton: {
     backgroundColor: colors.primary,
@@ -1211,5 +1242,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.error,
+  },
+  logoutContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.error,
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
