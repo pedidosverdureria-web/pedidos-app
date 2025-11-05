@@ -88,17 +88,26 @@ const styles = StyleSheet.create({
   customerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  customerNameContainer: {
+    flex: 1,
+    marginRight: 8,
   },
   customerName: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
-    flex: 1,
+    marginBottom: 4,
   },
   customerNameBlocked: {
     color: colors.textSecondary,
+  },
+  customerRut: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
   },
   debtBadge: {
     paddingHorizontal: 12,
@@ -212,6 +221,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   modalSubtitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  modalSubtitleSecondary: {
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 16,
@@ -1058,6 +1073,7 @@ export default function PendingPaymentsScreen() {
   const filteredCustomers = customers.filter((customer) => {
     const matchesSearch =
       customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (customer.rut && customer.rut.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (customer.phone && customer.phone.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesSearch;
   });
@@ -1081,9 +1097,14 @@ export default function PendingPaymentsScreen() {
         onPress={() => openCustomerDetail(item)}
       >
         <View style={styles.customerHeader}>
-          <Text style={[styles.customerName, isBlocked && styles.customerNameBlocked]}>
-            {item.name}
-          </Text>
+          <View style={styles.customerNameContainer}>
+            <Text style={[styles.customerName, isBlocked && styles.customerNameBlocked]}>
+              {item.name}
+            </Text>
+            {item.rut && (
+              <Text style={styles.customerRut}>RUT: {item.rut}</Text>
+            )}
+          </View>
           <View
             style={[
               styles.debtBadge,
@@ -1214,7 +1235,10 @@ export default function PendingPaymentsScreen() {
             {selectedCustomer && (
               <>
                 <Text style={styles.modalTitle}>{selectedCustomer.name}</Text>
-                <Text style={styles.modalSubtitle}>
+                {selectedCustomer.rut && (
+                  <Text style={styles.modalSubtitle}>RUT: {selectedCustomer.rut}</Text>
+                )}
+                <Text style={styles.modalSubtitleSecondary}>
                   Deuda pendiente: {formatCLP(selectedCustomer.total_debt - selectedCustomer.total_paid)}
                   {selectedCustomer.blocked && '\n🚫 Cliente bloqueado'}
                 </Text>
@@ -1398,11 +1422,19 @@ export default function PendingPaymentsScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Registrar Pago</Text>
             {selectedCustomer && (
-              <Text style={styles.modalSubtitle}>
-                Cliente: {selectedCustomer.name}
-                {'\n'}
-                Deuda pendiente: {formatCLP(selectedCustomer.total_debt - selectedCustomer.total_paid)}
-              </Text>
+              <>
+                <Text style={styles.modalSubtitle}>
+                  Cliente: {selectedCustomer.name}
+                </Text>
+                {selectedCustomer.rut && (
+                  <Text style={styles.modalSubtitle}>
+                    RUT: {selectedCustomer.rut}
+                  </Text>
+                )}
+                <Text style={styles.modalSubtitleSecondary}>
+                  Deuda pendiente: {formatCLP(selectedCustomer.total_debt - selectedCustomer.total_paid)}
+                </Text>
+              </>
             )}
 
             <View style={styles.paymentTypeSelector}>

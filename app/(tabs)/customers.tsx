@@ -96,8 +96,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   customerRut: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
   },
   blockedBadge: {
     backgroundColor: '#FEE2E2',
@@ -194,7 +195,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   modalInfoText: {
-    fontSize: 14,
+    fontSize: 24,
+    fontWeight: 'bold',
     color: colors.text,
     marginLeft: 8,
   },
@@ -806,26 +808,26 @@ export default function CustomersScreen() {
                       <>
                         {selectedCustomer.rut && (
                           <View style={styles.modalInfoRow}>
-                            <IconSymbol name="person.text.rectangle.fill" size={16} color={colors.textSecondary} />
+                            <IconSymbol name="person.text.rectangle.fill" size={20} color={colors.textSecondary} />
                             <Text style={styles.modalInfoText}>RUT: {selectedCustomer.rut}</Text>
                           </View>
                         )}
                         {selectedCustomer.phone && (
                           <View style={styles.modalInfoRow}>
                             <IconSymbol name="phone.fill" size={16} color={colors.textSecondary} />
-                            <Text style={styles.modalInfoText}>{selectedCustomer.phone}</Text>
+                            <Text style={[styles.modalInfoText, { fontSize: 16, fontWeight: 'normal' }]}>{selectedCustomer.phone}</Text>
                           </View>
                         )}
                         {selectedCustomer.address && (
                           <View style={styles.modalInfoRow}>
                             <IconSymbol name="location.fill" size={16} color={colors.textSecondary} />
-                            <Text style={styles.modalInfoText}>{selectedCustomer.address}</Text>
+                            <Text style={[styles.modalInfoText, { fontSize: 16, fontWeight: 'normal' }]}>{selectedCustomer.address}</Text>
                           </View>
                         )}
                         {selectedCustomer.blocked && (
                           <View style={styles.modalInfoRow}>
                             <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#DC2626" />
-                            <Text style={[styles.modalInfoText, { color: '#DC2626' }]}>Cliente bloqueado</Text>
+                            <Text style={[styles.modalInfoText, { fontSize: 16, fontWeight: 'normal', color: '#DC2626' }]}>Cliente bloqueado</Text>
                           </View>
                         )}
                       </>
