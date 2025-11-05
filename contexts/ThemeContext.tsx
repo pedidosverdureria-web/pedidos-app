@@ -1,6 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import * as Updates from 'expo-updates';
 
 const THEME_STORAGE_KEY = '@app_color_theme';
 
@@ -228,6 +230,7 @@ interface ThemeContextType {
   currentTheme: ColorTheme;
   setTheme: (themeId: string) => Promise<void>;
   isLoading: boolean;
+  themeVersion: number; // Add version to force re-renders
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -235,6 +238,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [currentTheme, setCurrentTheme] = useState<ColorTheme>(COLOR_THEMES[0]);
   const [isLoading, setIsLoading] = useState(true);
+  const [themeVersion, setThemeVersion] = useState(0);
 
   useEffect(() => {
     loadTheme();
@@ -243,14 +247,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const loadTheme = async () => {
     try {
       const savedThemeId = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+      console.log('[ThemeContext] Loading saved theme:', savedThemeId);
       if (savedThemeId) {
         const theme = COLOR_THEMES.find(t => t.id === savedThemeId);
         if (theme) {
+          console.log('[ThemeContext] Applying theme:', theme.name);
           setCurrentTheme(theme);
         }
       }
     } catch (error) {
-      console.error('Error loading theme:', error);
+      console.error('[ThemeContext] Error loading theme:', error);
     } finally {
       setIsLoading(false);
     }
@@ -260,16 +266,35 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try {
       const theme = COLOR_THEMES.find(t => t.id === themeId);
       if (theme) {
-        setCurrentTheme(theme);
+        console.log('[ThemeContext] Changing theme to:', theme.name);
+        
+        // Save to AsyncStorage first
         await AsyncStorage.setItem(THEME_STORAGE_KEY, themeId);
+        
+        // Update state
+        setCurrentTheme(theme);
+        setThemeVersion(prev => prev + 1);
+        
+        console.log('[ThemeContext] Theme changed successfully');
+        console.log('[ThemeContext] Theme version:', themeVersion + 1);
+        
+        // In Expo Go, we need to reload the app for changes to fully apply
+        // This is because some components cache styles
+        if (__DEV__ && Platform.OS !== 'web') {
+          console.log('[ThemeContext] Development mode detected');
+          console.log('[ThemeContext] For full theme changes in Expo Go:');
+          console.log('[ThemeContext] 1. Shake device to open dev menu');
+          console.log('[ThemeContext] 2. Tap "Reload" to see all changes');
+          console.log('[ThemeContext] Or close and reopen the app');
+        }
       }
     } catch (error) {
-      console.error('Error saving theme:', error);
+      console.error('[ThemeContext] Error saving theme:', error);
     }
   };
 
   return (
-    <ThemeContext.Provider value={{ currentTheme, setTheme, isLoading }}>
+    <ThemeContext.Provider value={{ currentTheme, setTheme, isLoading, themeVersion }}>
       {children}
     </ThemeContext.Provider>
   );

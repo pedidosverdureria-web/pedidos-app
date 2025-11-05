@@ -4,10 +4,10 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { ThemeProvider } from '@/contexts/ThemeContext';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { registerBackgroundNotificationTask } from '@/utils/backgroundNotificationTask';
 import { Platform } from 'react-native';
@@ -15,8 +15,43 @@ import { Platform } from 'react-native';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function RootNavigator() {
   const colorScheme = useColorScheme();
+  const { currentTheme, themeVersion } = useTheme();
+
+  // Create a custom navigation theme based on the current app theme
+  const navigationTheme = useMemo(() => {
+    const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+    
+    return {
+      ...baseTheme,
+      colors: {
+        ...baseTheme.colors,
+        primary: currentTheme.colors.primary,
+        background: currentTheme.colors.background,
+        card: currentTheme.colors.card,
+        text: currentTheme.colors.text,
+        border: currentTheme.colors.border,
+        notification: currentTheme.colors.accent,
+      },
+    };
+  }, [colorScheme, currentTheme, themeVersion]);
+
+  console.log('[RootNavigator] Theme version:', themeVersion);
+  console.log('[RootNavigator] Current theme:', currentTheme.name);
+
+  return (
+    <NavigationThemeProvider value={navigationTheme}>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <StatusBar style="auto" />
+    </NavigationThemeProvider>
+  );
+}
+
+export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -53,13 +88,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-        </NavigationThemeProvider>
+        <RootNavigator />
       </AuthProvider>
     </ThemeProvider>
   );

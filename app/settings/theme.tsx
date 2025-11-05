@@ -7,6 +7,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
+  Platform,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -25,13 +27,43 @@ export default function ThemeSettingsScreen() {
     
     try {
       await setTheme(themeId);
-      // Small delay to show the change
-      setTimeout(() => {
-        setChangingTheme(false);
-      }, 300);
+      
+      // Show reload instructions for Expo Go
+      if (__DEV__ && Platform.OS !== 'web') {
+        setTimeout(() => {
+          Alert.alert(
+            '🎨 Tema Cambiado',
+            'El tema se ha guardado correctamente.\n\n' +
+            'Para ver todos los cambios en Expo Go:\n\n' +
+            '1️⃣ Agita el dispositivo para abrir el menú\n' +
+            '2️⃣ Toca "Reload" para recargar la app\n\n' +
+            'O simplemente cierra y vuelve a abrir la app.',
+            [
+              {
+                text: 'Entendido',
+                onPress: () => {
+                  setChangingTheme(false);
+                  // Navigate back to show the change
+                  router.back();
+                },
+              },
+            ]
+          );
+        }, 500);
+      } else {
+        // In production, just show success
+        setTimeout(() => {
+          setChangingTheme(false);
+          router.back();
+        }, 500);
+      }
     } catch (error) {
-      console.error('Error changing theme:', error);
+      console.error('[ThemeSettings] Error changing theme:', error);
       setChangingTheme(false);
+      Alert.alert(
+        'Error',
+        'No se pudo cambiar el tema. Por favor intenta de nuevo.'
+      );
     }
   };
 
@@ -46,8 +78,27 @@ export default function ThemeSettingsScreen() {
     description: {
       fontSize: 14,
       color: currentTheme.colors.textSecondary,
-      marginBottom: 24,
+      marginBottom: 16,
       lineHeight: 20,
+    },
+    devNote: {
+      backgroundColor: currentTheme.colors.info + '20',
+      borderLeftWidth: 4,
+      borderLeftColor: currentTheme.colors.info,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 24,
+    },
+    devNoteTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: currentTheme.colors.info,
+      marginBottom: 4,
+    },
+    devNoteText: {
+      fontSize: 13,
+      color: currentTheme.colors.text,
+      lineHeight: 18,
     },
     themeCard: {
       backgroundColor: currentTheme.colors.card,
@@ -134,6 +185,15 @@ export default function ThemeSettingsScreen() {
         <Text style={styles.description}>
           Selecciona el color principal de la aplicación. El cambio se aplicará inmediatamente en toda la app.
         </Text>
+
+        {__DEV__ && Platform.OS !== 'web' && (
+          <View style={styles.devNote}>
+            <Text style={styles.devNoteTitle}>💡 Nota para Expo Go</Text>
+            <Text style={styles.devNoteText}>
+              Después de cambiar el tema, agita el dispositivo y toca "Reload" para ver todos los cambios aplicados.
+            </Text>
+          </View>
+        )}
 
         {COLOR_THEMES.map((theme) => {
           const isSelected = theme.id === currentTheme.id;
