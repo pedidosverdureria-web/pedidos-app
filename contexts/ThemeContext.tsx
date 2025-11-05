@@ -2,7 +2,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import * as Updates from 'expo-updates';
 
 const THEME_STORAGE_KEY = '@app_color_theme';
 

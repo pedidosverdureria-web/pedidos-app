@@ -4,6 +4,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Stack, router } from 'expo-router';
 import { usePrinter } from '@/hooks/usePrinter';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
@@ -47,202 +48,6 @@ const STATUS_FILTERS: (OrderStatus | 'all')[] = [
 const PRINTER_CONFIG_KEY = '@printer_config';
 const ORDERS_TO_PRINT_KEY = '@orders_to_print';
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  autoPrintBanner: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  autoPrintBannerWorking: {
-    backgroundColor: '#10B981',
-  },
-  autoPrintBannerNotWorking: {
-    backgroundColor: '#F59E0B',
-  },
-  autoPrintBannerText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
-  },
-  header: {
-    padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    backgroundColor: colors.primary,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: 40,
-    color: '#fff',
-    fontSize: 16,
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  filterButtonActive: {
-    backgroundColor: '#fff',
-  },
-  filterButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  filterButtonTextActive: {
-    color: colors.primary,
-  },
-  content: {
-    flex: 1,
-  },
-  orderCard: {
-    backgroundColor: colors.card,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  orderHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  orderNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  messageIndicator: {
-    backgroundColor: '#25D366',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  messageCount: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  customerName: {
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  orderInfo: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  orderSourceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  orderSourceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  orderSourceWhatsApp: {
-    backgroundColor: '#25D366',
-  },
-  orderSourceManual: {
-    backgroundColor: '#6B7280',
-  },
-  orderSourceText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  orderDate: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  orderTotal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginTop: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
 
 function getStatusColor(status: OrderStatus): string {
   switch (status) {
@@ -306,6 +111,7 @@ function formatDate(dateString: string): string {
 
 export default function HomeScreen() {
   const { user, session, isAuthenticated, authLoading } = useAuth();
+  const { currentTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
   const [refreshing, setRefreshing] = useState(false);
@@ -326,6 +132,203 @@ export default function HomeScreen() {
   );
 
   const { isConnected, printReceipt } = usePrinter();
+
+  // Create dynamic styles based on current theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: currentTheme.colors.background,
+    },
+    autoPrintBanner: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    autoPrintBannerWorking: {
+      backgroundColor: '#10B981',
+    },
+    autoPrintBannerNotWorking: {
+      backgroundColor: '#F59E0B',
+    },
+    autoPrintBannerText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+      marginLeft: 8,
+    },
+    header: {
+      padding: 16,
+      paddingTop: Platform.OS === 'ios' ? 60 : 40,
+      backgroundColor: currentTheme.colors.primary,
+    },
+    searchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      marginBottom: 16,
+    },
+    searchIcon: {
+      marginRight: 8,
+    },
+    searchInput: {
+      flex: 1,
+      height: 40,
+      color: '#fff',
+      fontSize: 16,
+    },
+    filterContainer: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    filterButton: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    filterButtonActive: {
+      backgroundColor: '#fff',
+    },
+    filterButtonText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    filterButtonTextActive: {
+      color: currentTheme.colors.primary,
+    },
+    content: {
+      flex: 1,
+    },
+    orderCard: {
+      backgroundColor: currentTheme.colors.card,
+      marginHorizontal: 16,
+      marginVertical: 8,
+      padding: 16,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 3,
+        },
+      }),
+    },
+    orderHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    orderHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flex: 1,
+    },
+    orderNumber: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: currentTheme.colors.text,
+    },
+    messageIndicator: {
+      backgroundColor: '#25D366',
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    messageCount: {
+      color: '#fff',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    statusBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    statusText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    customerName: {
+      fontSize: 16,
+      color: currentTheme.colors.text,
+      marginBottom: 4,
+    },
+    orderInfo: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+      marginBottom: 2,
+    },
+    orderSourceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+      marginBottom: 2,
+    },
+    orderSourceBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      gap: 4,
+    },
+    orderSourceWhatsApp: {
+      backgroundColor: '#25D366',
+    },
+    orderSourceManual: {
+      backgroundColor: '#6B7280',
+    },
+    orderSourceText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    orderDate: {
+      fontSize: 13,
+      color: currentTheme.colors.textSecondary,
+      marginTop: 4,
+      fontStyle: 'italic',
+    },
+    orderTotal: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: currentTheme.colors.primary,
+      marginTop: 8,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    emptyText: {
+      fontSize: 18,
+      color: currentTheme.colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 16,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+  });
 
   // Load printer configuration
   const loadPrinterConfig = useCallback(async () => {
@@ -1007,7 +1010,7 @@ export default function HomeScreen() {
   if (authLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={currentTheme.colors.primary} />
       </View>
     );
   }
@@ -1017,7 +1020,7 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.emptyContainer}>
-          <IconSymbol name="exclamationmark.triangle" size={64} color={colors.textSecondary} />
+          <IconSymbol name="exclamationmark.triangle" size={64} color={currentTheme.colors.textSecondary} />
           <Text style={styles.emptyText}>Debes iniciar sesión para ver los pedidos</Text>
         </View>
       </View>
@@ -1090,16 +1093,16 @@ export default function HomeScreen() {
 
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={currentTheme.colors.primary} />
         </View>
       ) : error ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="exclamationmark.triangle" size={64} color={colors.textSecondary} />
+          <IconSymbol name="exclamationmark.triangle" size={64} color={currentTheme.colors.textSecondary} />
           <Text style={styles.emptyText}>Error al cargar pedidos: {error}</Text>
         </View>
       ) : filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="tray" size={64} color={colors.textSecondary} />
+          <IconSymbol name="tray" size={64} color={currentTheme.colors.textSecondary} />
           <Text style={styles.emptyText}>
             {searchQuery ? 'No se encontraron pedidos' : 'No hay pedidos activos'}
           </Text>
@@ -1114,7 +1117,7 @@ export default function HomeScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={colors.primary}
+              tintColor={currentTheme.colors.primary}
             />
           }
         />
