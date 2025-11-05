@@ -70,6 +70,7 @@ export interface Customer {
   address?: string;
   total_debt: number;
   total_paid: number;
+  blocked: boolean;
   created_at: string;
   updated_at: string;
   orders?: Order[];

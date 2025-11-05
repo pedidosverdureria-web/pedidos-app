@@ -80,6 +80,10 @@ const styles = StyleSheet.create({
   customerCardPaid: {
     borderLeftColor: '#10B981',
   },
+  customerCardBlocked: {
+    borderLeftColor: '#6B7280',
+    opacity: 0.7,
+  },
   customerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -92,6 +96,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
   },
+  customerNameBlocked: {
+    color: colors.textSecondary,
+  },
   debtBadge: {
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -103,6 +110,9 @@ const styles = StyleSheet.create({
   debtBadgePaid: {
     backgroundColor: '#D1FAE5',
   },
+  debtBadgeBlocked: {
+    backgroundColor: '#E5E7EB',
+  },
   debtText: {
     fontSize: 12,
     fontWeight: '600',
@@ -113,10 +123,28 @@ const styles = StyleSheet.create({
   debtTextPaid: {
     color: '#059669',
   },
+  debtTextBlocked: {
+    color: '#6B7280',
+  },
   customerInfo: {
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 4,
+  },
+  blockedBanner: {
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  blockedBannerText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontWeight: '600',
+    flex: 1,
   },
   customerStats: {
     flexDirection: 'row',
@@ -353,6 +381,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   printButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  blockButton: {
+    backgroundColor: '#EF4444',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  unblockButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  blockButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
@@ -688,6 +741,87 @@ export default function CustomersScreen() {
     setShowPaymentModal(true);
   }, []);
 
+  const handleBlockCustomer = async () => {
+    if (!selectedCustomer) return;
+
+    Alert.alert(
+      '⚠️ Bloquear Cliente',
+      `¿Estás seguro de que deseas bloquear a ${selectedCustomer.name}?\n\nEl cliente no podrá enviar pedidos ni mensajes por WhatsApp mientras esté bloqueado.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const supabase = getSupabase();
+              const { error } = await supabase
+                .from('customers')
+                .update({ blocked: true })
+                .eq('id', selectedCustomer.id);
+
+              if (error) throw error;
+
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('✅ Cliente Bloqueado', `${selectedCustomer.name} ha sido bloqueado correctamente`);
+              
+              setShowDetailModal(false);
+              setSelectedCustomer(null);
+              await loadCustomers();
+            } catch (error) {
+              console.error('[CustomersScreen] Error blocking customer:', error);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert('❌ Error', 'No se pudo bloquear al cliente');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleUnblockCustomer = async () => {
+    if (!selectedCustomer) return;
+
+    Alert.alert(
+      '✅ Desbloquear Cliente',
+      `¿Estás seguro de que deseas desbloquear a ${selectedCustomer.name}?\n\nEl cliente podrá volver a enviar pedidos y mensajes por WhatsApp.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Desbloquear',
+          onPress: async () => {
+            try {
+              const supabase = getSupabase();
+              const { error } = await supabase
+                .from('customers')
+                .update({ blocked: false })
+                .eq('id', selectedCustomer.id);
+
+              if (error) throw error;
+
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('✅ Cliente Desbloqueado', `${selectedCustomer.name} ha sido desbloqueado correctamente`);
+              
+              setShowDetailModal(false);
+              setSelectedCustomer(null);
+              await loadCustomers();
+            } catch (error) {
+              console.error('[CustomersScreen] Error unblocking customer:', error);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert('❌ Error', 'No se pudo desbloquear al cliente');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handlePrintPendingOrders = async () => {
     if (!selectedCustomer) return;
 
@@ -927,33 +1061,57 @@ export default function CustomersScreen() {
     const remainingDebt = item.total_debt - item.total_paid;
     const hasDebt = remainingDebt > 0;
     const pendingOrdersCount = item.orders?.length || 0;
+    const isBlocked = item.blocked;
 
     return (
       <TouchableOpacity
         style={[
           styles.customerCard,
-          hasDebt ? styles.customerCardWithDebt : styles.customerCardPaid,
+          isBlocked 
+            ? styles.customerCardBlocked 
+            : hasDebt 
+              ? styles.customerCardWithDebt 
+              : styles.customerCardPaid,
         ]}
         onPress={() => openCustomerDetail(item)}
       >
         <View style={styles.customerHeader}>
-          <Text style={styles.customerName}>{item.name}</Text>
+          <Text style={[styles.customerName, isBlocked && styles.customerNameBlocked]}>
+            {item.name}
+          </Text>
           <View
             style={[
               styles.debtBadge,
-              hasDebt ? styles.debtBadgeWithDebt : styles.debtBadgePaid,
+              isBlocked 
+                ? styles.debtBadgeBlocked 
+                : hasDebt 
+                  ? styles.debtBadgeWithDebt 
+                  : styles.debtBadgePaid,
             ]}
           >
             <Text
               style={[
                 styles.debtText,
-                hasDebt ? styles.debtTextWithDebt : styles.debtTextPaid,
+                isBlocked 
+                  ? styles.debtTextBlocked 
+                  : hasDebt 
+                    ? styles.debtTextWithDebt 
+                    : styles.debtTextPaid,
               ]}
             >
-              {hasDebt ? 'Con Deuda' : 'Al Día'}
+              {isBlocked ? 'Bloqueado' : hasDebt ? 'Con Deuda' : 'Al Día'}
             </Text>
           </View>
         </View>
+
+        {isBlocked && (
+          <View style={styles.blockedBanner}>
+            <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#DC2626" />
+            <Text style={styles.blockedBannerText}>
+              Este cliente está bloqueado y no puede enviar pedidos
+            </Text>
+          </View>
+        )}
 
         {item.phone && (
           <Text style={styles.customerInfo}>📞 {item.phone}</Text>
@@ -1054,6 +1212,7 @@ export default function CustomersScreen() {
                 <Text style={styles.modalTitle}>{selectedCustomer.name}</Text>
                 <Text style={styles.modalSubtitle}>
                   Deuda pendiente: {formatCLP(selectedCustomer.total_debt - selectedCustomer.total_paid)}
+                  {selectedCustomer.blocked && '\n🚫 Cliente bloqueado'}
                 </Text>
 
                 <ScrollView style={styles.modalScrollView}>
@@ -1174,7 +1333,7 @@ export default function CustomersScreen() {
                 )}
 
                 {/* Add Payment Button */}
-                {selectedCustomer.total_debt - selectedCustomer.total_paid > 0 && (
+                {selectedCustomer.total_debt - selectedCustomer.total_paid > 0 && !selectedCustomer.blocked && (
                   <TouchableOpacity
                     style={styles.addPaymentButton}
                     onPress={() => {
@@ -1184,6 +1343,25 @@ export default function CustomersScreen() {
                   >
                     <IconSymbol name="plus.circle" size={20} color="#fff" />
                     <Text style={styles.addPaymentButtonText}>Abonar a la Cuenta</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Block/Unblock Button */}
+                {selectedCustomer.blocked ? (
+                  <TouchableOpacity
+                    style={styles.unblockButton}
+                    onPress={handleUnblockCustomer}
+                  >
+                    <IconSymbol name="checkmark.circle" size={20} color="#fff" />
+                    <Text style={styles.blockButtonText}>Desbloquear Cliente</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.blockButton}
+                    onPress={handleBlockCustomer}
+                  >
+                    <IconSymbol name="xmark.circle" size={20} color="#fff" />
+                    <Text style={styles.blockButtonText}>Bloquear Cliente</Text>
                   </TouchableOpacity>
                 )}
 

@@ -1003,6 +1003,19 @@ Te mantendremos informado sobre el estado de tu pedido. ⏰
 }
 
 /**
+ * Creates blocked customer message
+ */
+function createBlockedCustomerMessage(customerName: string): string {
+  return `🚫 *Acceso Bloqueado*
+
+Hola ${customerName}, tu cuenta ha sido bloqueada temporalmente.
+
+Por favor contacta con nosotros directamente para más información.
+
+Disculpa las molestias.`;
+}
+
+/**
  * Creates help message
  */
 function createHelpMessage(customerName: string): string {
@@ -1250,6 +1263,33 @@ async function addQueryToPrintQueue(supabase: any, queryId: string) {
   }
 }
 
+/**
+ * Checks if a customer is blocked by phone number
+ */
+async function isCustomerBlocked(supabase: any, phone: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('blocked')
+      .eq('phone', phone)
+      .single();
+
+    if (error) {
+      // Customer doesn't exist yet, so not blocked
+      if (error.code === 'PGRST116') {
+        return false;
+      }
+      console.error('[WhatsApp Webhook] Error checking if customer is blocked:', error);
+      return false;
+    }
+
+    return data?.blocked === true;
+  } catch (error) {
+    console.error('[WhatsApp Webhook] Exception checking if customer is blocked:', error);
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -1336,6 +1376,30 @@ serve(async (req) => {
 
         console.log('Processing message from:', customerName, '(', customerPhone, ')');
         console.log('Message text:', messageText);
+
+        // Check if customer is blocked
+        const blocked = await isCustomerBlocked(supabase, customerPhone);
+        if (blocked) {
+          console.log('Customer is blocked, rejecting message');
+          
+          // Send blocked message notification
+          if (config.access_token && config.phone_number_id) {
+            try {
+              const blockedMsg = createBlockedCustomerMessage(customerName);
+              await sendWhatsAppMessage(
+                config.phone_number_id,
+                config.access_token,
+                customerPhone,
+                blockedMsg
+              );
+              console.log('Sent blocked customer message to:', customerPhone);
+            } catch (error) {
+              console.error('Error sending blocked customer message:', error);
+            }
+          }
+          
+          continue; // Skip processing this message
+        }
 
         // NEW LOGIC: Check if this phone number should ALWAYS be treated as a new order
         const isAlwaysNewOrderPhone = ALWAYS_NEW_ORDER_PHONES.includes(customerPhone);
