@@ -827,7 +827,6 @@ export default function HomeScreen() {
     if (!isAuthenticated || !user) return;
 
     // Capture ref values at the start of the effect
-    let notificationListener: any = null;
     let responseListener: any = null;
 
     const setupNotifications = async () => {
@@ -866,10 +865,7 @@ export default function HomeScreen() {
     setupNotifications();
 
     return () => {
-      // Use the captured variables from the effect scope
-      if (notificationListener) {
-        notificationListener.remove();
-      }
+      // Use the captured variable from the effect scope
       if (responseListener) {
         responseListener.remove();
       }
