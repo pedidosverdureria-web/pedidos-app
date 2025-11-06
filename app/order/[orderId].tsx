@@ -100,7 +100,15 @@ function getStatusIcon(status: OrderStatus): string {
   }
 }
 
-function getAvailableStatusTransitions(currentStatus: OrderStatus): OrderStatus[] {
+function getAvailableStatusTransitions(currentStatus: OrderStatus, userRole?: string): OrderStatus[] {
+  // Developer profile can change to any status
+  if (userRole === 'desarrollador') {
+    return ['pending', 'preparing', 'ready', 'delivered', 'pending_payment', 'paid', 'cancelled'].filter(
+      status => status !== currentStatus
+    ) as OrderStatus[];
+  }
+
+  // Normal restrictions for other roles
   switch (currentStatus) {
     case 'pending':
       return ['preparing', 'cancelled'];
@@ -368,6 +376,21 @@ export default function OrderDetailScreen() {
     statusButtonText: {
       fontSize: 14,
       fontWeight: '600',
+    },
+    developerBadge: {
+      backgroundColor: '#8B5CF6',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+      marginBottom: 12,
+      alignSelf: 'flex-start',
+    },
+    developerBadgeText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: 'bold',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
     },
     input: {
       backgroundColor: colors.background,
@@ -1208,6 +1231,7 @@ export default function OrderDetailScreen() {
     console.log('[OrderDetail] Order ID:', order.id);
     console.log('[OrderDetail] Current status:', order.status);
     console.log('[OrderDetail] New status:', newStatus);
+    console.log('[OrderDetail] User role:', user?.role);
     console.log('[OrderDetail] Current customer_id:', order.customer_id);
     console.log('[OrderDetail] Customer name:', order.customer_name);
     console.log('[OrderDetail] Customer phone:', order.customer_phone);
@@ -2202,7 +2226,7 @@ export default function OrderDetailScreen() {
   }
 
   const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
-  const availableTransitions = getAvailableStatusTransitions(order.status);
+  const availableTransitions = getAvailableStatusTransitions(order.status, user?.role);
   
   // Sort queries by date (oldest first for timeline view)
   const sortedQueries = order.queries 
@@ -2230,6 +2254,13 @@ export default function OrderDetailScreen() {
           <Text style={styles.orderNumber}>{order.order_number}</Text>
           <Text style={styles.orderDate}>📅 {formatDate(order.created_at)}</Text>
           
+          {/* Developer Badge */}
+          {user?.role === 'desarrollador' && (
+            <View style={styles.developerBadge}>
+              <Text style={styles.developerBadgeText}>🔧 Modo Desarrollador</Text>
+            </View>
+          )}
+          
           {/* Current Status Display */}
           <View style={styles.currentStatusContainer}>
             <Text style={styles.currentStatusLabel}>ESTADO ACTUAL</Text>
@@ -2251,7 +2282,9 @@ export default function OrderDetailScreen() {
           {/* Status Transitions */}
           {availableTransitions.length > 0 && (
             <>
-              <Text style={styles.statusTransitionsLabel}>Cambiar estado a:</Text>
+              <Text style={styles.statusTransitionsLabel}>
+                {user?.role === 'desarrollador' ? 'Cambiar estado a (todos disponibles):' : 'Cambiar estado a:'}
+              </Text>
               <View style={styles.statusContainer}>
                 {availableTransitions.map((status) => (
                   <TouchableOpacity
