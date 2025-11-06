@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   Switch,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { 
@@ -198,6 +198,31 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  navigationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  navigationRowLast: {
+    borderBottomWidth: 0,
+  },
+  navigationContent: {
+    flex: 1,
+  },
+  navigationTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  navigationDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
 });
 
@@ -447,6 +472,11 @@ export default function PrinterSettingsScreen() {
     return paperSize === '58mm' ? styles.previewPaper58 : styles.previewPaper80;
   };
 
+  const handleNavigateToReceiptEditor = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/settings/receipt-editor');
+  };
+
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -458,6 +488,24 @@ export default function PrinterSettingsScreen() {
         }}
       />
       <ScrollView style={styles.content}>
+        {/* Advanced Receipt Editor Navigation */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Edicion Avanzada</Text>
+          
+          <TouchableOpacity
+            style={[styles.navigationRow, styles.navigationRowLast]}
+            onPress={handleNavigateToReceiptEditor}
+          >
+            <View style={styles.navigationContent}>
+              <Text style={styles.navigationTitle}>Editor de Recibos Avanzado</Text>
+              <Text style={styles.navigationDescription}>
+                Personaliza el diseño completo del recibo: encabezado, pie de página, espaciado, estilos predefinidos y más
+              </Text>
+            </View>
+            <IconSymbol name="chevron.right" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Live Preview Section */}
         <View style={styles.previewSection}>
           <Text style={styles.sectionTitle}>Vista Previa del Recibo</Text>
