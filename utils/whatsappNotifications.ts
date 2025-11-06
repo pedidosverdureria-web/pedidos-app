@@ -497,6 +497,7 @@ export async function sendOrderDeletedNotification(
 /**
  * Sends a response to a customer query via WhatsApp
  * This function sends the actual response from the admin to the customer
+ * FIXED: Now saves the response to the database with direction='outgoing'
  */
 export async function sendQueryResponse(
   orderId: string,
@@ -544,6 +545,23 @@ export async function sendQueryResponse(
     );
 
     console.log('Sent query response to:', order.customer_phone);
+
+    // FIXED: Save the response to the database with direction='outgoing'
+    const { error: saveError } = await supabase
+      .from('order_queries')
+      .insert({
+        order_id: orderId,
+        customer_phone: order.customer_phone,
+        query_text: responseText,
+        direction: 'outgoing',
+      });
+
+    if (saveError) {
+      console.error('Error saving outgoing response to database:', saveError);
+      // Don't throw - message was sent successfully
+    } else {
+      console.log('Saved outgoing response to database');
+    }
   } catch (error) {
     console.error('Error sending query response:', error);
     throw error;
@@ -553,6 +571,7 @@ export async function sendQueryResponse(
 /**
  * Sends an outgoing query from the business to the customer
  * This is called when the business initiates a query about an order
+ * FIXED: Already saves to database with direction='outgoing' in the calling code
  */
 export async function sendQueryConfirmation(
   customerPhone: string,
@@ -586,6 +605,7 @@ export async function sendQueryConfirmation(
     );
 
     console.log('Sent outgoing query to:', customerPhone);
+    // Note: The calling code in [orderId].tsx already saves this to the database with direction='outgoing'
   } catch (error) {
     console.error('Error sending outgoing query:', error);
     throw error;

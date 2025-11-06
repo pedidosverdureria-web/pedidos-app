@@ -263,7 +263,7 @@ async function loadAuthorizedPhones(supabase: any): Promise<string[]> {
     }
 
     const phoneNumbers = data.map((row: any) => row.phone_number);
-    console.log(`Loaded ${phoneNumbers.length} authorized phone numbers`);
+    console.log(`Loaded ${phoneNumbers.length} authorized phone numbers:`, phoneNumbers);
     return phoneNumbers;
   } catch (error) {
     console.error('Exception loading authorized phones:', error);
@@ -1414,13 +1414,13 @@ serve(async (req) => {
           continue; // Skip processing this message
         }
 
-        // NEW LOGIC: Check if this phone number is in the authorized list
+        // FIXED LOGIC: Check if this phone number is in the authorized list
         const isAlwaysNewOrderPhone = authorizedPhones.includes(customerPhone);
         console.log('Is always-new-order phone:', isAlwaysNewOrderPhone);
+        console.log('Authorized phones list:', authorizedPhones);
 
         // Check if customer has an order in active statuses (pending, preparing, ready)
         // Orders in delivered, pending_payment, paid, or cancelled statuses should NOT trigger query behavior
-        // UNLESS the phone number is in the authorized list
         const { data: existingOrders } = await supabase
           .from('orders')
           .select('id, order_number, customer_name, status, items:order_items(*)')
@@ -1443,10 +1443,11 @@ serve(async (req) => {
         const hasNewOrderKeyword = isNewOrderKeyword(messageText);
         console.log('Has new order keyword:', hasNewOrderKeyword);
 
-        // If customer has active order (pending/preparing/ready) and no new order keyword, 
+        // FIXED: If customer has active order (pending/preparing/ready) and no new order keyword,
         // AND is NOT in the authorized list, treat as query
+        // If phone IS in authorized list, ALWAYS create new order regardless of active orders
         if (hasActiveOrder && !hasNewOrderKeyword && !isAlwaysNewOrderPhone && activeOrder) {
-          console.log('Treating message as order query');
+          console.log('Treating message as order query (has active order, no new order keyword, not authorized phone)');
           
           // Save query to database with direction='incoming'
           const { data: queryData, error: queryError } = await supabase
@@ -1501,7 +1502,7 @@ ${messageText}
 
         // If phone is in authorized list, log it
         if (isAlwaysNewOrderPhone) {
-          console.log('Phone number is in authorized list - bypassing query check and treating as new order');
+          console.log('✅ Phone number is in authorized list - BYPASSING query check and treating as NEW ORDER');
         }
 
         // If has new order keyword, remove it and process as new order
