@@ -11,6 +11,8 @@ export type PrintQueueStatus = 'pending' | 'printed' | 'failed';
 
 export type PrintQueueItemType = 'order' | 'query' | 'payment' | 'customer_orders';
 
+export type ReceiptStyle = 'classic' | 'modern' | 'minimal' | 'detailed' | 'compact';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -127,6 +129,29 @@ export interface WhatsAppConfig {
   updated_at: string;
 }
 
+export interface AdvancedReceiptConfig {
+  style: ReceiptStyle;
+  header_text: string;
+  footer_text: string;
+  header_alignment: 'left' | 'center' | 'right';
+  footer_alignment: 'left' | 'center' | 'right';
+  header_spacing: number; // Lines before content
+  footer_spacing: number; // Lines after content
+  item_spacing: number; // Lines between items
+  show_logo: boolean;
+  logo_position: 'top' | 'header';
+  show_separator_lines: boolean;
+  separator_char: string;
+  show_prices: boolean;
+  show_item_totals: boolean;
+  bold_headers: boolean;
+  bold_totals: boolean;
+  date_format: 'short' | 'long' | 'time';
+  show_order_number: boolean;
+  show_status: boolean;
+  custom_fields: { label: string; value: string }[];
+}
+
 export interface PrinterConfig {
   id: string;
   user_id: string;
@@ -144,6 +169,7 @@ export interface PrinterConfig {
   encoding?: 'UTF-8' | 'CP850' | 'ISO-8859-1';
   auto_cut_enabled?: boolean;
   auto_print_queries_enabled?: boolean;
+  advanced_config?: AdvancedReceiptConfig;
   created_at: string;
   updated_at: string;
 }

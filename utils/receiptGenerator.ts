@@ -1,5 +1,5 @@
 
-import { Order, OrderItem } from '@/types';
+import { Order, OrderItem, AdvancedReceiptConfig } from '@/types';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
@@ -13,6 +13,7 @@ export interface PrinterConfig {
   include_customer_info?: boolean;
   include_totals?: boolean;
   use_webhook_format?: boolean;
+  advanced_config?: AdvancedReceiptConfig;
 }
 
 function getStatusLabel(status: string): string {
@@ -41,15 +42,31 @@ function formatCLP(amount: number): string {
   }).format(amount);
 }
 
-function formatDate(dateString: string): string {
+function formatDate(dateString: string, format: 'short' | 'long' | 'time' = 'long'): string {
   const date = new Date(dateString);
-  return date.toLocaleString('es-CL', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  
+  if (format === 'short') {
+    return date.toLocaleString('es-CL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } else if (format === 'time') {
+    return date.toLocaleString('es-CL', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } else {
+    return date.toLocaleString('es-CL', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
 }
 
 function getUnitFromNotes(notes: string | null | undefined): string {
@@ -104,9 +121,155 @@ function getAdditionalNotes(notes: string | null | undefined): string {
   return cleanNotes;
 }
 
+function alignText(text: string, width: number, alignment: 'left' | 'center' | 'right'): string {
+  if (alignment === 'center') {
+    const padding = Math.max(0, Math.floor((width - text.length) / 2));
+    return ' '.repeat(padding) + text;
+  } else if (alignment === 'right') {
+    const padding = Math.max(0, width - text.length);
+    return ' '.repeat(padding) + text;
+  } else {
+    return text;
+  }
+}
+
 function centerText(text: string, width: number): string {
-  const padding = Math.max(0, Math.floor((width - text.length) / 2));
-  return ' '.repeat(padding) + text;
+  return alignText(text, width, 'center');
+}
+
+function addSpacing(lines: number): string {
+  return '\n'.repeat(lines);
+}
+
+/**
+ * Generate receipt text with advanced configuration
+ */
+export function generateAdvancedReceiptText(order: Order, config?: PrinterConfig): string {
+  const advConfig = config?.advanced_config;
+  if (!advConfig) {
+    return generateReceiptText(order, config);
+  }
+
+  const width = config?.paper_size === '58mm' ? 32 : 48;
+  let receipt = '';
+
+  // Header spacing
+  receipt += addSpacing(advConfig.header_spacing);
+
+  // Logo at top
+  if (advConfig.show_logo && advConfig.logo_position === 'top') {
+    receipt += centerText('[LOGO]', width) + '\n\n';
+  }
+
+  // Header text
+  const headerLines = advConfig.header_text.split('\n');
+  for (const line of headerLines) {
+    receipt += alignText(line, width, advConfig.header_alignment) + '\n';
+  }
+
+  // Logo in header
+  if (advConfig.show_logo && advConfig.logo_position === 'header') {
+    receipt += centerText('[LOGO]', width) + '\n';
+  }
+
+  // Separator after header
+  if (advConfig.show_separator_lines) {
+    receipt += advConfig.separator_char.repeat(width) + '\n';
+  }
+  receipt += '\n';
+
+  // Order information
+  if (advConfig.show_order_number) {
+    receipt += `Pedido: ${order.order_number}\n`;
+  }
+  if (advConfig.show_status) {
+    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+  }
+  receipt += `Fecha: ${formatDate(order.created_at, advConfig.date_format)}\n`;
+
+  // Separator
+  if (advConfig.show_separator_lines) {
+    receipt += advConfig.separator_char.repeat(width) + '\n';
+  }
+  receipt += '\n';
+
+  // Customer information
+  if (config?.include_customer_info !== false) {
+    receipt += `Cliente: ${order.customer_name}\n`;
+    if (order.customer_phone) {
+      receipt += `Telefono: ${order.customer_phone}\n`;
+    }
+    if (order.customer_address) {
+      receipt += `Direccion: ${order.customer_address}\n`;
+    }
+    if (advConfig.show_separator_lines) {
+      receipt += advConfig.separator_char.repeat(width) + '\n';
+    }
+    receipt += '\n';
+  }
+
+  // Products section
+  receipt += 'PRODUCTOS:\n\n';
+  for (const item of order.items || []) {
+    receipt += `${formatProductDisplay(item)}\n`;
+    
+    const additionalNotes = getAdditionalNotes(item.notes);
+    if (additionalNotes) {
+      receipt += `  ${additionalNotes}\n`;
+    }
+    
+    if (advConfig.show_prices && item.unit_price > 0) {
+      receipt += `  ${formatCLP(item.unit_price)}\n`;
+    }
+    
+    receipt += addSpacing(advConfig.item_spacing);
+  }
+
+  // Custom fields
+  if (advConfig.custom_fields && advConfig.custom_fields.length > 0) {
+    if (advConfig.show_separator_lines) {
+      receipt += advConfig.separator_char.repeat(width) + '\n';
+    }
+    for (const field of advConfig.custom_fields) {
+      receipt += `${field.label}: ${field.value}\n`;
+    }
+    receipt += '\n';
+  }
+
+  // Totals section
+  if (config?.include_totals !== false && advConfig.show_item_totals) {
+    if (advConfig.show_separator_lines) {
+      receipt += advConfig.separator_char.repeat(width) + '\n';
+    }
+    const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
+    receipt += `TOTAL: ${formatCLP(total)}\n`;
+    
+    if (order.amount_paid > 0) {
+      receipt += `Pagado: ${formatCLP(order.amount_paid)}\n`;
+      const pending = total - order.amount_paid;
+      if (pending > 0) {
+        receipt += `Pendiente: ${formatCLP(pending)}\n`;
+      }
+    }
+  }
+
+  // Footer spacing
+  receipt += addSpacing(advConfig.footer_spacing);
+
+  // Footer separator
+  if (advConfig.show_separator_lines) {
+    receipt += advConfig.separator_char.repeat(width) + '\n';
+  }
+
+  // Footer text
+  const footerLines = advConfig.footer_text.split('\n');
+  for (const line of footerLines) {
+    receipt += alignText(line, width, advConfig.footer_alignment) + '\n';
+  }
+
+  receipt += '\n\n';
+
+  return receipt;
 }
 
 /**
@@ -114,6 +277,11 @@ function centerText(text: string, width: number): string {
  * This is the unified function used by both auto-printing and manual printing
  */
 export function generateReceiptText(order: Order, config?: PrinterConfig): string {
+  // Use advanced config if available
+  if (config?.advanced_config) {
+    return generateAdvancedReceiptText(order, config);
+  }
+
   const width = config?.paper_size === '58mm' ? 32 : 48;
   
   let receipt = '';
