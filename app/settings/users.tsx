@@ -37,8 +37,8 @@ export default function UserManagementScreen() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (user?.role !== 'admin') {
-      Alert.alert('Acceso Denegado', 'Solo los administradores pueden acceder a esta pantalla');
+    if (user?.role !== 'admin' && user?.role !== 'desarrollador') {
+      Alert.alert('Acceso Denegado', 'Solo los administradores y desarrolladores pueden acceder a esta pantalla');
       router.back();
     }
   }, [user?.role]);
@@ -253,6 +253,44 @@ export default function UserManagementScreen() {
             <View style={styles.permissionItem}>
               <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
               <Text style={styles.permissionText}>Actualizar estados</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <IconSymbol name="hammer.fill" size={32} color="#F59E0B" />
+            <View style={styles.cardHeaderText}>
+              <Text style={styles.cardTitle}>Desarrollador</Text>
+              <Text style={styles.cardSubtitle}>Acceso completo al sistema</Text>
+            </View>
+          </View>
+          <View style={styles.pinContainer}>
+            <Text style={styles.pinLabel}>PIN de Acceso:</Text>
+            <View style={[styles.pinBadge, { backgroundColor: '#F59E0B' }]}>
+              <Text style={styles.pinText}>9032</Text>
+            </View>
+          </View>
+          <View style={styles.permissionsList}>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Gestión completa de pedidos</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Configuración de WhatsApp</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Configuración de impresora</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Acceso a estadísticas</Text>
+            </View>
+            <View style={styles.permissionItem}>
+              <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+              <Text style={styles.permissionText}>Gestión de usuarios</Text>
             </View>
           </View>
         </View>

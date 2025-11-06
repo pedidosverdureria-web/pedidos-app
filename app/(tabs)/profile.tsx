@@ -53,6 +53,36 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
+  const getRoleDisplayName = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'Administrador';
+      case 'worker':
+        return 'Trabajador';
+      case 'printer':
+        return 'Impresor';
+      case 'desarrollador':
+        return 'Desarrollador';
+      default:
+        return 'Usuario';
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return colors.success;
+      case 'worker':
+        return colors.info;
+      case 'printer':
+        return '#8B5CF6';
+      case 'desarrollador':
+        return '#F59E0B'; // Orange color for developer
+      default:
+        return colors.primary;
+    }
+  };
+
   return (
     <>
       <Stack.Screen
@@ -80,32 +110,16 @@ export default function ProfileScreen() {
             <View
               style={[
                 styles.roleBadge,
-                { 
-                  backgroundColor: user?.role === 'admin' 
-                    ? colors.success + '20' 
-                    : user?.role === 'printer'
-                      ? '#8B5CF6' + '20'
-                      : colors.info + '20' 
-                },
+                { backgroundColor: getRoleColor(user?.role || '') + '20' },
               ]}
             >
               <Text
                 style={[
                   styles.roleText,
-                  { 
-                    color: user?.role === 'admin' 
-                      ? colors.success 
-                      : user?.role === 'printer'
-                        ? '#8B5CF6'
-                        : colors.info 
-                  },
+                  { color: getRoleColor(user?.role || '') },
                 ]}
               >
-                {user?.role === 'admin' 
-                  ? 'Administrador' 
-                  : user?.role === 'printer'
-                    ? 'Impresor'
-                    : 'Trabajador'}
+                {getRoleDisplayName(user?.role || '')}
               </Text>
             </View>
           </View>
@@ -177,8 +191,8 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Admin Only Section */}
-        {user?.role === 'admin' && (
+        {/* Admin and Desarrollador Only Section */}
+        {(user?.role === 'admin' || user?.role === 'desarrollador') && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Administración</Text>
 

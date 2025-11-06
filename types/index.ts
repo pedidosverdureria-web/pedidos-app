@@ -1,7 +1,7 @@
 
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment' | 'paid';
 
-export type UserRole = 'admin' | 'worker' | 'printer';
+export type UserRole = 'admin' | 'worker' | 'printer' | 'desarrollador';
 
 export type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'order';
 

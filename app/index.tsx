@@ -16,6 +16,7 @@ export default function Index() {
     if (user.role === 'printer') {
       return <Redirect href="/printer-queue" />;
     }
+    // Admin, worker, and desarrollador all go to home
     return <Redirect href="/(tabs)/(home)/" />;
   }
 

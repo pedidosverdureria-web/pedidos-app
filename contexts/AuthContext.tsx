@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Admin PIN: 5050
    * Worker PIN: 5030
    * Printer PIN: 5010
+   * Desarrollador PIN: 9032
    */
   const signInWithPin = async (pin: string): Promise<void> => {
     console.log('[Auth] Attempting PIN login');
@@ -70,6 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role = 'printer';
       fullName = 'Impresor';
       console.log('[Auth] Printer PIN accepted');
+    } else if (pin === '9032') {
+      role = 'desarrollador';
+      fullName = 'Desarrollador';
+      console.log('[Auth] Desarrollador PIN accepted');
     } else {
       console.log('[Auth] Invalid PIN');
       throw new Error('PIN incorrecto');

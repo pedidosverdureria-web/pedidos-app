@@ -29,6 +29,7 @@ export default function LoginScreen() {
       if (user.role === 'printer') {
         router.replace('/printer-queue');
       } else {
+        // Admin, worker, and desarrollador all go to home
         router.replace('/(tabs)/(home)/');
       }
     }
