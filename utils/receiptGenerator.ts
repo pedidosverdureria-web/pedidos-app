@@ -3,6 +3,7 @@ import { Order, OrderItem, AdvancedReceiptConfig } from '@/types';
 
 type TextSize = 'small' | 'medium' | 'large';
 type PaperSize = '58mm' | '80mm';
+type ReceiptContext = 'auto_print' | 'manual_print' | 'query' | 'customer_account';
 
 export interface PrinterConfig {
   auto_print_enabled?: boolean;
@@ -13,6 +14,7 @@ export interface PrinterConfig {
   include_customer_info?: boolean;
   include_totals?: boolean;
   use_webhook_format?: boolean;
+  encoding?: 'UTF-8' | 'CP850' | 'ISO-8859-1';
   advanced_config?: AdvancedReceiptConfig;
 }
 
@@ -168,12 +170,34 @@ function formatProductLine(
 }
 
 /**
+ * Get the appropriate header text based on the receipt context
+ */
+function getReceiptHeader(context: ReceiptContext): string {
+  switch (context) {
+    case 'auto_print':
+      return 'NUEVO PEDIDO';
+    case 'manual_print':
+      return 'PEDIDO CLIENTE';
+    case 'query':
+      return 'CONSULTA DE CLIENTE';
+    case 'customer_account':
+      return 'CUENTA DE CLIENTES';
+    default:
+      return 'PEDIDO';
+  }
+}
+
+/**
  * Generate receipt text with advanced configuration
  */
-export function generateAdvancedReceiptText(order: Order, config?: PrinterConfig): string {
+export function generateAdvancedReceiptText(
+  order: Order,
+  config?: PrinterConfig,
+  context: ReceiptContext = 'manual_print'
+): string {
   const advConfig = config?.advanced_config;
   if (!advConfig) {
-    return generateReceiptText(order, config);
+    return generateReceiptText(order, config, context);
   }
 
   const width = config?.paper_size === '58mm' ? 32 : 48;
@@ -187,10 +211,16 @@ export function generateAdvancedReceiptText(order: Order, config?: PrinterConfig
     receipt += centerText('[LOGO]', width) + '\n\n';
   }
 
-  // Header text
-  const headerLines = advConfig.header_text.split('\n');
-  for (const line of headerLines) {
-    receipt += alignText(line, width, advConfig.header_alignment) + '\n';
+  // Header text - use context-specific header
+  const headerText = getReceiptHeader(context);
+  receipt += centerText(headerText, width) + '\n';
+  
+  // Additional header lines from config
+  if (advConfig.header_text && advConfig.header_text.trim()) {
+    const headerLines = advConfig.header_text.split('\n');
+    for (const line of headerLines) {
+      receipt += alignText(line, width, advConfig.header_alignment) + '\n';
+    }
   }
 
   // Logo in header
@@ -316,19 +346,24 @@ export function generateAdvancedReceiptText(order: Order, config?: PrinterConfig
  * Generate receipt text for printing
  * This is the unified function used by both auto-printing and manual printing
  */
-export function generateReceiptText(order: Order, config?: PrinterConfig): string {
+export function generateReceiptText(
+  order: Order,
+  config?: PrinterConfig,
+  context: ReceiptContext = 'manual_print'
+): string {
   // Use advanced config if available
   if (config?.advanced_config) {
-    return generateAdvancedReceiptText(order, config);
+    return generateAdvancedReceiptText(order, config, context);
   }
 
   const width = config?.paper_size === '58mm' ? 32 : 48;
   
   let receipt = '';
   
-  // Header with logo
+  // Header with logo - use context-specific header
   if (config?.include_logo !== false) {
-    receipt += centerText('PEDIDO', width) + '\n';
+    const headerText = getReceiptHeader(context);
+    receipt += centerText(headerText, width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
@@ -401,9 +436,9 @@ export function generateQueryReceiptText(
   
   let receipt = '';
   
-  // Header
+  // Header - always use "CONSULTA DE CLIENTE" for queries
   if (config?.include_logo !== false) {
-    receipt += centerText('CONSULTA DE PEDIDO', width) + '\n';
+    receipt += centerText('CONSULTA DE CLIENTE', width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
@@ -471,6 +506,69 @@ export function generateQueryReceiptText(
 }
 
 /**
+ * Generate receipt text for customer account (pending vouchers)
+ */
+export function generateCustomerAccountReceipt(
+  customerName: string,
+  customerPhone: string | undefined,
+  customerAddress: string | undefined,
+  orders: Order[],
+  totalDebt: number,
+  totalPaid: number,
+  config?: PrinterConfig
+): string {
+  const width = config?.paper_size === '58mm' ? 32 : 48;
+  
+  let receipt = '';
+  
+  // Header - always use "CUENTA DE CLIENTES" for customer accounts
+  if (config?.include_logo !== false) {
+    receipt += centerText('CUENTA DE CLIENTES', width) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+  }
+  
+  receipt += `Cliente: ${customerName}\n`;
+  if (customerPhone) {
+    receipt += `Telefono: ${customerPhone}\n`;
+  }
+  if (customerAddress) {
+    receipt += `Direccion: ${customerAddress}\n`;
+  }
+  receipt += `Fecha: ${formatDate(new Date().toISOString())}\n`;
+  receipt += '-'.repeat(width) + '\n\n';
+  
+  receipt += 'PEDIDOS PENDIENTES:\n\n';
+  
+  if (orders && orders.length > 0) {
+    for (const order of orders) {
+      receipt += `Pedido: ${order.order_number}\n`;
+      receipt += `Fecha: ${formatDate(order.created_at, 'short')}\n`;
+      
+      const productCount = order.items?.length || 0;
+      receipt += `Productos: ${productCount}\n`;
+      
+      receipt += `Total: ${formatCLP(order.total_amount)}\n`;
+      receipt += `Pagado: ${formatCLP(order.paid_amount)}\n`;
+      receipt += `Pendiente: ${formatCLP(order.total_amount - order.paid_amount)}\n`;
+      receipt += '\n';
+    }
+  } else {
+    receipt += 'No hay pedidos pendientes\n\n';
+  }
+  
+  receipt += '-'.repeat(width) + '\n';
+  
+  receipt += `DEUDA TOTAL: ${formatCLP(totalDebt)}\n`;
+  receipt += `PAGADO: ${formatCLP(totalPaid)}\n`;
+  receipt += `PENDIENTE: ${formatCLP(totalDebt - totalPaid)}\n`;
+  
+  receipt += '\n' + '='.repeat(width) + '\n';
+  receipt += centerText('Gracias por su preferencia!', width) + '\n\n\n';
+  
+  return receipt;
+}
+
+/**
  * Generate a sample receipt for preview purposes
  */
 export function generateSampleReceipt(config?: PrinterConfig): string {
@@ -485,6 +583,9 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     amount_paid: 5000,
+    total_amount: 9500,
+    paid_amount: 5000,
+    is_read: true,
     items: [
       {
         id: 'item-1',
@@ -492,8 +593,10 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         product_name: 'Tomates',
         quantity: 2,
         unit_price: 3000,
+        total_price: 3000,
         notes: 'Unidad: kg\nTomates frescos',
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
       {
         id: 'item-2',
@@ -501,8 +604,10 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         product_name: 'Cebollas',
         quantity: 1,
         unit_price: 2000,
+        total_price: 2000,
         notes: 'Unidad: malla\nTamano mediano',
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
       {
         id: 'item-3',
@@ -510,11 +615,13 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         product_name: 'Papas',
         quantity: 3,
         unit_price: 4500,
+        total_price: 4500,
         notes: 'Unidad: kg\nPapas blancas',
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
     ],
   };
   
-  return generateReceiptText(sampleOrder, config);
+  return generateReceiptText(sampleOrder, config, 'manual_print');
 }

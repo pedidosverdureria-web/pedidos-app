@@ -1669,7 +1669,8 @@ export default function OrderDetailScreen() {
       console.log('[OrderDetail] Printing with config:', printerConfig);
       
       // Use the centralized receipt generator with the full printer config
-      const receiptText = generateReceiptText(order, printerConfig || undefined);
+      // Use manual_print context for orders printed from order detail screen
+      const receiptText = generateReceiptText(order, printerConfig || undefined, 'manual_print');
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
       const textSize = printerConfig?.text_size || 'medium';
       const encoding = printerConfig?.encoding || 'CP850';

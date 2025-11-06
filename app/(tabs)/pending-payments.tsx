@@ -65,7 +65,7 @@ function generatePendingOrdersReceipt(customer: Customer, config?: PrinterConfig
   let receipt = '';
   
   if (config?.include_logo !== false) {
-    receipt += centerText('ESTADO DE CUENTA', width) + '\n';
+    receipt += centerText('CUENTA DE CLIENTES', width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   

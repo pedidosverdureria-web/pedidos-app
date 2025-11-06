@@ -473,7 +473,8 @@ export default function PrinterQueueScreen() {
       try {
         console.log('[PrinterQueue] Auto-printing order:', order.order_number);
         
-        const receiptText = generateReceiptText(order, printerConfig || undefined);
+        // Use auto_print context for auto-printed orders
+        const receiptText = generateReceiptText(order, printerConfig || undefined, 'auto_print');
         const autoCut = printerConfig?.auto_cut_enabled ?? true;
         const textSize = printerConfig?.text_size || 'medium';
         
@@ -642,7 +643,8 @@ export default function PrinterQueueScreen() {
       setPrinting(order.id);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      const receiptText = generateReceiptText(order, printerConfig || undefined);
+      // Use manual_print context for manually printed orders from printer queue
+      const receiptText = generateReceiptText(order, printerConfig || undefined, 'manual_print');
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
       const textSize = printerConfig?.text_size || 'medium';
       
