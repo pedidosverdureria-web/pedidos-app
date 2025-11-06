@@ -208,6 +208,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  sliderContainer: {
+    paddingVertical: 12,
+  },
+  sliderLabel: {
+    fontSize: 16,
+    color: colors.text,
+    marginBottom: 8,
+  },
+  sliderValueContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sliderValue: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: 'bold',
+  },
+  sliderButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  sliderButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  sliderButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });
 
 export default function ReceiptEditorScreen() {
@@ -222,7 +257,12 @@ export default function ReceiptEditorScreen() {
   const [includeTotals, setIncludeTotals] = useState(true);
   
   // Advanced config
-  const [advancedConfig, setAdvancedConfig] = useState<AdvancedReceiptConfig>(RECEIPT_STYLES.classic);
+  const [advancedConfig, setAdvancedConfig] = useState<AdvancedReceiptConfig>({
+    ...RECEIPT_STYLES.classic,
+    product_price_alignment: 'right',
+    show_product_notes: true,
+    product_name_max_width: 70,
+  });
 
   const loadConfig = useCallback(async () => {
     try {
@@ -238,7 +278,13 @@ export default function ReceiptEditorScreen() {
         setIncludeTotals(config.include_totals ?? true);
         
         if (config.advanced_config) {
-          setAdvancedConfig(config.advanced_config);
+          // Ensure new fields have default values
+          setAdvancedConfig({
+            ...config.advanced_config,
+            product_price_alignment: config.advanced_config.product_price_alignment || 'right',
+            show_product_notes: config.advanced_config.show_product_notes ?? true,
+            product_name_max_width: config.advanced_config.product_name_max_width || 70,
+          });
         }
       }
     } catch (error) {
@@ -284,7 +330,7 @@ export default function ReceiptEditorScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         'Configuración Guardada',
-        'El estilo del recibo se guardó correctamente y se aplicará en las próximas impresiones',
+        'El estilo del recibo se guardó correctamente y se aplicará en todas las impresiones: auto-impresión, impresión manual, consultas y pagos.',
         [{ text: 'OK' }]
       );
     } catch (error) {
@@ -326,6 +372,11 @@ export default function ReceiptEditorScreen() {
     const newFields = advancedConfig.custom_fields.filter((_, i) => i !== index);
     updateAdvancedConfig('custom_fields', newFields);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const adjustProductNameWidth = (delta: number) => {
+    const newWidth = Math.max(30, Math.min(100, advancedConfig.product_name_max_width + delta));
+    updateAdvancedConfig('product_name_max_width', newWidth);
   };
 
   return (
@@ -435,6 +486,75 @@ export default function ReceiptEditorScreen() {
               <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Product Section Configuration */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Sección de Productos</Text>
+          <Text style={styles.sectionDescription}>
+            Personaliza cómo se muestran los productos en el recibo
+          </Text>
+          
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => {
+              const newAlignment = advancedConfig.product_price_alignment === 'left' ? 'right' : 'left';
+              updateAdvancedConfig('product_price_alignment', newAlignment);
+            }}
+          >
+            <Text style={styles.settingLabel}>Alineación del Precio</Text>
+            <Text style={styles.settingValue}>
+              {advancedConfig.product_price_alignment === 'left' ? 'Izquierda' : 'Derecha'}
+            </Text>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={styles.settingRow}>
+            <Text style={styles.settingLabel}>Mostrar Notas del Producto</Text>
+            <Switch
+              value={advancedConfig.show_product_notes}
+              onValueChange={(value) => updateAdvancedConfig('show_product_notes', value)}
+              trackColor={{ false: colors.border, true: colors.primary }}
+            />
+          </View>
+
+          <View style={[styles.settingRow, styles.settingRowLast]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sliderLabel}>Ancho Máximo del Nombre</Text>
+              <Text style={styles.sectionDescription}>
+                Controla hasta qué parte del recibo se extiende el nombre del producto
+              </Text>
+              <View style={styles.sliderValueContainer}>
+                <Text style={styles.sliderValue}>{advancedConfig.product_name_max_width}%</Text>
+                <View style={styles.sliderButtons}>
+                  <TouchableOpacity
+                    style={styles.sliderButton}
+                    onPress={() => adjustProductNameWidth(-10)}
+                  >
+                    <Text style={styles.sliderButtonText}>-10</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.sliderButton}
+                    onPress={() => adjustProductNameWidth(-5)}
+                  >
+                    <Text style={styles.sliderButtonText}>-5</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.sliderButton}
+                    onPress={() => adjustProductNameWidth(5)}
+                  >
+                    <Text style={styles.sliderButtonText}>+5</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.sliderButton}
+                    onPress={() => adjustProductNameWidth(10)}
+                  >
+                    <Text style={styles.sliderButtonText}>+10</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Footer Configuration */}
@@ -624,6 +744,10 @@ export default function ReceiptEditorScreen() {
               {loading ? 'Guardando...' : 'Guardar Configuración'}
             </Text>
           </TouchableOpacity>
+          
+          <Text style={[styles.sectionDescription, { marginTop: 12, textAlign: 'center' }]}>
+            Esta configuración se aplicará a todos los recibos: auto-impresión, impresión manual, consultas y pagos.
+          </Text>
         </View>
       </ScrollView>
 

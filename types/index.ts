@@ -150,6 +150,10 @@ export interface AdvancedReceiptConfig {
   show_order_number: boolean;
   show_status: boolean;
   custom_fields: { label: string; value: string }[];
+  // New product section options
+  product_price_alignment: 'left' | 'right';
+  show_product_notes: boolean;
+  product_name_max_width: number; // Percentage of receipt width (30-100)
 }
 
 export interface PrinterConfig {

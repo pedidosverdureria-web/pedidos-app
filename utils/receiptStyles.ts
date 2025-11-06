@@ -23,6 +23,9 @@ export const RECEIPT_STYLES: Record<ReceiptStyle, AdvancedReceiptConfig> = {
     show_order_number: true,
     show_status: true,
     custom_fields: [],
+    product_price_alignment: 'right',
+    show_product_notes: true,
+    product_name_max_width: 70,
   },
   modern: {
     style: 'modern',
@@ -45,6 +48,9 @@ export const RECEIPT_STYLES: Record<ReceiptStyle, AdvancedReceiptConfig> = {
     show_order_number: true,
     show_status: true,
     custom_fields: [],
+    product_price_alignment: 'right',
+    show_product_notes: true,
+    product_name_max_width: 65,
   },
   minimal: {
     style: 'minimal',
@@ -67,6 +73,9 @@ export const RECEIPT_STYLES: Record<ReceiptStyle, AdvancedReceiptConfig> = {
     show_order_number: true,
     show_status: false,
     custom_fields: [],
+    product_price_alignment: 'right',
+    show_product_notes: false,
+    product_name_max_width: 100,
   },
   detailed: {
     style: 'detailed',
@@ -92,6 +101,9 @@ export const RECEIPT_STYLES: Record<ReceiptStyle, AdvancedReceiptConfig> = {
       { label: 'Atencion', value: 'Servicio al Cliente' },
       { label: 'Contacto', value: '+56 9 1234 5678' },
     ],
+    product_price_alignment: 'right',
+    show_product_notes: true,
+    product_name_max_width: 60,
   },
   compact: {
     style: 'compact',
@@ -114,6 +126,9 @@ export const RECEIPT_STYLES: Record<ReceiptStyle, AdvancedReceiptConfig> = {
     show_order_number: true,
     show_status: true,
     custom_fields: [],
+    product_price_alignment: 'right',
+    show_product_notes: false,
+    product_name_max_width: 100,
   },
 };
 

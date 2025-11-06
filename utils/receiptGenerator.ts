@@ -141,6 +141,32 @@ function addSpacing(lines: number): string {
   return '\n'.repeat(lines);
 }
 
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + '...';
+}
+
+function formatProductLine(
+  productText: string,
+  price: string,
+  width: number,
+  priceAlignment: 'left' | 'right',
+  productMaxWidth: number
+): string {
+  const maxProductWidth = Math.floor(width * (productMaxWidth / 100));
+  
+  if (priceAlignment === 'right') {
+    const availableProductWidth = width - price.length - 1;
+    const actualProductWidth = Math.min(maxProductWidth, availableProductWidth);
+    const truncatedProduct = truncateText(productText, actualProductWidth);
+    const padding = width - truncatedProduct.length - price.length;
+    return truncatedProduct + ' '.repeat(Math.max(1, padding)) + price;
+  } else {
+    const truncatedProduct = truncateText(productText, maxProductWidth);
+    return truncatedProduct + ' ' + price;
+  }
+}
+
 /**
  * Generate receipt text with advanced configuration
  */
@@ -211,15 +237,29 @@ export function generateAdvancedReceiptText(order: Order, config?: PrinterConfig
   // Products section
   receipt += 'PRODUCTOS:\n\n';
   for (const item of order.items || []) {
-    receipt += `${formatProductDisplay(item)}\n`;
+    const productDisplay = formatProductDisplay(item);
     
-    const additionalNotes = getAdditionalNotes(item.notes);
-    if (additionalNotes) {
-      receipt += `  ${additionalNotes}\n`;
+    // Format product line with price alignment
+    if (advConfig.show_prices && item.unit_price > 0) {
+      const priceText = formatCLP(item.unit_price);
+      receipt += formatProductLine(
+        productDisplay,
+        priceText,
+        width,
+        advConfig.product_price_alignment,
+        advConfig.product_name_max_width
+      ) + '\n';
+    } else {
+      const maxProductWidth = Math.floor(width * (advConfig.product_name_max_width / 100));
+      receipt += truncateText(productDisplay, maxProductWidth) + '\n';
     }
     
-    if (advConfig.show_prices && item.unit_price > 0) {
-      receipt += `  ${formatCLP(item.unit_price)}\n`;
+    // Show product notes if enabled
+    if (advConfig.show_product_notes) {
+      const additionalNotes = getAdditionalNotes(item.notes);
+      if (additionalNotes) {
+        receipt += `  ${additionalNotes}\n`;
+      }
     }
     
     receipt += addSpacing(advConfig.item_spacing);
@@ -357,6 +397,7 @@ export function generateQueryReceiptText(
   config?: PrinterConfig
 ): string {
   const width = config?.paper_size === '58mm' ? 32 : 48;
+  const advConfig = config?.advanced_config;
   
   let receipt = '';
   
@@ -384,16 +425,41 @@ export function generateQueryReceiptText(
   // Products
   receipt += 'PRODUCTOS:\n\n';
   for (const item of order.items || []) {
-    receipt += `${formatProductDisplay(item)}\n`;
+    const productDisplay = formatProductDisplay(item);
     
-    const additionalNotes = getAdditionalNotes(item.notes);
-    if (additionalNotes) {
-      receipt += `  ${additionalNotes}\n`;
+    // Use advanced config if available
+    if (advConfig) {
+      if (advConfig.show_prices && item.unit_price > 0) {
+        const priceText = formatCLP(item.unit_price);
+        receipt += formatProductLine(
+          productDisplay,
+          priceText,
+          width,
+          advConfig.product_price_alignment,
+          advConfig.product_name_max_width
+        ) + '\n';
+      } else {
+        const maxProductWidth = Math.floor(width * (advConfig.product_name_max_width / 100));
+        receipt += truncateText(productDisplay, maxProductWidth) + '\n';
+      }
+      
+      if (advConfig.show_product_notes) {
+        const additionalNotes = getAdditionalNotes(item.notes);
+        if (additionalNotes) {
+          receipt += `  ${additionalNotes}\n`;
+        }
+      }
+    } else {
+      receipt += `${productDisplay}\n`;
+      const additionalNotes = getAdditionalNotes(item.notes);
+      if (additionalNotes) {
+        receipt += `  ${additionalNotes}\n`;
+      }
+      if (item.unit_price > 0) {
+        receipt += `  ${formatCLP(item.unit_price)}\n`;
+      }
     }
     
-    if (item.unit_price > 0) {
-      receipt += `  ${formatCLP(item.unit_price)}\n`;
-    }
     receipt += '\n';
   }
   
