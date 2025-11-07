@@ -1102,6 +1102,57 @@ export default function OrderDetailScreen() {
     }
   }, []);
 
+  // Helper function to automatically change status from pending to preparing when prices are entered
+  const autoChangeStatusToPreparing = useCallback(async () => {
+    if (!order || order.status !== 'pending') {
+      return;
+    }
+
+    console.log('[OrderDetail] Auto-changing status from pending to preparing');
+    
+    try {
+      const supabase = getSupabase();
+      
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'preparing' })
+        .eq('id', order.id);
+
+      if (updateError) {
+        console.error('[OrderDetail] Error auto-updating status:', updateError);
+        return;
+      }
+
+      console.log('[OrderDetail] Status auto-changed to preparing');
+
+      // Send WhatsApp notification
+      try {
+        await sendOrderStatusUpdate(order.id, 'preparing');
+      } catch (whatsappError) {
+        console.error('[OrderDetail] Error sending WhatsApp notification:', whatsappError);
+      }
+
+      // Create in-app notification
+      try {
+        await createInAppNotification(
+          user?.id || '',
+          'order_status_changed',
+          `Pedido ${order.order_number} cambió automáticamente a Preparando`,
+          { orderId: order.id }
+        );
+      } catch (notifError) {
+        console.error('[OrderDetail] Error creating notification:', notifError);
+      }
+
+      // Reload order to get updated data
+      await loadOrder();
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('[OrderDetail] Error in auto status change:', error);
+    }
+  }, [order, user?.id, loadOrder]);
+
   useEffect(() => {
     loadOrder();
     loadPrinterConfig();
@@ -1558,13 +1609,15 @@ export default function OrderDetailScreen() {
         }
         quantityValue = parsed;
       }
+
+      const priceValue = parseFloat(productPrice) || 0;
       
       const { error } = await supabase
         .from('order_items')
         .update({
           product_name: productName,
           quantity: quantityValue,
-          unit_price: parseFloat(productPrice) || 0,
+          unit_price: priceValue,
           notes: productNotes,
         })
         .eq('id', itemId);
@@ -1573,6 +1626,11 @@ export default function OrderDetailScreen() {
 
       setEditingProduct(null);
       await loadOrder();
+
+      // Auto-change status to preparing if price was entered and order is pending
+      if (priceValue > 0) {
+        await autoChangeStatusToPreparing();
+      }
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
@@ -1675,12 +1733,15 @@ export default function OrderDetailScreen() {
     try {
       const supabase = getSupabase();
       
+      let anyPriceEntered = false;
+
       // Update each product with its individual price
       for (const item of order.items || []) {
         const priceStr = bulkPrices[item.id];
         if (priceStr) {
           const price = parseFloat(priceStr);
-          if (!isNaN(price)) {
+          if (!isNaN(price) && price > 0) {
+            anyPriceEntered = true;
             await supabase
               .from('order_items')
               .update({ unit_price: price })
@@ -1691,6 +1752,11 @@ export default function OrderDetailScreen() {
 
       setShowPriceModal(false);
       await loadOrder();
+
+      // Auto-change status to preparing if any price was entered and order is pending
+      if (anyPriceEntered) {
+        await autoChangeStatusToPreparing();
+      }
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
