@@ -121,7 +121,8 @@ export default function NewOrderScreen() {
       console.log('Creating order with', parsedItems.length, 'parsed items');
 
       // Prepare order data
-      // Note: We use the user_id from the local auth context
+      // Note: We don't include created_by for PIN-based auth users since they don't exist in auth.users
+      // The created_by field is nullable and optional
       const orderData = {
         customer_name: customerName.trim(),
         customer_rut: customerRut.trim() || null,
@@ -129,7 +130,8 @@ export default function NewOrderScreen() {
         status: 'pending' as const,
         source: 'manual' as const,
         is_read: true,
-        created_by: user.user_id, // Use the user_id from local auth
+        // created_by is intentionally omitted for PIN-based auth users
+        // It will be NULL in the database, which is allowed
       };
 
       console.log('Order data prepared:', orderData);
