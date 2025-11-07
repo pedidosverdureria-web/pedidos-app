@@ -473,6 +473,63 @@ export default function OrderDetailScreen() {
       fontWeight: 'bold',
       color: colors.primary,
     },
+    paymentInfoContainer: {
+      marginTop: 16,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    paymentInfoTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    paymentTypeContainer: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    paymentTypeText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text,
+      flex: 1,
+    },
+    paymentItem: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 8,
+      borderLeftWidth: 3,
+      borderLeftColor: '#10B981',
+    },
+    paymentItemHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    paymentAmount: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: '#10B981',
+    },
+    paymentDate: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontWeight: '500',
+    },
+    paymentNotes: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontStyle: 'italic',
+      marginTop: 4,
+    },
     actionButton: {
       borderRadius: 8,
       padding: 16,
@@ -964,7 +1021,7 @@ export default function OrderDetailScreen() {
       const supabase = getSupabase();
       const { data, error } = await supabase
         .from('orders')
-        .select('*, items:order_items(*), queries:order_queries(*)')
+        .select('*, items:order_items(*), queries:order_queries(*), order_payments(*)')
         .eq('id', orderId)
         .single();
 
@@ -2240,6 +2297,16 @@ export default function OrderDetailScreen() {
     (customer.phone && customer.phone.includes(customerSearchQuery))
   );
 
+  // Sort payments by date (newest first)
+  const sortedPayments = order.order_payments
+    ? [...order.order_payments].sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+    : [];
+
+  // Determine payment type
+  const totalPaid = sortedPayments.reduce((sum, payment) => sum + parseFloat(payment.amount.toString()), 0);
+  const isFullPayment = sortedPayments.length === 1 && totalPaid >= total;
+  const isPartialPayments = sortedPayments.length > 1 || (sortedPayments.length === 1 && totalPaid < total);
+
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -2779,6 +2846,44 @@ export default function OrderDetailScreen() {
             <Text style={styles.totalLabel}>Total:</Text>
             <Text style={styles.totalValue}>{formatCLP(total)}</Text>
           </View>
+
+          {/* Payment Information Section - Only show when status is "paid" */}
+          {order.status === 'paid' && sortedPayments.length > 0 && (
+            <View style={styles.paymentInfoContainer}>
+              <Text style={styles.paymentInfoTitle}>💳 Información de Pago</Text>
+              
+              {/* Payment Type Badge */}
+              <View style={styles.paymentTypeContainer}>
+                <IconSymbol 
+                  name={isFullPayment ? 'checkmark.circle.fill' : 'creditcard.fill'} 
+                  size={24} 
+                  color="#10B981" 
+                />
+                <Text style={styles.paymentTypeText}>
+                  {isFullPayment ? 'Pago Total' : `Pagos Parciales (${sortedPayments.length} abonos)`}
+                </Text>
+              </View>
+
+              {/* Payment Details */}
+              {sortedPayments.map((payment, index) => (
+                <View key={payment.id} style={styles.paymentItem}>
+                  <View style={styles.paymentItemHeader}>
+                    <Text style={styles.paymentAmount}>
+                      {formatCLP(parseFloat(payment.amount.toString()))}
+                    </Text>
+                    <Text style={styles.paymentDate}>
+                      {formatDate(payment.payment_date)}
+                    </Text>
+                  </View>
+                  {payment.notes && (
+                    <Text style={styles.paymentNotes}>
+                      📝 {payment.notes}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Action Buttons with Icons and Colors */}
