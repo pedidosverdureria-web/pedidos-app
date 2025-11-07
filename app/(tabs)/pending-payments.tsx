@@ -256,9 +256,8 @@ export default function PendingPaymentsScreen() {
       color: colors.textSecondary,
     },
     customerRut: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: colors.text,
+      fontSize: 14,
+      color: colors.textSecondary,
     },
     debtBadge: {
       paddingHorizontal: 12,
@@ -372,12 +371,6 @@ export default function PendingPaymentsScreen() {
       marginBottom: 8,
     },
     modalSubtitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 4,
-    },
-    modalSubtitleSecondary: {
       fontSize: 14,
       color: colors.textSecondary,
       marginBottom: 16,
@@ -462,6 +455,19 @@ export default function PendingPaymentsScreen() {
       fontSize: 12,
       fontWeight: '600',
     },
+    viewOrderButton: {
+      backgroundColor: '#8B5CF6',
+      borderRadius: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      marginTop: 8,
+      alignItems: 'center',
+    },
+    viewOrderButtonText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
     paymentItem: {
       backgroundColor: colors.background,
       borderRadius: 8,
@@ -521,6 +527,7 @@ export default function PendingPaymentsScreen() {
     modalButtonText: {
       fontSize: 16,
       fontWeight: '600',
+      color: '#fff',
     },
     addPaymentButton: {
       backgroundColor: '#10B981',
@@ -731,6 +738,7 @@ export default function PendingPaymentsScreen() {
   }, [loadCustomers]);
 
   const openCustomerDetail = useCallback((customer: Customer) => {
+    console.log('[PendingPaymentsScreen] Opening customer detail for:', customer.name);
     setSelectedCustomer(customer);
     setShowDetailModal(true);
   }, []);
@@ -1095,7 +1103,11 @@ export default function PendingPaymentsScreen() {
               ? styles.customerCardWithDebt 
               : styles.customerCardPaid,
         ]}
-        onPress={() => openCustomerDetail(item)}
+        onPress={() => {
+          console.log('[PendingPaymentsScreen] Customer card pressed:', item.name);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          openCustomerDetail(item);
+        }}
       >
         <View style={styles.customerHeader}>
           <View style={styles.customerNameContainer}>
@@ -1225,8 +1237,286 @@ export default function PendingPaymentsScreen() {
         />
       )}
 
-      {/* Modals remain the same but use dynamic colors from styles */}
-      {/* ... rest of the modal code ... */}
+      {/* Customer Detail Modal */}
+      <Modal
+        visible={showDetailModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDetailModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>{selectedCustomer?.name}</Text>
+            <Text style={styles.modalSubtitle}>
+              {selectedCustomer?.phone && `📞 ${selectedCustomer.phone}`}
+              {selectedCustomer?.address && ` • 📍 ${selectedCustomer.address}`}
+            </Text>
+
+            <ScrollView style={styles.modalScrollView}>
+              {/* Orders Section */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Pedidos Pendientes</Text>
+                {selectedCustomer?.orders && selectedCustomer.orders.length > 0 ? (
+                  selectedCustomer.orders.map((order) => (
+                    <View key={order.id} style={styles.orderItem}>
+                      <View style={styles.orderItemHeader}>
+                        <Text style={styles.orderNumber}>Pedido {order.order_number}</Text>
+                        <Text style={styles.orderAmount}>{formatCLP(order.total_amount)}</Text>
+                      </View>
+                      <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
+                      <Text style={styles.orderProductCount}>
+                        {order.items?.length || 0} productos
+                      </Text>
+                      <View style={styles.orderPaymentInfo}>
+                        <View>
+                          <Text style={styles.orderPaymentLabel}>Pagado</Text>
+                          <Text style={[styles.orderPaymentValue, styles.orderPaymentPaid]}>
+                            {formatCLP(order.paid_amount)}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text style={styles.orderPaymentLabel}>Pendiente</Text>
+                          <Text style={[styles.orderPaymentValue, styles.orderPaymentPending]}>
+                            {formatCLP(order.total_amount - order.paid_amount)}
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.viewOrderButton}
+                        onPress={() => {
+                          setShowDetailModal(false);
+                          router.push(`/order/${order.id}`);
+                        }}
+                      >
+                        <Text style={styles.viewOrderButtonText}>Ver Pedido</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.payButton}
+                        onPress={() => {
+                          setShowDetailModal(false);
+                          openPaymentModal('order', order.id);
+                        }}
+                      >
+                        <Text style={styles.payButtonText}>Registrar Pago</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyPayments}>
+                    <Text style={styles.emptyPaymentsText}>No hay pedidos pendientes</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Payments Section */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Historial de Pagos</Text>
+                {selectedCustomer?.payments && selectedCustomer.payments.length > 0 ? (
+                  selectedCustomer.payments.map((payment: CustomerPayment) => (
+                    <View key={payment.id} style={styles.paymentItem}>
+                      <View style={styles.paymentHeader}>
+                        <Text style={styles.paymentAmount}>{formatCLP(payment.amount)}</Text>
+                        <Text style={styles.paymentDate}>{formatDate(payment.payment_date)}</Text>
+                      </View>
+                      {payment.notes && (
+                        <Text style={styles.paymentNotes}>{payment.notes}</Text>
+                      )}
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.emptyPayments}>
+                    <Text style={styles.emptyPaymentsText}>No hay pagos registrados</Text>
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+
+            {/* Action Buttons */}
+            <TouchableOpacity
+              style={styles.addPaymentButton}
+              onPress={() => {
+                setShowDetailModal(false);
+                openPaymentModal('account');
+              }}
+            >
+              <IconSymbol name="plus.circle.fill" size={20} color="#fff" />
+              <Text style={styles.addPaymentButtonText}>Registrar Abono a Cuenta</Text>
+            </TouchableOpacity>
+
+            {isConnected && (
+              <TouchableOpacity
+                style={styles.printButton}
+                onPress={handlePrintPendingOrders}
+              >
+                <IconSymbol name="printer.fill" size={20} color="#fff" />
+                <Text style={styles.printButtonText}>Imprimir Estado de Cuenta</Text>
+              </TouchableOpacity>
+            )}
+
+            {!isConnected && (
+              <TouchableOpacity
+                style={styles.printButton}
+                onPress={handleSendPendingOrdersToPrinter}
+              >
+                <IconSymbol name="printer.fill" size={20} color="#fff" />
+                <Text style={styles.printButtonText}>Enviar a Cola de Impresión</Text>
+              </TouchableOpacity>
+            )}
+
+            {selectedCustomer?.blocked ? (
+              <TouchableOpacity
+                style={styles.unblockButton}
+                onPress={handleUnblockCustomer}
+              >
+                <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
+                <Text style={styles.blockButtonText}>Desbloquear Cliente</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.blockButton}
+                onPress={handleBlockCustomer}
+              >
+                <IconSymbol name="xmark.circle.fill" size={20} color="#fff" />
+                <Text style={styles.blockButtonText}>Bloquear Cliente</Text>
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowDetailModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal
+        visible={showPaymentModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPaymentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Registrar Pago</Text>
+            <Text style={styles.modalSubtitle}>{selectedCustomer?.name}</Text>
+
+            {/* Payment Type Selector */}
+            <View style={styles.paymentTypeSelector}>
+              <TouchableOpacity
+                style={[
+                  styles.paymentTypeButton,
+                  paymentType === 'account' && styles.paymentTypeButtonActive,
+                ]}
+                onPress={() => {
+                  setPaymentType('account');
+                  setSelectedOrderId(null);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.paymentTypeButtonText,
+                    paymentType === 'account' && styles.paymentTypeButtonTextActive,
+                  ]}
+                >
+                  Abono a Cuenta
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.paymentTypeButton,
+                  paymentType === 'order' && styles.paymentTypeButtonActive,
+                ]}
+                onPress={() => setPaymentType('order')}
+              >
+                <Text
+                  style={[
+                    styles.paymentTypeButtonText,
+                    paymentType === 'order' && styles.paymentTypeButtonTextActive,
+                  ]}
+                >
+                  Pago a Pedido
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Order Selector (only for order payment type) */}
+            {paymentType === 'order' && (
+              <View style={styles.orderSelector}>
+                <Text style={styles.orderSelectorLabel}>Selecciona el pedido:</Text>
+                <ScrollView style={{ maxHeight: 200 }}>
+                  {selectedCustomer?.orders?.map((order) => (
+                    <TouchableOpacity
+                      key={order.id}
+                      style={[
+                        styles.orderSelectorItem,
+                        selectedOrderId === order.id && styles.orderSelectorItemActive,
+                      ]}
+                      onPress={() => setSelectedOrderId(order.id)}
+                    >
+                      <View style={styles.orderSelectorItemHeader}>
+                        <Text style={styles.orderSelectorItemNumber}>
+                          Pedido {order.order_number}
+                        </Text>
+                        <Text style={styles.orderSelectorItemAmount}>
+                          {formatCLP(order.total_amount)}
+                        </Text>
+                      </View>
+                      <Text style={styles.orderSelectorItemPending}>
+                        Pendiente: {formatCLP(order.total_amount - order.paid_amount)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            <TextInput
+              style={styles.input}
+              placeholder="Monto del pago"
+              placeholderTextColor={colors.textSecondary}
+              value={paymentAmount}
+              onChangeText={setPaymentAmount}
+              keyboardType="numeric"
+            />
+
+            <TextInput
+              style={[styles.input, { height: 80 }]}
+              placeholder="Notas (opcional)"
+              placeholderTextColor={colors.textSecondary}
+              value={paymentNotes}
+              onChangeText={setPaymentNotes}
+              multiline
+              numberOfLines={3}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowPaymentModal(false)}
+                disabled={submittingPayment}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleAddPayment}
+                disabled={submittingPayment}
+              >
+                {submittingPayment ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalButtonText}>Registrar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
