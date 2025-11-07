@@ -306,6 +306,28 @@ export default function PendingPaymentsScreen() {
       fontWeight: '600',
       flex: 1,
     },
+    alDiaBadge: {
+      position: 'absolute',
+      top: 8,
+      left: 8,
+      backgroundColor: '#10B981',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderRadius: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    alDiaBadgeText: {
+      fontSize: 11,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
     customerStats: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -559,6 +581,21 @@ export default function PendingPaymentsScreen() {
       fontSize: 16,
       fontWeight: '600',
     },
+    finalizeButton: {
+      backgroundColor: '#3B82F6',
+      borderRadius: 8,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 12,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    finalizeButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
     blockButton: {
       backgroundColor: '#EF4444',
       borderRadius: 8,
@@ -707,6 +744,7 @@ export default function PendingPaymentsScreen() {
             created_at
           )
         `)
+        .eq('finalized', false)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -750,6 +788,57 @@ export default function PendingPaymentsScreen() {
     setPaymentNotes('');
     setShowPaymentModal(true);
   }, []);
+
+  const handleFinalizeCustomer = async () => {
+    if (!selectedCustomer) return;
+
+    const remainingDebt = selectedCustomer.total_debt - selectedCustomer.total_paid;
+    
+    if (remainingDebt > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Atención',
+        `No se puede finalizar porque el cliente aún tiene una deuda pendiente de ${formatCLP(remainingDebt)}`
+      );
+      return;
+    }
+
+    Alert.alert(
+      '✅ Finalizar Cliente',
+      `¿Estás seguro de que deseas finalizar a ${selectedCustomer.name}?\n\nEl cliente será removido de la lista de vales pendientes. Podrás verlo nuevamente cuando tenga nuevos pedidos pendientes.`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Finalizar',
+          onPress: async () => {
+            try {
+              const supabase = getSupabase();
+              const { error } = await supabase
+                .from('customers')
+                .update({ finalized: true })
+                .eq('id', selectedCustomer.id);
+
+              if (error) throw error;
+
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Alert.alert('✅ Cliente Finalizado', `${selectedCustomer.name} ha sido removido de la lista de vales pendientes`);
+              
+              setShowDetailModal(false);
+              setSelectedCustomer(null);
+              await loadCustomers();
+            } catch (error) {
+              console.error('[PendingPaymentsScreen] Error finalizing customer:', error);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+              Alert.alert('❌ Error', 'No se pudo finalizar al cliente');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleBlockCustomer = async () => {
     if (!selectedCustomer) return;
@@ -1090,6 +1179,7 @@ export default function PendingPaymentsScreen() {
   const renderCustomerCard = ({ item }: { item: Customer }) => {
     const remainingDebt = item.total_debt - item.total_paid;
     const hasDebt = remainingDebt > 0;
+    const isPaidInFull = remainingDebt === 0;
     const pendingOrdersCount = item.orders?.length || 0;
     const isBlocked = item.blocked;
 
@@ -1109,6 +1199,13 @@ export default function PendingPaymentsScreen() {
           openCustomerDetail(item);
         }}
       >
+        {isPaidInFull && !isBlocked && (
+          <View style={styles.alDiaBadge}>
+            <IconSymbol name="checkmark.circle.fill" size={14} color="#fff" />
+            <Text style={styles.alDiaBadgeText}>Al Día</Text>
+          </View>
+        )}
+
         <View style={styles.customerHeader}>
           <View style={styles.customerNameContainer}>
             <Text style={[styles.customerName, isBlocked && styles.customerNameBlocked]}>
@@ -1138,7 +1235,7 @@ export default function PendingPaymentsScreen() {
                     : styles.debtTextPaid,
               ]}
             >
-              {isBlocked ? 'Bloqueado' : hasDebt ? 'Con Deuda' : 'Al Día'}
+              {isBlocked ? 'Bloqueado' : hasDebt ? 'Con Deuda' : 'Pagado'}
             </Text>
           </View>
         </View>
@@ -1193,6 +1290,10 @@ export default function PendingPaymentsScreen() {
       </View>
     );
   }
+
+  const isCustomerFullyPaid = selectedCustomer 
+    ? (selectedCustomer.total_debt - selectedCustomer.total_paid) === 0 
+    : false;
 
   return (
     <View style={styles.container}>
@@ -1360,6 +1461,16 @@ export default function PendingPaymentsScreen() {
               >
                 <IconSymbol name="printer.fill" size={20} color="#fff" />
                 <Text style={styles.printButtonText}>Enviar a Cola de Impresión</Text>
+              </TouchableOpacity>
+            )}
+
+            {isCustomerFullyPaid && (
+              <TouchableOpacity
+                style={styles.finalizeButton}
+                onPress={handleFinalizeCustomer}
+              >
+                <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
+                <Text style={styles.finalizeButtonText}>Finalizar</Text>
               </TouchableOpacity>
             )}
 

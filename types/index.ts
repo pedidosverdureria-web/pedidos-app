@@ -78,6 +78,7 @@ export interface Customer {
   total_debt: number;
   total_paid: number;
   blocked: boolean;
+  finalized: boolean;
   created_at: string;
   updated_at: string;
   orders?: Order[];
