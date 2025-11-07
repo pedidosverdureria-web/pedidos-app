@@ -325,7 +325,20 @@ export default function HomeScreen() {
           <View style={styles.orderHeaderLeft}>
             <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
             <View style={styles.orderInfo}>
-              <Text style={styles.orderNumber}>{item.order_number}</Text>
+              <View style={styles.orderNumberRow}>
+                <Text style={styles.orderNumber}>{item.order_number}</Text>
+                {/* Source icon - WhatsApp or Manual */}
+                <View style={[
+                  styles.sourceIconContainer,
+                  { backgroundColor: item.source === 'whatsapp' ? '#25D366' : colors.textSecondary }
+                ]}>
+                  <IconSymbol 
+                    name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'} 
+                    size={12} 
+                    color="#fff" 
+                  />
+                </View>
+              </View>
               <Text style={styles.orderCustomer}>{item.customer_name}</Text>
             </View>
           </View>
@@ -534,11 +547,23 @@ const styles = StyleSheet.create({
   orderInfo: {
     flex: 1,
   },
+  orderNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
   orderNumber: {
     fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 2,
+  },
+  sourceIconContainer: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   orderCustomer: {
     fontSize: 14,
