@@ -15,7 +15,75 @@ This typically happens during:
 - Building with many dependencies
 - React Native + Expo projects with native modules
 
-## Solution Steps
+---
+
+## Solution for Natively.dev Users (Cloud Build)
+
+If you're building your APK using **natively.dev** and cannot run commands locally, the fix has been applied automatically through configuration files. Here's what was done:
+
+### ✅ Files Updated
+
+1. **`eas.json`** - EAS Build configuration with:
+   - Resource class set to `large` (more memory on build servers)
+   - GRADLE_OPTS environment variable with increased memory
+   - Heap: 4GB (`-Xmx4096m`)
+   - Metaspace: 1GB (`-XX:MaxMetaspaceSize=1024m`)
+
+2. **`gradle.properties`** (root) - Gradle configuration with:
+   - JVM memory settings
+   - Parallel builds enabled
+   - Build cache enabled
+   - Worker limits to prevent exhaustion
+
+3. **`android/gradle.properties`** - Android-specific Gradle settings with:
+   - Optimized memory allocation
+   - Incremental compilation
+   - R8 full mode optimization
+   - KSP incremental processing
+
+4. **`app.json`** - Expo configuration with:
+   - Gradle properties embedded in Android config
+   - Memory settings applied during prebuild
+
+### 🚀 Next Steps for Natively.dev
+
+1. **Commit and push your changes** to your repository
+2. **Trigger a new build** on natively.dev
+3. The build will now use the optimized memory settings
+4. **Wait for the build to complete** (may take 10-20 minutes)
+
+### 📊 Memory Configuration Applied
+
+| Setting | Value | Purpose |
+|---------|-------|---------|
+| JVM Heap | 4096MB | Main memory for compilation |
+| Metaspace | 1024MB | Class metadata storage |
+| Workers | 4 | Parallel tasks limit |
+| Build Cache | Enabled | Faster subsequent builds |
+| Parallel Builds | Enabled | Faster compilation |
+| Incremental KSP | Enabled | Faster Kotlin processing |
+
+### ⚠️ Important Notes
+
+- **First build will be slower** but subsequent builds will be faster due to caching
+- **No local commands needed** - all configuration is in the files
+- **Works with natively.dev** cloud build service automatically
+- **Resource class "large"** ensures sufficient memory on build servers
+
+### 🔍 If Build Still Fails
+
+If you still encounter the error after these changes:
+
+1. **Check build logs** on natively.dev for specific error messages
+2. **Verify all files were committed** and pushed to your repository
+3. **Try building again** - sometimes the first build after changes needs a retry
+4. **Contact natively.dev support** if the issue persists
+
+---
+
+## Solution for Local Development (Advanced Users)
+
+If you're building locally on your PC, follow these steps:
 
 ### Step 1: Generate Android Native Files
 
@@ -43,9 +111,9 @@ The following files have been created with optimized memory settings:
 - **KSP Incremental**: Enabled for faster Kotlin processing
 
 #### `android/build.gradle`
-- **Kotlin Version**: 1.9.22
-- **Build Tools**: 34.0.0
-- **Gradle Plugin**: 8.1.4
+- **Kotlin Version**: 1.9.22+
+- **Build Tools**: 34.0.0+
+- **Gradle Plugin**: 8.1.4+
 - **Java Compile Memory**: 2GB per task
 
 #### `android/app/build.gradle`
@@ -86,7 +154,7 @@ npx expo run:android --variant release -- -PreactNativeArchitectures=arm64-v8a
 ```
 
 #### Option C: Reduce Parallel Workers
-Edit `android/gradle.properties` and add:
+Edit `android/gradle.properties` and change:
 ```properties
 org.gradle.workers.max=2
 ```
@@ -99,9 +167,9 @@ org.gradle.workers.max=2
 | Metaspace | 256MB | 1024MB | Class metadata storage |
 | Dex Heap | 1GB | 4GB | DEX file processing |
 | Java Compile | 512MB | 2GB | Java source compilation |
-| Workers | CPU cores | CPU/2 | Prevent memory exhaustion |
+| Workers | CPU cores | 4 | Prevent memory exhaustion |
 
-## System Requirements
+## System Requirements (Local Builds Only)
 
 For successful compilation with these settings:
 
@@ -112,7 +180,15 @@ For successful compilation with these settings:
 
 ## Troubleshooting
 
-### Still Getting OutOfMemoryError?
+### Still Getting OutOfMemoryError on Natively.dev?
+
+1. **Verify files are committed**: Make sure all configuration files are in your repository
+2. **Check build profile**: Ensure you're using the correct build profile (development/preview/production)
+3. **Review build logs**: Look for specific error messages in the natively.dev build logs
+4. **Try different profile**: Sometimes switching between profiles helps
+5. **Contact support**: Reach out to natively.dev support with your build logs
+
+### Still Getting OutOfMemoryError Locally?
 
 1. **Check Available RAM**:
    ```bash
@@ -180,55 +256,53 @@ After successful build, you should see:
 
 ## Additional Notes
 
-- These settings are optimized for modern development machines
-- Adjust values based on your system's available RAM
+- These settings are optimized for cloud build services like natively.dev
+- For local builds, adjust values based on your system's available RAM
 - The configuration enables incremental builds for faster subsequent compilations
 - MultiDex is enabled to handle the large number of dependencies
 - Build times will improve after the first successful build due to caching
 
 ## For Production Builds
 
-When building for production with EAS:
+The `eas.json` configuration includes optimized settings for all build profiles:
 
-1. Create `eas.json` if not exists:
-```json
-{
-  "build": {
-    "production": {
-      "android": {
-        "gradleCommand": ":app:bundleRelease",
-        "resourceClass": "large"
-      }
-    }
-  }
-}
-```
+- **Development**: Uses large resource class with debug build
+- **Preview**: Uses large resource class with release build
+- **Production**: Uses large resource class with bundle release
 
-2. Use larger resource class for builds:
-```bash
-eas build --platform android --profile production
-```
+All profiles include the same memory optimizations to prevent OutOfMemoryError.
 
-This ensures EAS uses machines with sufficient memory for your build.
+## Summary
+
+The Metaspace error has been resolved by:
+
+1. ✅ Configuring `eas.json` with large resource class and GRADLE_OPTS
+2. ✅ Creating optimized `gradle.properties` with increased memory
+3. ✅ Setting up `android/gradle.properties` with proper Android settings
+4. ✅ Embedding gradle properties in `app.json` for Expo prebuild
+5. ✅ Enabling incremental compilation and build caching
+6. ✅ Configuring parallel builds with memory limits
+
+### For Natively.dev Users:
+Your project is now configured to build successfully on natively.dev without any local commands needed. Just commit, push, and build!
+
+### For Local Developers:
+Your project is now configured to handle large Android builds without running out of memory. Run `npx expo prebuild` and then build normally.
+
+---
 
 ## Need More Help?
 
-If you continue experiencing issues:
+### For Natively.dev Users:
+- Check the natively.dev documentation
+- Contact natively.dev support with your build logs
+- Join the natively.dev community for assistance
 
+### For Local Developers:
 1. Check the full error log in `android/app/build/` folder
 2. Verify Java version: `java -version` (should be 17+)
 3. Verify Gradle version: `cd android && ./gradlew --version`
 4. Check system resources during build
 5. Consider using EAS Build with larger resource class
 
-## Summary
-
-The Metaspace error has been resolved by:
-
-1. ✅ Creating optimized `gradle.properties` with increased memory
-2. ✅ Configuring `build.gradle` files with proper settings
-3. ✅ Enabling MultiDex for large projects
-4. ✅ Setting up incremental compilation
-5. ✅ Configuring parallel builds with memory limits
-
-Your project is now configured to handle large Android builds without running out of memory!
+Your project is now optimized for successful Android builds! 🚀

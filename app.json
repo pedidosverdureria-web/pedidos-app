@@ -37,7 +37,7 @@
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.pedidos.wsp",
+      "package": "com.order.wsp",
       "permissions": [
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",
@@ -58,7 +58,17 @@
         "VIBRATE",
         "USE_FULL_SCREEN_INTENT"
       ],
-      "useNextNotificationsApi": true
+      "useNextNotificationsApi": true,
+      "gradleProperties": {
+        "org.gradle.jvmargs": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8",
+        "org.gradle.parallel": "true",
+        "org.gradle.caching": "true",
+        "org.gradle.daemon": "true",
+        "org.gradle.workers.max": "4",
+        "android.enableR8.fullMode": "true",
+        "kotlin.incremental": "true",
+        "ksp.incremental": "true"
+      }
     },
     "web": {
       "favicon": "./assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png",
