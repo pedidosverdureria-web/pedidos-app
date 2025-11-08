@@ -1343,6 +1343,7 @@ export default function OrderDetailScreen() {
     console.log('[OrderDetail] Current customer_id:', order.customer_id);
     console.log('[OrderDetail] Customer name:', order.customer_name);
     console.log('[OrderDetail] Customer phone:', order.customer_phone);
+    console.log('[OrderDetail] Order source:', order.source);
     
     try {
       setUpdatingStatus(true);
@@ -1421,6 +1422,7 @@ export default function OrderDetailScreen() {
                 address: order.customer_address || null,
                 total_debt: 0,
                 total_paid: 0,
+                finalized: false,
               })
               .select()
               .single();
@@ -1501,7 +1503,7 @@ export default function OrderDetailScreen() {
         console.log('[OrderDetail] Status change complete - showing success message');
         Alert.alert(
           '✅ Estado Actualizado',
-          `El pedido ahora está en estado: ${getStatusLabel(newStatus)}\n\nEl cliente ha sido ${customerId === order.customer_id ? 'vinculado' : 'creado'} y puede realizar pagos parciales desde el menú de Clientes.`,
+          `El pedido ahora está en estado: ${getStatusLabel(newStatus)}\n\nEl cliente ha sido ${customerId === order.customer_id ? 'vinculado' : 'creado'} automáticamente y aparecerá en "Vales Pendientes".`,
           [{ 
             text: 'OK',
             onPress: () => {
