@@ -26,6 +26,7 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { usePrinter } from '@/hooks/usePrinter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PrinterConfig } from '@/utils/receiptGenerator';
+import { addToPrintQueue } from '@/utils/printQueue';
 
 const { width } = Dimensions.get('window');
 const PRINTER_CONFIG_KEY = '@printer_config';
@@ -742,22 +743,37 @@ export default function CustomersScreen() {
       return;
     }
 
-    if (!isConnected) {
-      Alert.alert(
-        '⚠️ Impresora no conectada',
-        'Por favor conecta una impresora en Configuración > Impresora'
-      );
-      return;
-    }
-
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
       const receiptText = generateDebtReceipt(selectedCustomer, printerConfig || undefined);
-      await print(receiptText);
       
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ Impreso', 'El recibo de deuda se imprimió correctamente');
+      if (isConnected) {
+        // If printer is connected, print directly
+        await print(receiptText);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert('✅ Impreso', 'El recibo de deuda se imprimió correctamente');
+      } else {
+        // If no printer is connected, add to print queue
+        console.log('[CustomersScreen] No printer connected, adding debt receipt to print queue');
+        
+        const result = await addToPrintQueue('customer_debt', selectedCustomer.id, {
+          customer_name: selectedCustomer.name,
+          customer_phone: selectedCustomer.phone,
+          receipt_text: receiptText,
+          pending_orders_count: pendingOrders.length,
+        });
+        
+        if (result.success) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert(
+            '📋 Agregado a Cola de Impresión',
+            'El recibo de deuda se agregó a la cola de impresión. Se imprimirá automáticamente cuando conectes una impresora.'
+          );
+        } else {
+          throw new Error(result.error || 'Error al agregar a la cola de impresión');
+        }
+      }
     } catch (error) {
       console.error('[CustomersScreen] Error printing debt receipt:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
