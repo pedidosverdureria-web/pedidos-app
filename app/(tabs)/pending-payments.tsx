@@ -1111,8 +1111,11 @@ export default function PendingPaymentsScreen() {
       setPaymentNotes('');
       setSelectedOrderId(null);
       
+      // Reload the main customer list
       await loadCustomers();
       
+      // Reload the selected customer data WITHOUT filtering by pending_payment status
+      // This ensures we can still see the customer even if all orders are now paid
       const { data: updatedCustomer } = await supabase
         .from('customers')
         .select(`
@@ -1144,18 +1147,26 @@ export default function PendingPaymentsScreen() {
         .single();
 
       if (updatedCustomer) {
+        // Filter orders to show only pending_payment for display purposes
         const customerWithFilteredOrders = {
           ...updatedCustomer,
           orders: updatedCustomer.orders?.filter((order: Order) => order.status === 'pending_payment') || [],
         };
         
-        if (customerWithFilteredOrders.orders.length === 0) {
-          setShowDetailModal(false);
-          setSelectedCustomer(null);
-        } else {
-          setSelectedCustomer(customerWithFilteredOrders);
-        }
+        // Update the selected customer with the latest data
+        // Keep the modal open so user can see the "Finalizar" button
+        setSelectedCustomer(customerWithFilteredOrders);
+        
+        console.log('[PendingPaymentsScreen] Updated customer data:', {
+          name: customerWithFilteredOrders.name,
+          total_debt: customerWithFilteredOrders.total_debt,
+          total_paid: customerWithFilteredOrders.total_paid,
+          remaining: customerWithFilteredOrders.total_debt - customerWithFilteredOrders.total_paid,
+          pending_orders: customerWithFilteredOrders.orders.length
+        });
       } else {
+        // If customer not found, close the modal
+        console.log('[PendingPaymentsScreen] Customer not found after payment, closing modal');
         setShowDetailModal(false);
         setSelectedCustomer(null);
       }
