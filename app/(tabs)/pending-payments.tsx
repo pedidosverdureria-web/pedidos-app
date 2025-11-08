@@ -805,7 +805,7 @@ export default function PendingPaymentsScreen() {
 
     Alert.alert(
       '✅ Finalizar Cliente',
-      `¿Estás seguro de que deseas finalizar a ${selectedCustomer.name}?\n\nEl cliente será removido de la lista de vales pendientes. Podrás verlo nuevamente cuando tenga nuevos pedidos pendientes.`,
+      `¿Estás seguro de que deseas finalizar a ${selectedCustomer.name}?\n\nTodos los pedidos pagados pasarán a "Pedidos Completados" y el cliente será removido de la lista de vales pendientes.`,
       [
         {
           text: 'Cancelar',
@@ -816,15 +816,56 @@ export default function PendingPaymentsScreen() {
           onPress: async () => {
             try {
               const supabase = getSupabase();
-              const { error } = await supabase
+              
+              console.log('[PendingPaymentsScreen] Finalizing customer:', selectedCustomer.name);
+              
+              // Step 1: Get all orders for this customer that are in pending_payment status and fully paid
+              const { data: ordersToUpdate, error: fetchError } = await supabase
+                .from('orders')
+                .select('id, order_number, total_amount, paid_amount')
+                .eq('customer_id', selectedCustomer.id)
+                .eq('status', 'pending_payment');
+
+              if (fetchError) throw fetchError;
+
+              console.log('[PendingPaymentsScreen] Orders to check:', ordersToUpdate?.length || 0);
+
+              // Step 2: Filter orders that are fully paid
+              const fullyPaidOrders = ordersToUpdate?.filter(
+                order => order.paid_amount >= order.total_amount && order.total_amount > 0
+              ) || [];
+
+              console.log('[PendingPaymentsScreen] Fully paid orders to update:', fullyPaidOrders.length);
+
+              // Step 3: Update all fully paid orders to 'paid' status
+              if (fullyPaidOrders.length > 0) {
+                const orderIds = fullyPaidOrders.map(order => order.id);
+                
+                const { error: updateError } = await supabase
+                  .from('orders')
+                  .update({ status: 'paid' })
+                  .in('id', orderIds);
+
+                if (updateError) throw updateError;
+
+                console.log('[PendingPaymentsScreen] Updated orders to paid status:', orderIds);
+              }
+
+              // Step 4: Mark customer as finalized
+              const { error: finalizeError } = await supabase
                 .from('customers')
                 .update({ finalized: true })
                 .eq('id', selectedCustomer.id);
 
-              if (error) throw error;
+              if (finalizeError) throw finalizeError;
 
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('✅ Cliente Finalizado', `${selectedCustomer.name} ha sido removido de la lista de vales pendientes`);
+              
+              const message = fullyPaidOrders.length > 0
+                ? `${selectedCustomer.name} ha sido finalizado.\n\n${fullyPaidOrders.length} ${fullyPaidOrders.length === 1 ? 'pedido ha sido movido' : 'pedidos han sido movidos'} a Pedidos Completados.`
+                : `${selectedCustomer.name} ha sido removido de la lista de vales pendientes.`;
+              
+              Alert.alert('✅ Cliente Finalizado', message);
               
               setShowDetailModal(false);
               setSelectedCustomer(null);
