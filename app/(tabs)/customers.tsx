@@ -77,6 +77,8 @@ export default function CustomersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editedName, setEditedName] = useState('');
   const [editedRut, setEditedRut] = useState('');
@@ -396,6 +398,9 @@ export default function CustomersScreen() {
     modalButtonPrimary: {
       backgroundColor: colors.primary,
     },
+    modalButtonDanger: {
+      backgroundColor: '#EF4444',
+    },
     modalButtonText: {
       fontSize: 16,
       fontWeight: '600',
@@ -486,6 +491,77 @@ export default function CustomersScreen() {
       fontWeight: '600',
       color: '#fff',
       marginLeft: 8,
+    },
+    deleteButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#EF4444',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+    },
+    deleteButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#fff',
+      marginLeft: 8,
+    },
+    deleteDialogContent: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 24,
+      width: '90%',
+      maxWidth: 400,
+    },
+    deleteDialogTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 12,
+      textAlign: 'center',
+    },
+    deleteDialogMessage: {
+      fontSize: 16,
+      color: colors.text,
+      marginBottom: 20,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    deleteDialogWarning: {
+      fontSize: 14,
+      color: '#DC2626',
+      marginBottom: 20,
+      textAlign: 'center',
+      fontWeight: '600',
+    },
+    deleteDialogButtons: {
+      gap: 12,
+    },
+    deleteDialogButton: {
+      padding: 14,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    deleteDialogButtonCustomerOnly: {
+      backgroundColor: '#F59E0B',
+    },
+    deleteDialogButtonAll: {
+      backgroundColor: '#EF4444',
+    },
+    deleteDialogButtonCancel: {
+      backgroundColor: colors.border,
+    },
+    deleteDialogButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#fff',
+    },
+    deleteDialogButtonTextCancel: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
     },
   });
 
@@ -605,6 +681,135 @@ export default function CustomersScreen() {
       setEditedPhone(selectedCustomer.phone || '');
     }
     setIsEditMode(false);
+  };
+
+  const handleOpenDeleteDialog = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteCustomerOnly = async () => {
+    if (!selectedCustomer) return;
+
+    const orderCount = selectedCustomer.orders?.length || 0;
+    
+    if (orderCount > 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        '⚠️ No se puede eliminar',
+        `Este cliente tiene ${orderCount} ${orderCount === 1 ? 'pedido asociado' : 'pedidos asociados'}. Para eliminar solo el cliente, primero debe eliminar todos sus pedidos, o use la opción "Eliminar Cliente y Pedidos".`,
+        [{ text: 'Entendido', style: 'default' }]
+      );
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+      const supabase = getSupabase();
+      
+      console.log('[CustomersScreen] Deleting customer only:', selectedCustomer.id);
+      
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', selectedCustomer.id);
+
+      if (error) throw error;
+
+      console.log('[CustomersScreen] Customer deleted successfully');
+      
+      setCustomers(prev => prev.filter(c => c.id !== selectedCustomer.id));
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('✅ Éxito', 'Cliente eliminado correctamente');
+      
+      setShowDeleteDialog(false);
+      setShowDetailModal(false);
+      setSelectedCustomer(null);
+    } catch (error) {
+      console.error('[CustomersScreen] Error deleting customer:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('❌ Error', 'No se pudo eliminar el cliente. Verifique que no tenga pedidos asociados.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCustomerAndOrders = async () => {
+    if (!selectedCustomer) return;
+
+    const orderCount = selectedCustomer.orders?.length || 0;
+
+    try {
+      setIsDeleting(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+
+      const supabase = getSupabase();
+      
+      console.log('[CustomersScreen] Deleting customer and orders:', selectedCustomer.id);
+      
+      // First, delete all order items for each order
+      if (orderCount > 0) {
+        const orderIds = selectedCustomer.orders!.map(o => o.id);
+        
+        console.log('[CustomersScreen] Deleting order items for orders:', orderIds);
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .delete()
+          .in('order_id', orderIds);
+
+        if (itemsError) throw itemsError;
+
+        // Delete order queries
+        console.log('[CustomersScreen] Deleting order queries for orders:', orderIds);
+        const { error: queriesError } = await supabase
+          .from('order_queries')
+          .delete()
+          .in('order_id', orderIds);
+
+        if (queriesError) throw queriesError;
+
+        // Delete orders
+        console.log('[CustomersScreen] Deleting orders:', orderIds);
+        const { error: ordersError } = await supabase
+          .from('orders')
+          .delete()
+          .in('id', orderIds);
+
+        if (ordersError) throw ordersError;
+      }
+
+      // Finally, delete the customer (payments will cascade automatically)
+      console.log('[CustomersScreen] Deleting customer:', selectedCustomer.id);
+      const { error: customerError } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', selectedCustomer.id);
+
+      if (customerError) throw customerError;
+
+      console.log('[CustomersScreen] Customer and orders deleted successfully');
+      
+      setCustomers(prev => prev.filter(c => c.id !== selectedCustomer.id));
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert(
+        '✅ Éxito',
+        `Cliente y ${orderCount} ${orderCount === 1 ? 'pedido eliminado' : 'pedidos eliminados'} correctamente`
+      );
+      
+      setShowDeleteDialog(false);
+      setShowDetailModal(false);
+      setSelectedCustomer(null);
+    } catch (error) {
+      console.error('[CustomersScreen] Error deleting customer and orders:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('❌ Error', 'No se pudo eliminar el cliente y sus pedidos');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleStatCardPress = (status: string) => {
@@ -800,7 +1005,7 @@ export default function CustomersScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => {
-          if (!isEditMode) {
+          if (!isEditMode && !showDeleteDialog) {
             setShowDetailModal(false);
           }
         }}
@@ -917,6 +1122,14 @@ export default function CustomersScreen() {
                       >
                         <IconSymbol name="pencil" size={16} color="#fff" />
                         <Text style={styles.editModeButtonText}>Editar Información</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={handleOpenDeleteDialog}
+                      >
+                        <IconSymbol name="trash.fill" size={16} color="#fff" />
+                        <Text style={styles.deleteButtonText}>Eliminar Cliente</Text>
                       </TouchableOpacity>
 
                       <ScrollView style={styles.modalScrollView}>
@@ -1062,6 +1275,65 @@ export default function CustomersScreen() {
             })()}
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={showDeleteDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isDeleting) {
+            setShowDeleteDialog(false);
+          }
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.deleteDialogContent}>
+            <Text style={styles.deleteDialogTitle}>⚠️ Eliminar Cliente</Text>
+            <Text style={styles.deleteDialogMessage}>
+              ¿Qué desea eliminar?
+            </Text>
+            {selectedCustomer && selectedCustomer.orders && selectedCustomer.orders.length > 0 && (
+              <Text style={styles.deleteDialogWarning}>
+                Este cliente tiene {selectedCustomer.orders.length} {selectedCustomer.orders.length === 1 ? 'pedido' : 'pedidos'}
+              </Text>
+            )}
+            
+            <View style={styles.deleteDialogButtons}>
+              <TouchableOpacity
+                style={[styles.deleteDialogButton, styles.deleteDialogButtonCustomerOnly]}
+                onPress={handleDeleteCustomerOnly}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.deleteDialogButtonText}>Solo Cliente</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.deleteDialogButton, styles.deleteDialogButtonAll]}
+                onPress={handleDeleteCustomerAndOrders}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.deleteDialogButtonText}>Cliente y Pedidos</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.deleteDialogButton, styles.deleteDialogButtonCancel]}
+                onPress={() => setShowDeleteDialog(false)}
+                disabled={isDeleting}
+              >
+                <Text style={styles.deleteDialogButtonTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </View>
   );
