@@ -23,8 +23,12 @@ import { Customer, Order } from '@/types';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { usePrinter } from '@/hooks/usePrinter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { PrinterConfig } from '@/utils/receiptGenerator';
 
 const { width } = Dimensions.get('window');
+const PRINTER_CONFIG_KEY = '@printer_config';
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', {
@@ -39,6 +43,17 @@ function formatDate(dateString: string): string {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+  });
+}
+
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('es-CL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
   });
 }
 
@@ -68,9 +83,72 @@ function getStatusColor(status: string): string {
   return colors[status] || '#6B7280';
 }
 
+function centerText(text: string, width: number): string {
+  const padding = Math.max(0, Math.floor((width - text.length) / 2));
+  return ' '.repeat(padding) + text;
+}
+
+function generateDebtReceipt(customer: Customer, config?: PrinterConfig): string {
+  const width = config?.paper_size === '58mm' ? 32 : 48;
+  
+  let receipt = '';
+  
+  if (config?.include_logo !== false) {
+    receipt += centerText('DEUDA VALES PENDIENTES', width) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+  }
+  
+  receipt += `Cliente: ${customer.name}\n`;
+  if (customer.phone) {
+    receipt += `Telefono: ${customer.phone}\n`;
+  }
+  if (customer.address) {
+    receipt += `Direccion: ${customer.address}\n`;
+  }
+  receipt += `Fecha: ${formatDateTime(new Date().toISOString())}\n`;
+  receipt += '-'.repeat(width) + '\n\n';
+  
+  receipt += 'RESUMEN VALES PENDIENTES:\n\n';
+  
+  // Filter only pending_payment orders
+  const pendingOrders = customer.orders?.filter(order => order.status === 'pending_payment') || [];
+  
+  if (pendingOrders.length > 0) {
+    let totalDebt = 0;
+    
+    for (const order of pendingOrders) {
+      const orderDebt = order.total_amount - order.paid_amount;
+      totalDebt += orderDebt;
+      
+      receipt += `Pedido: ${order.order_number}\n`;
+      receipt += `Fecha: ${formatDate(order.created_at)}\n`;
+      
+      const productCount = order.items?.length || 0;
+      receipt += `Productos: ${productCount}\n`;
+      
+      receipt += `Monto Total: ${formatCLP(order.total_amount)}\n`;
+      receipt += '\n';
+    }
+    
+    receipt += '-'.repeat(width) + '\n';
+    receipt += `TOTAL VALES: ${pendingOrders.length}\n`;
+    receipt += `SUMA TOTAL DEUDA: ${formatCLP(totalDebt)}\n`;
+  } else {
+    receipt += 'No hay vales pendientes\n\n';
+    receipt += '-'.repeat(width) + '\n';
+    receipt += 'SUMA TOTAL DEUDA: $0\n';
+  }
+  
+  receipt += '\n' + '='.repeat(width) + '\n';
+  receipt += centerText('Documento para gestion de cobranza', width) + '\n\n\n';
+  
+  return receipt;
+}
+
 export default function CustomersScreen() {
   const { user } = useAuth();
   const { colors } = useThemedStyles();
+  const { print, isConnected } = usePrinter();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,6 +162,7 @@ export default function CustomersScreen() {
   const [editedRut, setEditedRut] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
 
   const styles = StyleSheet.create({
     container: {
@@ -492,6 +571,21 @@ export default function CustomersScreen() {
       color: '#fff',
       marginLeft: 8,
     },
+    printDebtButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#8B5CF6',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+    },
+    printDebtButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#fff',
+      marginLeft: 8,
+    },
     deleteButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -565,6 +659,20 @@ export default function CustomersScreen() {
     },
   });
 
+  useEffect(() => {
+    const loadPrinterConfig = async () => {
+      try {
+        const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+        if (configStr) {
+          setPrinterConfig(JSON.parse(configStr));
+        }
+      } catch (error) {
+        console.error('[CustomersScreen] Error loading printer config:', error);
+      }
+    };
+    loadPrinterConfig();
+  }, []);
+
   const loadCustomers = useCallback(async () => {
     try {
       setLoading(true);
@@ -622,6 +730,40 @@ export default function CustomersScreen() {
     setIsEditMode(false);
     setShowDetailModal(true);
   }, []);
+
+  const handlePrintDebt = async () => {
+    if (!selectedCustomer) return;
+
+    const pendingOrders = selectedCustomer.orders?.filter(order => order.status === 'pending_payment') || [];
+    
+    if (pendingOrders.length === 0) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('⚠️ Sin Vales Pendientes', 'Este cliente no tiene vales pendientes de pago');
+      return;
+    }
+
+    if (!isConnected) {
+      Alert.alert(
+        '⚠️ Impresora no conectada',
+        'Por favor conecta una impresora en Configuración > Impresora'
+      );
+      return;
+    }
+
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      
+      const receiptText = generateDebtReceipt(selectedCustomer, printerConfig || undefined);
+      await print(receiptText);
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert('✅ Impreso', 'El recibo de deuda se imprimió correctamente');
+    } catch (error) {
+      console.error('[CustomersScreen] Error printing debt receipt:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('❌ Error', 'No se pudo imprimir el recibo de deuda');
+    }
+  };
 
   const handleSaveCustomerInfo = async () => {
     if (!selectedCustomer) return;
@@ -750,7 +892,6 @@ export default function CustomersScreen() {
       
       console.log('[CustomersScreen] Deleting customer and orders:', selectedCustomer.id);
       
-      // First, delete all order items for each order
       if (orderCount > 0) {
         const orderIds = selectedCustomer.orders!.map(o => o.id);
         
@@ -762,7 +903,6 @@ export default function CustomersScreen() {
 
         if (itemsError) throw itemsError;
 
-        // Delete order queries
         console.log('[CustomersScreen] Deleting order queries for orders:', orderIds);
         const { error: queriesError } = await supabase
           .from('order_queries')
@@ -771,7 +911,6 @@ export default function CustomersScreen() {
 
         if (queriesError) throw queriesError;
 
-        // Delete orders
         console.log('[CustomersScreen] Deleting orders:', orderIds);
         const { error: ordersError } = await supabase
           .from('orders')
@@ -781,7 +920,6 @@ export default function CustomersScreen() {
         if (ordersError) throw ordersError;
       }
 
-      // Finally, delete the customer (payments will cascade automatically)
       console.log('[CustomersScreen] Deleting customer:', selectedCustomer.id);
       const { error: customerError } = await supabase
         .from('customers')
@@ -1020,6 +1158,9 @@ export default function CustomersScreen() {
               const recentOrders = (selectedCustomer.orders || [])
                 .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
                 .slice(0, 10);
+              
+              const pendingPaymentOrders = selectedCustomer.orders?.filter(o => o.status === 'pending_payment') || [];
+              const hasPendingPayments = pendingPaymentOrders.length > 0;
 
               return (
                 <>
@@ -1123,6 +1264,16 @@ export default function CustomersScreen() {
                         <IconSymbol name="pencil" size={16} color="#fff" />
                         <Text style={styles.editModeButtonText}>Editar Información</Text>
                       </TouchableOpacity>
+
+                      {hasPendingPayments && (
+                        <TouchableOpacity
+                          style={styles.printDebtButton}
+                          onPress={handlePrintDebt}
+                        >
+                          <IconSymbol name="printer.fill" size={16} color="#fff" />
+                          <Text style={styles.printDebtButtonText}>Imprimir Deuda</Text>
+                        </TouchableOpacity>
+                      )}
 
                       <TouchableOpacity
                         style={styles.deleteButton}

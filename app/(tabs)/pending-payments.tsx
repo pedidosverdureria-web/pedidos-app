@@ -717,6 +717,8 @@ export default function PendingPaymentsScreen() {
       setLoading(true);
       const supabase = getSupabase();
       
+      // Load customers that have NOT been finalized
+      // This ensures customers remain visible even when fully paid, until "Finalizar" is pressed
       const { data, error } = await supabase
         .from('customers')
         .select(`
@@ -749,6 +751,8 @@ export default function PendingPaymentsScreen() {
 
       if (error) throw error;
 
+      // Filter to show only orders with pending_payment status in the UI
+      // But keep the customer visible even if all orders are paid
       const customersWithFilteredOrders = data
         .map(customer => ({
           ...customer,
@@ -756,6 +760,7 @@ export default function PendingPaymentsScreen() {
         }))
         .filter(customer => customer.orders.length > 0);
 
+      console.log('[PendingPaymentsScreen] Loaded customers with pending orders:', customersWithFilteredOrders.length);
       setCustomers(customersWithFilteredOrders);
     } catch (error) {
       console.error('[PendingPaymentsScreen] Error loading customers:', error);
@@ -838,6 +843,7 @@ export default function PendingPaymentsScreen() {
               console.log('[PendingPaymentsScreen] Fully paid orders to update:', fullyPaidOrders.length);
 
               // Step 3: Update all fully paid orders to 'paid' status
+              // These orders will automatically move to "Pedidos Completados" in the profile
               if (fullyPaidOrders.length > 0) {
                 const orderIds = fullyPaidOrders.map(order => order.id);
                 
@@ -852,6 +858,7 @@ export default function PendingPaymentsScreen() {
               }
 
               // Step 4: Mark customer as finalized
+              // This removes the customer from the "Vales Pendientes" list
               const { error: finalizeError } = await supabase
                 .from('customers')
                 .update({ finalized: true })
@@ -1162,8 +1169,7 @@ export default function PendingPaymentsScreen() {
       // Reload the main customer list
       await loadCustomers();
       
-      // Reload the selected customer data WITHOUT filtering by pending_payment status
-      // This ensures we can still see the customer even if all orders are now paid
+      // Reload the selected customer data to show updated payment status
       console.log('[PendingPaymentsScreen] Reloading customer data after payment...');
       
       const { data: updatedCustomerData, error: fetchError } = await supabase
@@ -1198,7 +1204,6 @@ export default function PendingPaymentsScreen() {
 
       if (fetchError) {
         console.error('[PendingPaymentsScreen] Error fetching updated customer:', fetchError);
-        // If we can't fetch the customer, close the modal
         setShowDetailModal(false);
         setSelectedCustomer(null);
         return;
@@ -1232,10 +1237,9 @@ export default function PendingPaymentsScreen() {
         console.log('[PendingPaymentsScreen] Customer fully paid?', isFullyPaid);
         
         if (isFullyPaid) {
-          console.log('[PendingPaymentsScreen] Customer is fully paid, Finalizar button should now be visible');
+          console.log('[PendingPaymentsScreen] Customer is fully paid, "Al día" badge and Finalizar button should now be visible');
         }
       } else {
-        // If customer not found, close the modal
         console.log('[PendingPaymentsScreen] Customer not found after payment, closing modal');
         setShowDetailModal(false);
         setSelectedCustomer(null);
@@ -1372,6 +1376,7 @@ export default function PendingPaymentsScreen() {
     );
   }
 
+  // Calculate if customer is fully paid for showing the Finalizar button
   const isCustomerFullyPaid = selectedCustomer 
     ? (selectedCustomer.total_debt - selectedCustomer.total_paid) === 0 
     : false;
