@@ -1022,6 +1022,13 @@ export default function PendingPaymentsScreen() {
       setSubmittingPayment(true);
       const supabase = getSupabase();
 
+      console.log('[PendingPaymentsScreen] Processing payment:', {
+        customer: selectedCustomer.name,
+        amount,
+        type: paymentType,
+        orderId: selectedOrderId,
+      });
+
       if (paymentType === 'order' && selectedOrderId) {
         const paymentData: any = {
           order_id: selectedOrderId,
@@ -1116,7 +1123,9 @@ export default function PendingPaymentsScreen() {
       
       // Reload the selected customer data WITHOUT filtering by pending_payment status
       // This ensures we can still see the customer even if all orders are now paid
-      const { data: updatedCustomer } = await supabase
+      console.log('[PendingPaymentsScreen] Reloading customer data after payment...');
+      
+      const { data: updatedCustomerData, error: fetchError } = await supabase
         .from('customers')
         .select(`
           *,
@@ -1146,24 +1155,44 @@ export default function PendingPaymentsScreen() {
         .eq('id', selectedCustomer.id)
         .single();
 
-      if (updatedCustomer) {
+      if (fetchError) {
+        console.error('[PendingPaymentsScreen] Error fetching updated customer:', fetchError);
+        // If we can't fetch the customer, close the modal
+        setShowDetailModal(false);
+        setSelectedCustomer(null);
+        return;
+      }
+
+      if (updatedCustomerData) {
+        console.log('[PendingPaymentsScreen] Customer data reloaded successfully:', {
+          name: updatedCustomerData.name,
+          total_debt: updatedCustomerData.total_debt,
+          total_paid: updatedCustomerData.total_paid,
+          remaining: updatedCustomerData.total_debt - updatedCustomerData.total_paid,
+          all_orders_count: updatedCustomerData.orders?.length || 0,
+        });
+
         // Filter orders to show only pending_payment for display purposes
+        const pendingOrders = updatedCustomerData.orders?.filter((order: Order) => order.status === 'pending_payment') || [];
+        
         const customerWithFilteredOrders = {
-          ...updatedCustomer,
-          orders: updatedCustomer.orders?.filter((order: Order) => order.status === 'pending_payment') || [],
+          ...updatedCustomerData,
+          orders: pendingOrders,
         };
         
+        console.log('[PendingPaymentsScreen] Filtered pending orders:', pendingOrders.length);
+        
         // Update the selected customer with the latest data
-        // Keep the modal open so user can see the "Finalizar" button
+        // Keep the modal open so user can see the "Finalizar" button if fully paid
         setSelectedCustomer(customerWithFilteredOrders);
         
-        console.log('[PendingPaymentsScreen] Updated customer data:', {
-          name: customerWithFilteredOrders.name,
-          total_debt: customerWithFilteredOrders.total_debt,
-          total_paid: customerWithFilteredOrders.total_paid,
-          remaining: customerWithFilteredOrders.total_debt - customerWithFilteredOrders.total_paid,
-          pending_orders: customerWithFilteredOrders.orders.length
-        });
+        // Check if customer is fully paid
+        const isFullyPaid = (updatedCustomerData.total_debt - updatedCustomerData.total_paid) === 0;
+        console.log('[PendingPaymentsScreen] Customer fully paid?', isFullyPaid);
+        
+        if (isFullyPaid) {
+          console.log('[PendingPaymentsScreen] Customer is fully paid, Finalizar button should now be visible');
+        }
       } else {
         // If customer not found, close the modal
         console.log('[PendingPaymentsScreen] Customer not found after payment, closing modal');
@@ -1415,7 +1444,11 @@ export default function PendingPaymentsScreen() {
                   ))
                 ) : (
                   <View style={styles.emptyPayments}>
-                    <Text style={styles.emptyPaymentsText}>No hay pedidos pendientes</Text>
+                    <Text style={styles.emptyPaymentsText}>
+                      {isCustomerFullyPaid 
+                        ? '✅ Todos los pedidos han sido pagados' 
+                        : 'No hay pedidos pendientes'}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -1444,16 +1477,18 @@ export default function PendingPaymentsScreen() {
             </ScrollView>
 
             {/* Action Buttons */}
-            <TouchableOpacity
-              style={styles.addPaymentButton}
-              onPress={() => {
-                setShowDetailModal(false);
-                openPaymentModal('account');
-              }}
-            >
-              <IconSymbol name="plus.circle.fill" size={20} color="#fff" />
-              <Text style={styles.addPaymentButtonText}>Registrar Abono a Cuenta</Text>
-            </TouchableOpacity>
+            {!isCustomerFullyPaid && (
+              <TouchableOpacity
+                style={styles.addPaymentButton}
+                onPress={() => {
+                  setShowDetailModal(false);
+                  openPaymentModal('account');
+                }}
+              >
+                <IconSymbol name="plus.circle.fill" size={20} color="#fff" />
+                <Text style={styles.addPaymentButtonText}>Registrar Abono a Cuenta</Text>
+              </TouchableOpacity>
+            )}
 
             {isConnected && (
               <TouchableOpacity
