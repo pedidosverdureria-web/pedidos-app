@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "pedidos-app",
@@ -23,8 +24,8 @@
           "processing",
           "audio"
         ],
-        "NSBluetoothAlwaysUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica y poder imprimir pedidos autom\u00e1ticamente.",
-        "NSBluetoothPeripheralUsageDescription": "Esta aplicaci\u00f3n necesita acceso a Bluetooth para conectarse a la impresora t\u00e9rmica.",
+        "NSBluetoothAlwaysUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica y poder imprimir pedidos automáticamente.",
+        "NSBluetoothPeripheralUsageDescription": "Esta aplicación necesita acceso a Bluetooth para conectarse a la impresora térmica.",
         "BGTaskSchedulerPermittedIdentifiers": [
           "com.anonymous.Natively.background-auto-print",
           "com.anonymous.Natively.background-fetch"
@@ -60,14 +61,15 @@
       ],
       "useNextNotificationsApi": true,
       "gradleProperties": {
-        "org.gradle.jvmargs": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8",
-        "org.gradle.parallel": "true",
+        "org.gradle.jvmargs": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:MetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC",
+        "org.gradle.parallel": "false",
         "org.gradle.caching": "true",
         "org.gradle.daemon": "true",
-        "org.gradle.workers.max": "4",
+        "org.gradle.workers.max": "2",
         "android.enableR8.fullMode": "true",
         "kotlin.incremental": "true",
-        "ksp.incremental": "true"
+        "ksp.incremental": "true",
+        "org.gradle.vfs.watch": "false"
       }
     },
     "web": {
@@ -99,13 +101,11 @@
         }
       ]
     ],
-    "scheme": "natively",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
       "router": {}
     }
-  },
-  "scheme": "Pedidos"
+  }
 }

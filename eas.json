@@ -1,3 +1,4 @@
+
 {
   "build": {
     "development": {
@@ -5,10 +6,10 @@
       "distribution": "internal",
       "autoIncrement": true,
       "android": {
-        "resourceClass": "large",
+        "resourceClass": "medium",
         "gradleCommand": ":app:assembleDebug",
         "env": {
-          "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:MetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC"
         }
       }
     },
@@ -16,20 +17,20 @@
       "distribution": "internal",
       "autoIncrement": true,
       "android": {
-        "resourceClass": "large",
+        "resourceClass": "medium",
         "gradleCommand": ":app:assembleRelease",
         "env": {
-          "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:MetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC"
         }
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
-        "resourceClass": "large",
+        "resourceClass": "medium",
         "gradleCommand": ":app:bundleRelease",
         "env": {
-          "GRADLE_OPTS": "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8"
+          "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:MetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC"
         }
       }
     }
