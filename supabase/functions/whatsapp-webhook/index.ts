@@ -249,6 +249,22 @@ async function loadKnownUnits(supabase: any) {
 }
 
 /**
+ * Normalizes phone number for comparison
+ * Removes spaces, dashes, and ensures consistent format
+ */
+function normalizePhoneNumber(phone: string): string {
+  // Remove all spaces, dashes, parentheses
+  let normalized = phone.replace(/[\s\-\(\)]/g, '');
+  
+  // Ensure it starts with +
+  if (!normalized.startsWith('+')) {
+    normalized = '+' + normalized;
+  }
+  
+  return normalized;
+}
+
+/**
  * Loads authorized phone numbers from database
  */
 async function loadAuthorizedPhones(supabase: any): Promise<string[]> {
@@ -262,8 +278,9 @@ async function loadAuthorizedPhones(supabase: any): Promise<string[]> {
       return [];
     }
 
-    const phoneNumbers = data.map((row: any) => row.phone_number);
-    console.log(`Loaded ${phoneNumbers.length} authorized phone numbers:`, phoneNumbers);
+    // Normalize all phone numbers for consistent comparison
+    const phoneNumbers = data.map((row: any) => normalizePhoneNumber(row.phone_number));
+    console.log(`✅ Loaded ${phoneNumbers.length} authorized phone numbers:`, phoneNumbers);
     return phoneNumbers;
   } catch (error) {
     console.error('Exception loading authorized phones:', error);
@@ -1414,10 +1431,19 @@ serve(async (req) => {
           continue; // Skip processing this message
         }
 
-        // FIXED LOGIC: Check if this phone number is in the authorized list
-        const isAlwaysNewOrderPhone = authorizedPhones.includes(customerPhone);
-        console.log('Is always-new-order phone:', isAlwaysNewOrderPhone);
-        console.log('Authorized phones list:', authorizedPhones);
+        // FIXED: Normalize the incoming phone number for comparison
+        const normalizedCustomerPhone = normalizePhoneNumber(customerPhone);
+        
+        // Check if this phone number is in the authorized list
+        const isAlwaysNewOrderPhone = authorizedPhones.includes(normalizedCustomerPhone);
+        
+        console.log('========================================');
+        console.log('🔍 AUTHORIZED PHONE CHECK:');
+        console.log('  Incoming phone (raw):', customerPhone);
+        console.log('  Incoming phone (normalized):', normalizedCustomerPhone);
+        console.log('  Authorized phones list:', authorizedPhones);
+        console.log('  Is authorized?', isAlwaysNewOrderPhone ? '✅ YES' : '❌ NO');
+        console.log('========================================');
 
         // Check if customer has an order in active statuses (pending, preparing, ready)
         // Orders in delivered, pending_payment, paid, or cancelled statuses should NOT trigger query behavior
@@ -1447,7 +1473,7 @@ serve(async (req) => {
         // AND is NOT in the authorized list, treat as query
         // If phone IS in authorized list, ALWAYS create new order regardless of active orders
         if (hasActiveOrder && !hasNewOrderKeyword && !isAlwaysNewOrderPhone && activeOrder) {
-          console.log('Treating message as order query (has active order, no new order keyword, not authorized phone)');
+          console.log('📋 Treating message as ORDER QUERY (has active order, no new order keyword, not authorized phone)');
           
           // Save query to database with direction='incoming'
           const { data: queryData, error: queryError } = await supabase
@@ -1763,7 +1789,7 @@ Manual Juan Pérez
           continue;
         }
 
-        console.log('Created order:', order.id, 'with number:', order.order_number);
+        console.log('✅ Created NEW ORDER:', order.id, 'with number:', order.order_number);
 
         // Create order items (including unparseable ones with "#" quantity)
         const orderItems = parsedItems.map((item) => {
