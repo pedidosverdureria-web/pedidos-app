@@ -59,6 +59,36 @@ function centerText(text: string, width: number): string {
   return ' '.repeat(padding) + text;
 }
 
+function getStatusLabel(status: string): string {
+  const labels: { [key: string]: string } = {
+    pending: 'Pendiente',
+    preparing: 'Preparando',
+    ready: 'Listo',
+    delivered: 'Entregado',
+    cancelled: 'Cancelado',
+    pending_payment: 'Pago Pendiente',
+    abonado: 'Abonado',
+    pagado: 'Pagado',
+    finalizado: 'Finalizado',
+  };
+  return labels[status] || status;
+}
+
+function getStatusColor(status: string): string {
+  const colors: { [key: string]: string } = {
+    pending: '#F59E0B',
+    preparing: '#3B82F6',
+    ready: '#10B981',
+    delivered: '#6B7280',
+    cancelled: '#EF4444',
+    pending_payment: '#8B5CF6',
+    abonado: '#F59E0B',
+    pagado: '#10B981',
+    finalizado: '#059669',
+  };
+  return colors[status] || '#6B7280';
+}
+
 function generatePendingOrdersReceipt(customer: Customer, config?: PrinterConfig): string {
   const width = config?.paper_size === '58mm' ? 32 : 48;
   
@@ -85,6 +115,7 @@ function generatePendingOrdersReceipt(customer: Customer, config?: PrinterConfig
     for (const order of customer.orders) {
       receipt += `Pedido: ${order.order_number}\n`;
       receipt += `Fecha: ${formatDate(order.created_at)}\n`;
+      receipt += `Estado: ${getStatusLabel(order.status)}\n`;
       
       const productCount = order.items?.length || 0;
       receipt += `Productos: ${productCount}\n`;
@@ -415,7 +446,15 @@ export default function PendingPaymentsScreen() {
       padding: 12,
       marginBottom: 8,
       borderLeftWidth: 3,
+    },
+    orderItemPendingPayment: {
       borderLeftColor: '#8B5CF6',
+    },
+    orderItemAbonado: {
+      borderLeftColor: '#F59E0B',
+    },
+    orderItemPagado: {
+      borderLeftColor: '#10B981',
     },
     orderItemHeader: {
       flexDirection: 'row',
@@ -436,6 +475,11 @@ export default function PendingPaymentsScreen() {
     orderDate: {
       fontSize: 12,
       color: colors.textSecondary,
+    },
+    orderStatus: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 4,
     },
     orderProductCount: {
       fontSize: 12,
@@ -696,6 +740,11 @@ export default function PendingPaymentsScreen() {
       color: '#EF4444',
       marginTop: 4,
     },
+    orderSelectorItemStatus: {
+      fontSize: 12,
+      fontWeight: '600',
+      marginTop: 4,
+    },
   });
 
   useEffect(() => {
@@ -718,7 +767,7 @@ export default function PendingPaymentsScreen() {
       const supabase = getSupabase();
       
       // Load customers that have NOT been finalized
-      // This ensures customers remain visible even when fully paid, until "Finalizar" is pressed
+      // Show customers with orders in: pending_payment, abonado, or pagado status
       const { data, error } = await supabase
         .from('customers')
         .select(`
@@ -751,12 +800,13 @@ export default function PendingPaymentsScreen() {
 
       if (error) throw error;
 
-      // Filter to show only orders with pending_payment status in the UI
-      // But keep the customer visible even if all orders are paid
+      // Filter to show only orders with pending_payment, abonado, or pagado status
       const customersWithFilteredOrders = data
         .map(customer => ({
           ...customer,
-          orders: customer.orders?.filter((order: Order) => order.status === 'pending_payment') || [],
+          orders: customer.orders?.filter((order: Order) => 
+            ['pending_payment', 'abonado', 'pagado'].includes(order.status)
+          ) || [],
         }))
         .filter(customer => customer.orders.length > 0);
 
@@ -810,7 +860,7 @@ export default function PendingPaymentsScreen() {
 
     Alert.alert(
       '✅ Finalizar Cliente',
-      `¿Estás seguro de que deseas finalizar a ${selectedCustomer.name}?\n\nTodos los pedidos pagados pasarán a "Pedidos Completados" y el cliente será removido de la lista de vales pendientes.`,
+      `¿Estás seguro de que deseas finalizar a ${selectedCustomer.name}?\n\nTodos los pedidos pagados pasarán a estado "Finalizado" y el cliente será removido de la lista de vales pendientes.`,
       [
         {
           text: 'Cancelar',
@@ -824,41 +874,32 @@ export default function PendingPaymentsScreen() {
               
               console.log('[PendingPaymentsScreen] Finalizing customer:', selectedCustomer.name);
               
-              // Step 1: Get all orders for this customer that are in pending_payment status and fully paid
+              // Step 1: Get all orders for this customer that are in 'pagado' status
               const { data: ordersToUpdate, error: fetchError } = await supabase
                 .from('orders')
-                .select('id, order_number, total_amount, paid_amount')
+                .select('id, order_number, total_amount, paid_amount, status')
                 .eq('customer_id', selectedCustomer.id)
-                .eq('status', 'pending_payment');
+                .eq('status', 'pagado');
 
               if (fetchError) throw fetchError;
 
-              console.log('[PendingPaymentsScreen] Orders to check:', ordersToUpdate?.length || 0);
+              console.log('[PendingPaymentsScreen] Orders to finalize:', ordersToUpdate?.length || 0);
 
-              // Step 2: Filter orders that are fully paid
-              const fullyPaidOrders = ordersToUpdate?.filter(
-                order => order.paid_amount >= order.total_amount && order.total_amount > 0
-              ) || [];
-
-              console.log('[PendingPaymentsScreen] Fully paid orders to update:', fullyPaidOrders.length);
-
-              // Step 3: Update all fully paid orders to 'paid' status
-              // These orders will automatically move to "Pedidos Completados" in the profile
-              if (fullyPaidOrders.length > 0) {
-                const orderIds = fullyPaidOrders.map(order => order.id);
+              // Step 2: Update all 'pagado' orders to 'finalizado' status
+              if (ordersToUpdate && ordersToUpdate.length > 0) {
+                const orderIds = ordersToUpdate.map(order => order.id);
                 
                 const { error: updateError } = await supabase
                   .from('orders')
-                  .update({ status: 'paid' })
+                  .update({ status: 'finalizado' })
                   .in('id', orderIds);
 
                 if (updateError) throw updateError;
 
-                console.log('[PendingPaymentsScreen] Updated orders to paid status:', orderIds);
+                console.log('[PendingPaymentsScreen] Updated orders to finalizado status:', orderIds);
               }
 
-              // Step 4: Mark customer as finalized
-              // This removes the customer from the "Vales Pendientes" list
+              // Step 3: Mark customer as finalized
               const { error: finalizeError } = await supabase
                 .from('customers')
                 .update({ finalized: true })
@@ -868,8 +909,8 @@ export default function PendingPaymentsScreen() {
 
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               
-              const message = fullyPaidOrders.length > 0
-                ? `${selectedCustomer.name} ha sido finalizado.\n\n${fullyPaidOrders.length} ${fullyPaidOrders.length === 1 ? 'pedido ha sido movido' : 'pedidos han sido movidos'} a Pedidos Completados.`
+              const message = ordersToUpdate && ordersToUpdate.length > 0
+                ? `${selectedCustomer.name} ha sido finalizado.\n\n${ordersToUpdate.length} ${ordersToUpdate.length === 1 ? 'pedido ha sido finalizado' : 'pedidos han sido finalizados'}.`
                 : `${selectedCustomer.name} ha sido removido de la lista de vales pendientes.`;
               
               Alert.alert('✅ Cliente Finalizado', message);
@@ -1218,18 +1259,19 @@ export default function PendingPaymentsScreen() {
           all_orders_count: updatedCustomerData.orders?.length || 0,
         });
 
-        // Filter orders to show only pending_payment for display purposes
-        const pendingOrders = updatedCustomerData.orders?.filter((order: Order) => order.status === 'pending_payment') || [];
+        // Filter orders to show only pending_payment, abonado, or pagado for display purposes
+        const relevantOrders = updatedCustomerData.orders?.filter((order: Order) => 
+          ['pending_payment', 'abonado', 'pagado'].includes(order.status)
+        ) || [];
         
         const customerWithFilteredOrders = {
           ...updatedCustomerData,
-          orders: pendingOrders,
+          orders: relevantOrders,
         };
         
-        console.log('[PendingPaymentsScreen] Filtered pending orders:', pendingOrders.length);
+        console.log('[PendingPaymentsScreen] Filtered relevant orders:', relevantOrders.length);
         
         // Update the selected customer with the latest data
-        // Keep the modal open so user can see the "Finalizar" button if fully paid
         setSelectedCustomer(customerWithFilteredOrders);
         
         // Check if customer is fully paid
@@ -1320,7 +1362,7 @@ export default function PendingPaymentsScreen() {
                     : styles.debtTextPaid,
               ]}
             >
-              {isBlocked ? 'Bloqueado' : hasDebt ? 'Con Deuda' : 'Pagado'}
+              {isBlocked ? 'Bloqueado' : hasDebt ? 'Con Deuda' : 'Al Día'}
             </Text>
           </View>
         </View>
@@ -1444,50 +1486,63 @@ export default function PendingPaymentsScreen() {
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>Pedidos Pendientes</Text>
                 {selectedCustomer?.orders && selectedCustomer.orders.length > 0 ? (
-                  selectedCustomer.orders.map((order) => (
-                    <View key={order.id} style={styles.orderItem}>
-                      <View style={styles.orderItemHeader}>
-                        <Text style={styles.orderNumber}>Pedido {order.order_number}</Text>
-                        <Text style={styles.orderAmount}>{formatCLP(order.total_amount)}</Text>
-                      </View>
-                      <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
-                      <Text style={styles.orderProductCount}>
-                        {order.items?.length || 0} productos
-                      </Text>
-                      <View style={styles.orderPaymentInfo}>
-                        <View>
-                          <Text style={styles.orderPaymentLabel}>Pagado</Text>
-                          <Text style={[styles.orderPaymentValue, styles.orderPaymentPaid]}>
-                            {formatCLP(order.paid_amount)}
-                          </Text>
+                  selectedCustomer.orders.map((order) => {
+                    const statusStyle = order.status === 'pending_payment' 
+                      ? 'orderItemPendingPayment' 
+                      : order.status === 'abonado' 
+                        ? 'orderItemAbonado' 
+                        : 'orderItemPagado';
+                    
+                    return (
+                      <View key={order.id} style={[styles.orderItem, styles[statusStyle]]}>
+                        <View style={styles.orderItemHeader}>
+                          <Text style={styles.orderNumber}>Pedido {order.order_number}</Text>
+                          <Text style={styles.orderAmount}>{formatCLP(order.total_amount)}</Text>
                         </View>
-                        <View>
-                          <Text style={styles.orderPaymentLabel}>Pendiente</Text>
-                          <Text style={[styles.orderPaymentValue, styles.orderPaymentPending]}>
-                            {formatCLP(order.total_amount - order.paid_amount)}
-                          </Text>
+                        <Text style={styles.orderDate}>{formatDate(order.created_at)}</Text>
+                        <Text style={[styles.orderStatus, { color: getStatusColor(order.status) }]}>
+                          {getStatusLabel(order.status)}
+                        </Text>
+                        <Text style={styles.orderProductCount}>
+                          {order.items?.length || 0} productos
+                        </Text>
+                        <View style={styles.orderPaymentInfo}>
+                          <View>
+                            <Text style={styles.orderPaymentLabel}>Pagado</Text>
+                            <Text style={[styles.orderPaymentValue, styles.orderPaymentPaid]}>
+                              {formatCLP(order.paid_amount)}
+                            </Text>
+                          </View>
+                          <View>
+                            <Text style={styles.orderPaymentLabel}>Pendiente</Text>
+                            <Text style={[styles.orderPaymentValue, styles.orderPaymentPending]}>
+                              {formatCLP(order.total_amount - order.paid_amount)}
+                            </Text>
+                          </View>
                         </View>
+                        <TouchableOpacity
+                          style={styles.viewOrderButton}
+                          onPress={() => {
+                            setShowDetailModal(false);
+                            router.push(`/order/${order.id}`);
+                          }}
+                        >
+                          <Text style={styles.viewOrderButtonText}>Ver Pedido</Text>
+                        </TouchableOpacity>
+                        {order.status !== 'pagado' && (
+                          <TouchableOpacity
+                            style={styles.payButton}
+                            onPress={() => {
+                              setShowDetailModal(false);
+                              openPaymentModal('order', order.id);
+                            }}
+                          >
+                            <Text style={styles.payButtonText}>Registrar Pago</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
-                      <TouchableOpacity
-                        style={styles.viewOrderButton}
-                        onPress={() => {
-                          setShowDetailModal(false);
-                          router.push(`/order/${order.id}`);
-                        }}
-                      >
-                        <Text style={styles.viewOrderButtonText}>Ver Pedido</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.payButton}
-                        onPress={() => {
-                          setShowDetailModal(false);
-                          openPaymentModal('order', order.id);
-                        }}
-                      >
-                        <Text style={styles.payButtonText}>Registrar Pago</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))
+                    );
+                  })
                 ) : (
                   <View style={styles.emptyPayments}>
                     <Text style={styles.emptyPaymentsText}>
@@ -1669,6 +1724,9 @@ export default function PendingPaymentsScreen() {
                           {formatCLP(order.total_amount)}
                         </Text>
                       </View>
+                      <Text style={[styles.orderSelectorItemStatus, { color: getStatusColor(order.status) }]}>
+                        {getStatusLabel(order.status)}
+                      </Text>
                       <Text style={styles.orderSelectorItemPending}>
                         Pendiente: {formatCLP(order.total_amount - order.paid_amount)}
                       </Text>

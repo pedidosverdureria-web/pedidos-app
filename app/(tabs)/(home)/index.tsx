@@ -63,8 +63,12 @@ function getStatusColor(status: OrderStatus): string {
       return '#EF4444';
     case 'pending_payment':
       return '#8B5CF6';
-    case 'paid':
+    case 'abonado':
+      return '#F59E0B';
+    case 'pagado':
       return '#10B981';
+    case 'finalizado':
+      return '#059669';
     default:
       return '#6B7280';
   }
@@ -84,8 +88,12 @@ function getStatusLabel(status: OrderStatus): string {
       return 'Cancelado';
     case 'pending_payment':
       return 'Pend. Pago';
-    case 'paid':
+    case 'abonado':
+      return 'Abonado';
+    case 'pagado':
       return 'Pagado';
+    case 'finalizado':
+      return 'Finalizado';
     default:
       return status;
   }

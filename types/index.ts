@@ -1,5 +1,5 @@
 
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment' | 'paid';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment' | 'abonado' | 'pagado' | 'finalizado';
 
 export type UserRole = 'admin' | 'worker' | 'printer' | 'desarrollador';
 

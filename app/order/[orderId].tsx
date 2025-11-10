@@ -51,8 +51,12 @@ function getStatusColor(status: OrderStatus): string {
       return '#EF4444';
     case 'pending_payment':
       return '#8B5CF6';
-    case 'paid':
+    case 'abonado':
+      return '#F59E0B';
+    case 'pagado':
       return '#10B981';
+    case 'finalizado':
+      return '#059669';
     default:
       return '#6B7280';
   }
@@ -72,8 +76,12 @@ function getStatusLabel(status: OrderStatus): string {
       return 'Cancelado';
     case 'pending_payment':
       return 'Pendiente de Pago';
-    case 'paid':
+    case 'abonado':
+      return 'Abonado';
+    case 'pagado':
       return 'Pagado';
+    case 'finalizado':
+      return 'Finalizado';
     default:
       return status;
   }
@@ -93,8 +101,12 @@ function getStatusIcon(status: OrderStatus): string {
       return 'xmark.circle';
     case 'pending_payment':
       return 'creditcard';
-    case 'paid':
+    case 'abonado':
+      return 'creditcard.fill';
+    case 'pagado':
       return 'checkmark.circle.fill';
+    case 'finalizado':
+      return 'checkmark.seal.fill';
     default:
       return 'circle';
   }
@@ -103,7 +115,7 @@ function getStatusIcon(status: OrderStatus): string {
 function getAvailableStatusTransitions(currentStatus: OrderStatus, userRole?: string): OrderStatus[] {
   // Developer profile can change to any status
   if (userRole === 'desarrollador') {
-    return ['pending', 'preparing', 'ready', 'delivered', 'pending_payment', 'paid', 'cancelled'].filter(
+    return ['pending', 'preparing', 'ready', 'delivered', 'pending_payment', 'abonado', 'pagado', 'finalizado', 'cancelled'].filter(
       status => status !== currentStatus
     ) as OrderStatus[];
   }
@@ -119,8 +131,12 @@ function getAvailableStatusTransitions(currentStatus: OrderStatus, userRole?: st
     case 'delivered':
       return [];
     case 'pending_payment':
-      return [];
-    case 'paid':
+      return []; // Status changes automatically via payments
+    case 'abonado':
+      return []; // Status changes automatically via payments
+    case 'pagado':
+      return []; // Status changes to finalizado via "Finalizar" button in Vales Pendientes
+    case 'finalizado':
       return [];
     case 'cancelled':
       return [];
@@ -2915,8 +2931,8 @@ export default function OrderDetailScreen() {
             <Text style={styles.totalValue}>{formatCLP(total)}</Text>
           </View>
 
-          {/* Payment Information Section - Only show when status is "paid" */}
-          {order.status === 'paid' && sortedPayments.length > 0 && (
+          {/* Payment Information Section - Show for abonado, pagado, and finalizado statuses */}
+          {['abonado', 'pagado', 'finalizado'].includes(order.status) && sortedPayments.length > 0 && (
             <View style={styles.paymentInfoContainer}>
               <Text style={styles.paymentInfoTitle}>💳 Información de Pago</Text>
               
