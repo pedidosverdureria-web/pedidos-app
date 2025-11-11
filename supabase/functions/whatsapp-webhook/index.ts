@@ -250,17 +250,27 @@ async function loadKnownUnits(supabase: any) {
 
 /**
  * Normalizes phone number for comparison
- * Removes spaces, dashes, and ensures consistent format
+ * Removes spaces, dashes, parentheses, and ensures consistent format
  */
 function normalizePhoneNumber(phone: string): string {
-  // Remove all spaces, dashes, parentheses
-  let normalized = phone.replace(/[\s\-\(\)]/g, '');
+  // Remove all spaces, dashes, parentheses, dots
+  let normalized = phone.replace(/[\s\-\(\)\.\+]/g, '');
   
-  // Ensure it starts with +
-  if (!normalized.startsWith('+')) {
+  // If it starts with country code without +, add it
+  // For Chilean numbers, they typically start with 569
+  if (normalized.startsWith('569') && normalized.length >= 11) {
+    normalized = '+' + normalized;
+  } else if (normalized.startsWith('56') && normalized.length >= 10) {
+    normalized = '+' + normalized;
+  } else if (!normalized.startsWith('+')) {
+    // If no country code, assume Chilean and add +56
+    normalized = '+56' + normalized;
+  } else {
+    // Already has +, just keep it
     normalized = '+' + normalized;
   }
   
+  console.log(`[normalizePhoneNumber] Input: "${phone}" → Output: "${normalized}"`);
   return normalized;
 }
 
@@ -280,7 +290,7 @@ async function loadAuthorizedPhones(supabase: any): Promise<string[]> {
 
     // Normalize all phone numbers for consistent comparison
     const phoneNumbers = data.map((row: any) => normalizePhoneNumber(row.phone_number));
-    console.log(`✅ Loaded ${phoneNumbers.length} authorized phone numbers:`, phoneNumbers);
+    console.log(`✅ Loaded ${phoneNumbers.length} authorized phone numbers (normalized):`, phoneNumbers);
     return phoneNumbers;
   } catch (error) {
     console.error('Exception loading authorized phones:', error);
