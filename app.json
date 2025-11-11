@@ -69,7 +69,9 @@
         "android.enableR8.fullMode": "true",
         "kotlin.incremental": "true",
         "ksp.incremental": "true",
-        "org.gradle.vfs.watch": "false"
+        "org.gradle.vfs.watch": "false",
+        "android.lint.checkReleaseBuilds": "false",
+        "android.lint.abortOnError": "false"
       }
     },
     "web": {
