@@ -15,7 +15,178 @@ import { getSupabase } from '@/lib/supabase';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Order, OrderStatus } from '@/types';
+import { getStatusColor, getStatusLabel, formatCLP, formatDate } from '@/utils/orderHelpers';
+import { useTheme } from '@/contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
+
+export default function CompletedOrdersScreen() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const { currentTheme } = useTheme();
+
+  const loadOrders = useCallback(async () => {
+    try {
+      setLoading(true);
+      const supabase = getSupabase();
+      
+      // Fetch orders with "delivered", "paid", or "finalizado" status
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, items:order_items(*)')
+        .in('status', ['delivered', 'paid', 'finalizado'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setOrders(data || []);
+    } catch (error) {
+      console.error('[CompletedOrders] Error loading orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadOrders();
+    setRefreshing(false);
+  }, [loadOrders]);
+
+  const filteredOrders = orders.filter((order) => {
+    const matchesSearch =
+      order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  const deliveredCount = orders.filter(o => o.status === 'delivered').length;
+  const paidCount = orders.filter(o => o.status === 'paid').length;
+  const finalizadoCount = orders.filter(o => o.status === 'finalizado').length;
+  const totalAmount = orders.reduce((sum, order) => {
+    const orderTotal = order.items?.reduce((itemSum, item) => itemSum + item.unit_price, 0) || 0;
+    return sum + orderTotal;
+  }, 0);
+
+  const renderOrderCard = ({ item }: { item: Order }) => {
+    const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
+    const statusColor = getStatusColor(item.status, currentTheme);
+
+    return (
+      <TouchableOpacity
+        style={[styles.orderCard, { borderLeftColor: statusColor }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push(`/order/${item.id}`);
+        }}
+      >
+        <View style={styles.orderHeader}>
+          <Text style={styles.orderNumber}>{item.order_number}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+            <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+          </View>
+        </View>
+        <Text style={styles.customerName}>{item.customer_name}</Text>
+        {item.customer_phone && (
+          <Text style={styles.orderInfo}>📞 {item.customer_phone}</Text>
+        )}
+        {item.items && item.items.length > 0 && (
+          <Text style={styles.orderInfo}>
+            {item.items.length} {item.items.length === 1 ? 'producto' : 'productos'}
+          </Text>
+        )}
+        <Text style={styles.orderDate}>📅 {formatDate(item.created_at)}</Text>
+        {total > 0 && <Text style={styles.orderTotal}>{formatCLP(total)}</Text>}
+      </TouchableOpacity>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: 'Pedidos Completados',
+          headerShown: true,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#fff',
+        }}
+      />
+      
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Pedidos Completados</Text>
+        <View style={styles.searchContainer}>
+          <IconSymbol name="magnifyingglass" size={20} color="#fff" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar pedidos..."
+            placeholderTextColor="rgba(255, 255, 255, 0.6)"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
+
+      {orders.length > 0 && (
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{deliveredCount}</Text>
+            <Text style={styles.statLabel}>Entregados</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{paidCount}</Text>
+            <Text style={styles.statLabel}>Pagados</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{finalizadoCount}</Text>
+            <Text style={styles.statLabel}>Finalizados</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{formatCLP(totalAmount)}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+        </View>
+      )}
+
+      {filteredOrders.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <IconSymbol name="checkmark.circle" size={64} color={colors.textSecondary} />
+          <Text style={styles.emptyText}>
+            {searchQuery
+              ? 'No se encontraron pedidos completados'
+              : 'No hay pedidos completados aún'}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          style={styles.content}
+          data={filteredOrders}
+          keyExtractor={(item) => item.id}
+          renderItem={renderOrderCard}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
+          }
+        />
+      )}
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -149,205 +320,3 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-
-function getStatusColor(status: OrderStatus): string {
-  switch (status) {
-    case 'delivered':
-      return '#6B7280';
-    case 'paid':
-      return '#10B981';
-    default:
-      return '#6B7280';
-  }
-}
-
-function getStatusLabel(status: OrderStatus): string {
-  switch (status) {
-    case 'delivered':
-      return 'Entregado';
-    case 'paid':
-      return 'Pagado';
-    default:
-      return status;
-  }
-}
-
-function formatCLP(amount: number): string {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-  }).format(amount);
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleString('es-CL', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-export default function CompletedOrdersScreen() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const loadOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      const supabase = getSupabase();
-      
-      // Fetch orders with "delivered" or "paid" status
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*, items:order_items(*)')
-        .in('status', ['delivered', 'paid'])
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setOrders(data || []);
-    } catch (error) {
-      console.error('[CompletedOrders] Error loading orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadOrders();
-    setRefreshing(false);
-  }, [loadOrders]);
-
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer_name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
-
-  const deliveredCount = orders.filter(o => o.status === 'delivered').length;
-  const paidCount = orders.filter(o => o.status === 'paid').length;
-  const totalAmount = orders.reduce((sum, order) => {
-    const orderTotal = order.items?.reduce((itemSum, item) => itemSum + item.unit_price, 0) || 0;
-    return sum + orderTotal;
-  }, 0);
-
-  const renderOrderCard = ({ item }: { item: Order }) => {
-    const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
-
-    return (
-      <TouchableOpacity
-        style={[styles.orderCard, { borderLeftColor: getStatusColor(item.status) }]}
-        onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push(`/order/${item.id}`);
-        }}
-      >
-        <View style={styles.orderHeader}>
-          <Text style={styles.orderNumber}>{item.order_number}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
-          </View>
-        </View>
-        <Text style={styles.customerName}>{item.customer_name}</Text>
-        {item.customer_phone && (
-          <Text style={styles.orderInfo}>📞 {item.customer_phone}</Text>
-        )}
-        {item.items && item.items.length > 0 && (
-          <Text style={styles.orderInfo}>
-            {item.items.length} {item.items.length === 1 ? 'producto' : 'productos'}
-          </Text>
-        )}
-        <Text style={styles.orderDate}>📅 {formatDate(item.created_at)}</Text>
-        {total > 0 && <Text style={styles.orderTotal}>{formatCLP(total)}</Text>}
-      </TouchableOpacity>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: 'Pedidos Completados',
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
-        }}
-      />
-      
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Pedidos Completados</Text>
-        <View style={styles.searchContainer}>
-          <IconSymbol name="magnifyingglass" size={20} color="#fff" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar pedidos..."
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
-
-      {orders.length > 0 && (
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{deliveredCount}</Text>
-            <Text style={styles.statLabel}>Entregados</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paidCount}</Text>
-            <Text style={styles.statLabel}>Pagados</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatCLP(totalAmount)}</Text>
-            <Text style={styles.statLabel}>Total</Text>
-          </View>
-        </View>
-      )}
-
-      {filteredOrders.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <IconSymbol name="checkmark.circle" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>
-            {searchQuery
-              ? 'No se encontraron pedidos completados'
-              : 'No hay pedidos completados aún'}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          style={styles.content}
-          data={filteredOrders}
-          keyExtractor={(item) => item.id}
-          renderItem={renderOrderCard}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-        />
-      )}
-    </View>
-  );
-}
