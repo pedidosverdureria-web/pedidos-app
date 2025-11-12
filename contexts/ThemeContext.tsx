@@ -22,6 +22,10 @@ export interface ColorTheme {
     statusReady: string;
     statusDelivered: string;
     statusCancelled: string;
+    statusPendingPayment: string;
+    statusAbonado: string;
+    statusPagado: string;
+    statusFinalizado: string;
     border: string;
     success: string;
     error: string;
@@ -48,6 +52,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',
@@ -72,6 +80,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',
@@ -96,6 +108,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',
@@ -120,6 +136,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',
@@ -144,6 +164,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',
@@ -168,6 +192,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',
@@ -192,6 +220,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',
@@ -216,6 +248,10 @@ export const COLOR_THEMES: ColorTheme[] = [
       statusReady: '#4CAF50',
       statusDelivered: '#9E9E9E',
       statusCancelled: '#F44336',
+      statusPendingPayment: '#8B5CF6',
+      statusAbonado: '#F59E0B',
+      statusPagado: '#10B981',
+      statusFinalizado: '#059669',
       border: '#E0E0E0',
       success: '#4CAF50',
       error: '#F44336',

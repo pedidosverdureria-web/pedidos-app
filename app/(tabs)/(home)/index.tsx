@@ -34,6 +34,7 @@ import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import { useAuth } from '@/contexts/AuthContext';
 import { Order, OrderStatus } from '@/types';
 import { useOrders } from '@/hooks/useOrders';
+import { getStatusColor, getStatusLabel } from '@/utils/orderHelpers';
 
 const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'Todos', value: 'all' },
@@ -47,56 +48,6 @@ const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
 const PRINTER_CONFIG_KEY = '@printer_config';
 const ORDERS_TO_PRINT_KEY = '@orders_to_print';
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
-
-function getStatusColor(status: OrderStatus): string {
-  switch (status) {
-    case 'pending':
-      return '#F59E0B';
-    case 'preparing':
-      return '#3B82F6';
-    case 'ready':
-      return '#10B981';
-    case 'delivered':
-      return '#6B7280';
-    case 'cancelled':
-      return '#EF4444';
-    case 'pending_payment':
-      return '#8B5CF6';
-    case 'abonado':
-      return '#F59E0B';
-    case 'pagado':
-      return '#10B981';
-    case 'finalizado':
-      return '#059669';
-    default:
-      return '#6B7280';
-  }
-}
-
-function getStatusLabel(status: OrderStatus): string {
-  switch (status) {
-    case 'pending':
-      return 'Pendiente';
-    case 'preparing':
-      return 'Preparando';
-    case 'ready':
-      return 'Listo';
-    case 'delivered':
-      return 'Entregado';
-    case 'cancelled':
-      return 'Cancelado';
-    case 'pending_payment':
-      return 'Pend. Pago';
-    case 'abonado':
-      return 'Abonado';
-    case 'pagado':
-      return 'Pagado';
-    case 'finalizado':
-      return 'Finalizado';
-    default:
-      return status;
-  }
-}
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', {
@@ -323,6 +274,7 @@ export default function HomeScreen() {
   const renderOrderCard = ({ item }: { item: Order }) => {
     const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
     const itemCount = item.items?.length || 0;
+    const statusColor = getStatusColor(item.status, currentTheme);
 
     return (
       <TouchableOpacity
@@ -331,7 +283,7 @@ export default function HomeScreen() {
       >
         <View style={styles.orderHeader}>
           <View style={styles.orderHeaderLeft}>
-            <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
             <View style={styles.orderInfo}>
               <View style={styles.orderNumberRow}>
                 <Text style={[styles.orderNumber, { color: colors.text }]}>{item.order_number}</Text>
@@ -372,7 +324,7 @@ export default function HomeScreen() {
           )}
         </View>
         
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
           <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
         </View>
       </TouchableOpacity>

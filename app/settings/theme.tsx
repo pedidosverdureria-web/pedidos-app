@@ -131,10 +131,23 @@ export default function ThemeSettingsScreen() {
       justifyContent: 'center',
       alignItems: 'center',
     },
+    colorPreviewSection: {
+      marginBottom: 12,
+    },
+    colorPreviewTitle: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: currentTheme.colors.textSecondary,
+      marginBottom: 8,
+    },
     colorPreview: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       gap: 8,
+    },
+    colorSwatchContainer: {
+      alignItems: 'center',
+      gap: 4,
     },
     colorSwatch: {
       width: 40,
@@ -142,6 +155,11 @@ export default function ThemeSettingsScreen() {
       borderRadius: 8,
       borderWidth: 1,
       borderColor: currentTheme.colors.border,
+    },
+    colorLabel: {
+      fontSize: 10,
+      color: currentTheme.colors.textSecondary,
+      textAlign: 'center',
     },
     loadingContainer: {
       flex: 1,
@@ -217,37 +235,133 @@ export default function ThemeSettingsScreen() {
                 )}
               </View>
               
-              <View style={styles.colorPreview}>
-                <View
-                  style={[
-                    styles.colorSwatch,
-                    { backgroundColor: theme.colors.primary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.colorSwatch,
-                    { backgroundColor: theme.colors.secondary },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.colorSwatch,
-                    { backgroundColor: theme.colors.accent },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.colorSwatch,
-                    { backgroundColor: theme.colors.statusPreparing },
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.colorSwatch,
-                    { backgroundColor: theme.colors.statusReady },
-                  ]}
-                />
+              {/* Main Colors */}
+              <View style={styles.colorPreviewSection}>
+                <Text style={styles.colorPreviewTitle}>Colores Principales</Text>
+                <View style={styles.colorPreview}>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.primary },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Principal</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.secondary },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Secundario</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.accent },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Acento</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Status Colors */}
+              <View style={styles.colorPreviewSection}>
+                <Text style={styles.colorPreviewTitle}>Estados de Pedidos</Text>
+                <View style={styles.colorPreview}>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusPending },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Pendiente</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusPreparing },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Preparando</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusReady },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Listo</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusDelivered },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Entregado</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusCancelled },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Cancelado</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Payment Status Colors */}
+              <View style={styles.colorPreviewSection}>
+                <Text style={styles.colorPreviewTitle}>Estados de Pago</Text>
+                <View style={styles.colorPreview}>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusPendingPayment },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Pend. Pago</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusAbonado },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Abonado</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusPagado },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Pagado</Text>
+                  </View>
+                  <View style={styles.colorSwatchContainer}>
+                    <View
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: theme.colors.statusFinalizado },
+                      ]}
+                    />
+                    <Text style={styles.colorLabel}>Finalizado</Text>
+                  </View>
+                </View>
               </View>
             </TouchableOpacity>
           );

@@ -1,7 +1,35 @@
 
 import { OrderStatus, OrderItem } from '@/types';
+import { ColorTheme } from '@/contexts/ThemeContext';
 
-export function getStatusColor(status: OrderStatus): string {
+export function getStatusColor(status: OrderStatus, theme?: ColorTheme): string {
+  // If theme is provided, use theme colors
+  if (theme) {
+    switch (status) {
+      case 'pending':
+        return theme.colors.statusPending;
+      case 'preparing':
+        return theme.colors.statusPreparing;
+      case 'ready':
+        return theme.colors.statusReady;
+      case 'delivered':
+        return theme.colors.statusDelivered;
+      case 'cancelled':
+        return theme.colors.statusCancelled;
+      case 'pending_payment':
+        return theme.colors.statusPendingPayment;
+      case 'abonado':
+        return theme.colors.statusAbonado;
+      case 'pagado':
+        return theme.colors.statusPagado;
+      case 'finalizado':
+        return theme.colors.statusFinalizado;
+      default:
+        return theme.colors.textSecondary;
+    }
+  }
+  
+  // Fallback to hardcoded colors if no theme provided
   switch (status) {
     case 'pending':
       return '#F59E0B';
