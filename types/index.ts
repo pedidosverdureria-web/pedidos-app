@@ -9,7 +9,7 @@ export type QueryDirection = 'incoming' | 'outgoing';
 
 export type PrintQueueStatus = 'pending' | 'printed' | 'failed';
 
-export type PrintQueueItemType = 'order' | 'query' | 'payment' | 'customer_orders';
+export type PrintQueueItemType = 'order' | 'query' | 'payment' | 'customer_orders' | 'customer_debt';
 
 export type ReceiptStyle = 'classic' | 'modern' | 'minimal' | 'detailed' | 'compact';
 

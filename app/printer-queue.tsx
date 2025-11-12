@@ -98,6 +98,17 @@ function centerText(text: string, width: number): string {
   return ' '.repeat(padding) + text;
 }
 
+function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleString('es-CL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function generatePendingOrdersReceipt(customer: Customer): string {
   const width = 48;
   let receipt = '';
@@ -169,6 +180,63 @@ function generatePaymentReceipt(customer: Customer, paymentAmount: number, payme
   receipt += `Deuda Restante: ${formatCLP(customer.total_debt)}\n`;
   receipt += '\n' + '='.repeat(width) + '\n';
   receipt += centerText('Gracias por su pago!', width) + '\n\n\n';
+  
+  return receipt;
+}
+
+function generateDebtReceipt(customer: Customer, config?: PrinterConfig): string {
+  const width = config?.paper_size === '58mm' ? 32 : 48;
+  
+  let receipt = '';
+  
+  if (config?.include_logo !== false) {
+    receipt += centerText('DEUDA VALES PENDIENTES', width) + '\n';
+    receipt += '='.repeat(width) + '\n\n';
+  }
+  
+  receipt += `Cliente: ${customer.name}\n`;
+  if (customer.phone) {
+    receipt += `Telefono: ${customer.phone}\n`;
+  }
+  if (customer.address) {
+    receipt += `Direccion: ${customer.address}\n`;
+  }
+  receipt += `Fecha: ${formatDateTime(new Date().toISOString())}\n`;
+  receipt += '-'.repeat(width) + '\n\n';
+  
+  receipt += 'RESUMEN VALES PENDIENTES:\n\n';
+  
+  // Filter only pending_payment orders
+  const pendingOrders = customer.orders?.filter(order => order.status === 'pending_payment') || [];
+  
+  if (pendingOrders.length > 0) {
+    let totalDebt = 0;
+    
+    for (const order of pendingOrders) {
+      const orderDebt = order.total_amount - order.paid_amount;
+      totalDebt += orderDebt;
+      
+      receipt += `Pedido: ${order.order_number}\n`;
+      receipt += `Fecha: ${formatDate(order.created_at)}\n`;
+      
+      const productCount = order.items?.length || 0;
+      receipt += `Productos: ${productCount}\n`;
+      
+      receipt += `Monto Total: ${formatCLP(order.total_amount)}\n`;
+      receipt += '\n';
+    }
+    
+    receipt += '-'.repeat(width) + '\n';
+    receipt += `TOTAL VALES: ${pendingOrders.length}\n`;
+    receipt += `SUMA TOTAL DEUDA: ${formatCLP(totalDebt)}\n`;
+  } else {
+    receipt += 'No hay vales pendientes\n\n';
+    receipt += '-'.repeat(width) + '\n';
+    receipt += 'SUMA TOTAL DEUDA: $0\n';
+  }
+  
+  receipt += '\n' + '='.repeat(width) + '\n';
+  receipt += centerText('Documento para gestion de cobranza', width) + '\n\n\n';
   
   return receipt;
 }
@@ -430,6 +498,27 @@ export default function PrinterQueueScreen() {
         }
 
         receiptText = generatePaymentReceipt(customer as Customer, amount, notes || '');
+      } else if (item.item_type === 'customer_debt') {
+        // Handle customer debt receipt
+        const customerId = item.item_id;
+        
+        // Check if receipt text is already in metadata
+        if (item.metadata?.receipt_text) {
+          receiptText = item.metadata.receipt_text;
+        } else {
+          // Fetch customer data and generate receipt
+          const { data: customer, error } = await supabase
+            .from('customers')
+            .select('*, orders(*, items:order_items(*))')
+            .eq('id', customerId)
+            .single();
+
+          if (error || !customer) {
+            throw new Error('No se pudo cargar el cliente');
+          }
+
+          receiptText = generateDebtReceipt(customer as Customer, printerConfig || undefined);
+        }
       }
 
       const autoCut = printerConfig?.auto_cut_enabled ?? true;
@@ -709,6 +798,8 @@ export default function PrinterQueueScreen() {
         return 'Pago';
       case 'customer_orders':
         return 'Pedidos del Cliente';
+      case 'customer_debt':
+        return 'Deuda del Cliente';
       default:
         return type;
     }
@@ -724,6 +815,8 @@ export default function PrinterQueueScreen() {
         return 'dollarsign.circle.fill';
       case 'customer_orders':
         return 'list.bullet.rectangle';
+      case 'customer_debt':
+        return 'exclamationmark.triangle.fill';
       default:
         return 'doc.fill';
     }
