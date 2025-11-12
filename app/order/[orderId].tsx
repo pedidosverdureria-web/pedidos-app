@@ -475,16 +475,21 @@ export default function OrderDetailScreen() {
         <View style={styles.section}>
           <View style={styles.customerInfoRow}>
             <Text style={styles.sectionTitle}>Cliente</Text>
-            {!customerHook.editingCustomer && !customerExistsInMenu && order.customer_phone && (
+            {!customerHook.editingCustomer && order.customer_phone && (
               <TouchableOpacity
                 style={styles.addCustomerButton}
                 onPress={customerHook.addCustomerToMenu}
-                disabled={checkingCustomer}
+                disabled={checkingCustomer || customerExistsInMenu}
               >
                 {checkingCustomer ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <IconSymbol ios_icon_name="plus" android_material_icon_name="add" size={20} color="#fff" />
+                  <IconSymbol 
+                    ios_icon_name="plus" 
+                    android_material_icon_name="add" 
+                    size={20} 
+                    color="#fff" 
+                  />
                 )}
               </TouchableOpacity>
             )}
@@ -497,6 +502,20 @@ export default function OrderDetailScreen() {
               )}
               {order.customer_address && (
                 <Text style={styles.productDetails}>📍 {order.customer_address}</Text>
+              )}
+              
+              {customerExistsInMenu && (
+                <View style={styles.customerExistsBanner}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill" 
+                    android_material_icon_name="check_circle" 
+                    size={20} 
+                    color="#10B981" 
+                  />
+                  <Text style={styles.customerExistsBannerText}>
+                    Este cliente ya existe en el menú de Clientes
+                  </Text>
+                </View>
               )}
               
               {customerBlocked && (
@@ -1757,6 +1776,21 @@ function createStyles(colors: any) {
       height: 36,
       justifyContent: 'center',
       alignItems: 'center',
+    },
+    customerExistsBanner: {
+      backgroundColor: '#D1FAE5',
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    customerExistsBannerText: {
+      fontSize: 14,
+      color: '#065F46',
+      fontWeight: '600',
+      flex: 1,
     },
     blockedBanner: {
       backgroundColor: '#FEE2E2',
