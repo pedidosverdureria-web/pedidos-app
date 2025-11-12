@@ -139,13 +139,21 @@ export async function createInAppNotification(
       return;
     }
 
+    // Ensure userId is either a valid UUID string or null (not empty string)
+    const validUserId = userId && userId.trim() !== '' ? userId : null;
+    
+    // Ensure relatedOrderId is either a valid UUID string or null (not empty string)
+    const validRelatedOrderId = relatedOrderId && relatedOrderId.trim() !== '' ? relatedOrderId : null;
+
+    console.log('[PushNotifications] Creating notification with userId:', validUserId, 'relatedOrderId:', validRelatedOrderId);
+
     const { error } = await supabase.from('notifications').insert([
       {
-        user_id: userId,
+        user_id: validUserId,
         title,
         message,
         type,
-        related_order_id: relatedOrderId,
+        related_order_id: validRelatedOrderId,
         is_read: false,
       },
     ]);
@@ -153,7 +161,7 @@ export async function createInAppNotification(
     if (error) {
       console.error('[PushNotifications] Error creating in-app notification:', error);
     } else {
-      console.log('[PushNotifications] In-app notification created');
+      console.log('[PushNotifications] In-app notification created successfully');
     }
   } catch (error) {
     console.error('[PushNotifications] Error creating in-app notification:', error);
