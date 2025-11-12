@@ -29,9 +29,9 @@ export const useOrders = (statusFilter?: OrderStatus, excludeCompleted: boolean 
         `)
         .order('created_at', { ascending: false });
 
-      // If excludeCompleted is true, filter out delivered and paid orders
+      // If excludeCompleted is true, filter out delivered, paid, and finalizado orders
       if (excludeCompleted) {
-        query = query.not('status', 'in', '(delivered,paid)');
+        query = query.not('status', 'in', '(delivered,paid,finalizado)');
       }
 
       if (statusFilter) {
