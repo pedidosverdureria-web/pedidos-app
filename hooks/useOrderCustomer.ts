@@ -100,6 +100,29 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const supabase = getSupabase();
 
+      // Check if the phone number is a special number (authorized phone)
+      if (order.customer_phone) {
+        const { data: authorizedPhone, error: checkError } = await supabase
+          .from('authorized_phones')
+          .select('id, phone_number, customer_name')
+          .eq('phone_number', order.customer_phone)
+          .maybeSingle();
+
+        if (checkError) {
+          console.error('[useOrderCustomer] Error checking authorized phones:', checkError);
+        }
+
+        if (authorizedPhone) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          Alert.alert(
+            '⚠️ Número Especial',
+            `Este número (${order.customer_phone}) está registrado como número especial para subir pedidos.\n\nLos números especiales no se pueden agregar como clientes.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+      }
+
       // Create customer with phone being optional
       const { data: newCustomer, error: customerError } = await supabase
         .from('customers')

@@ -28,6 +28,25 @@ export function useOrderDetail(orderId: string | undefined, userId: string | und
       setCheckingCustomer(true);
       const supabase = getSupabase();
       
+      // First check if this is a special number (authorized phone)
+      const { data: authorizedPhone, error: authError } = await supabase
+        .from('authorized_phones')
+        .select('id')
+        .eq('phone_number', phone.trim())
+        .maybeSingle();
+
+      if (authError) {
+        console.error('[useOrderDetail] Error checking authorized phones:', authError);
+      }
+
+      // If it's a special number, don't consider it as a customer
+      if (authorizedPhone) {
+        console.log('[useOrderDetail] Phone is a special number, not considering as customer');
+        setCustomerExistsInMenu(false);
+        return;
+      }
+
+      // Check if customer exists in customers table
       const { data, error } = await supabase
         .from('customers')
         .select('id')
@@ -124,6 +143,31 @@ export function useOrderDetail(orderId: string | undefined, userId: string | und
             [{ text: 'OK' }]
           );
           return;
+        }
+        
+        // Check if the phone number is a special number (authorized phone)
+        if (order.customer_phone && order.customer_phone.trim()) {
+          console.log('[useOrderDetail] Checking if phone is a special number:', order.customer_phone);
+          const { data: authorizedPhone, error: authError } = await supabase
+            .from('authorized_phones')
+            .select('id, phone_number, customer_name')
+            .eq('phone_number', order.customer_phone)
+            .maybeSingle();
+
+          if (authError) {
+            console.error('[useOrderDetail] Error checking authorized phones:', authError);
+          }
+
+          if (authorizedPhone) {
+            console.log('[useOrderDetail] Phone is a special number, cannot create customer');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            Alert.alert(
+              '⚠️ Número Especial',
+              `Este número (${order.customer_phone}) está registrado como número especial para subir pedidos.\n\nLos pedidos de números especiales no se pueden cambiar a "Pendiente de Pago" porque no se consideran como clientes.`,
+              [{ text: 'OK' }]
+            );
+            return;
+          }
         }
         
         if (!customerId) {
