@@ -49,8 +49,8 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
         .from('orders')
         .update({
           customer_name: customerName,
-          customer_phone: customerPhone,
-          customer_address: customerAddress,
+          customer_phone: customerPhone || null,
+          customer_address: customerAddress || null,
         })
         .eq('id', order.id);
 
@@ -96,25 +96,16 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
       return;
     }
 
-    if (!order.customer_phone || !order.customer_phone.trim()) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Atención',
-        'No se puede agregar el cliente sin un número de teléfono. Por favor edita la información del cliente primero.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const supabase = getSupabase();
 
+      // Create customer with phone being optional
       const { data: newCustomer, error: customerError } = await supabase
         .from('customers')
         .insert({
           name: order.customer_name,
-          phone: order.customer_phone,
+          phone: order.customer_phone || null,
           address: order.customer_address || null,
           total_debt: 0,
           total_paid: 0,
@@ -162,7 +153,15 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
   };
 
   const blockCustomer = async () => {
-    if (!order?.customer_phone) return false;
+    if (!order?.customer_phone) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Atención',
+        'No se puede bloquear un cliente sin número de teléfono.',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -228,7 +227,15 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
   };
 
   const unblockCustomer = async () => {
-    if (!order?.customer_phone) return false;
+    if (!order?.customer_phone) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert(
+        '⚠️ Atención',
+        'No se puede desbloquear un cliente sin número de teléfono.',
+        [{ text: 'OK' }]
+      );
+      return false;
+    }
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

@@ -475,7 +475,7 @@ export default function OrderDetailScreen() {
         <View style={styles.section}>
           <View style={styles.customerInfoRow}>
             <Text style={styles.sectionTitle}>Cliente</Text>
-            {!customerHook.editingCustomer && order.customer_phone && (
+            {!customerHook.editingCustomer && order.customer_name && (
               <TouchableOpacity
                 style={styles.addCustomerButton}
                 onPress={customerHook.addCustomerToMenu}
@@ -596,7 +596,7 @@ export default function OrderDetailScreen() {
                   />
                   <TextInput
                     style={styles.input}
-                    placeholder="Teléfono"
+                    placeholder="Teléfono (opcional)"
                     placeholderTextColor={colors.textSecondary}
                     value={customerHook.customerPhone}
                     onChangeText={customerHook.setCustomerPhone}
