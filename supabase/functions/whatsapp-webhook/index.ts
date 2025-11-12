@@ -1781,6 +1781,16 @@ Manual Juan Pérez
           continue;
         }
 
+        // FIXED: Determine the source based on whether the phone is a special number
+        // If the phone is in the authorized list, treat as 'manual', otherwise 'whatsapp'
+        const orderSource = isAlwaysNewOrderPhone ? 'manual' : 'whatsapp';
+        
+        console.log('========================================');
+        console.log('📝 ORDER SOURCE DETERMINATION:');
+        console.log('  Is authorized phone?', isAlwaysNewOrderPhone);
+        console.log('  Order source:', orderSource);
+        console.log('========================================');
+
         // Create order
         const { data: order, error: orderError } = await supabase
           .from('orders')
@@ -1788,7 +1798,7 @@ Manual Juan Pérez
             customer_name: customerName,
             customer_phone: customerPhone,
             status: 'pending',
-            source: 'whatsapp',
+            source: orderSource, // FIXED: Use determined source
             whatsapp_message_id: messageId,
           })
           .select()
@@ -1799,7 +1809,7 @@ Manual Juan Pérez
           continue;
         }
 
-        console.log('✅ Created NEW ORDER:', order.id, 'with number:', order.order_number);
+        console.log(`✅ Created NEW ORDER (source: ${orderSource}):`, order.id, 'with number:', order.order_number);
 
         // Create order items (including unparseable ones with "#" quantity)
         const orderItems = parsedItems.map((item) => {

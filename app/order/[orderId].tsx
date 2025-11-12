@@ -446,6 +446,13 @@ export default function OrderDetailScreen() {
   const totalPaid = sortedPayments.reduce((sum, payment) => sum + parseFloat(payment.amount.toString()), 0);
   const isFullPayment = sortedPayments.length === 1 && totalPaid >= total;
 
+  // FIXED: Show "+" button ONLY if customer doesn't exist AND has a name
+  // Independent of phone number, source, or any other condition
+  const showAddCustomerButton = !customerHook.editingCustomer && 
+                                 order.customer_name && 
+                                 order.customer_name.trim() && 
+                                 !customerExistsInMenu;
+
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -475,11 +482,11 @@ export default function OrderDetailScreen() {
         <View style={styles.section}>
           <View style={styles.customerInfoRow}>
             <Text style={styles.sectionTitle}>Cliente</Text>
-            {!customerHook.editingCustomer && order.customer_name && (
+            {showAddCustomerButton && (
               <TouchableOpacity
                 style={styles.addCustomerButton}
                 onPress={customerHook.addCustomerToMenu}
-                disabled={checkingCustomer || customerExistsInMenu}
+                disabled={checkingCustomer}
               >
                 {checkingCustomer ? (
                   <ActivityIndicator size="small" color="#fff" />
