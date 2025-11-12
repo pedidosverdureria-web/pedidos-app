@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useAuth } from '@/contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
@@ -22,10 +22,9 @@ import {
   unregisterBackgroundAutoPrintTask,
   getBackgroundTaskStatus 
 } from '@/utils/backgroundAutoPrintTask';
-import { generateSampleReceipt, PrinterConfig } from '@/utils/receiptGenerator';
+import { PrinterConfig } from '@/utils/receiptGenerator';
 
 type TextSize = 'small' | 'medium' | 'large';
-type PaperSize = '58mm' | '80mm';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
@@ -153,52 +152,6 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 20,
   },
-  previewSection: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  previewContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 16,
-    marginTop: 12,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-  },
-  previewText: {
-    fontFamily: 'Courier',
-    fontSize: 12,
-    color: '#000000',
-    lineHeight: 16,
-  },
-  previewTextSmall: {
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  previewTextMedium: {
-    fontSize: 12,
-    lineHeight: 16,
-  },
-  previewTextLarge: {
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  previewPaper58: {
-    maxWidth: 280,
-  },
-  previewPaper80: {
-    maxWidth: 400,
-  },
-  previewLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
   navigationRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -243,8 +196,6 @@ export default function PrinterSettingsScreen() {
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(true);
   const [textSize, setTextSize] = useState<TextSize>('small');
-  const [paperSize, setPaperSize] = useState<PaperSize>('80mm');
-  const [includeLogo, setIncludeLogo] = useState(true);
   const [includeCustomerInfo, setIncludeCustomerInfo] = useState(true);
   const [includeTotals, setIncludeTotals] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -262,8 +213,6 @@ export default function PrinterSettingsScreen() {
         setAutoPrintEnabled(config.auto_print_enabled ?? false);
         setAutoCutEnabled(config.auto_cut_enabled ?? true);
         setTextSize(config.text_size || 'small');
-        setPaperSize(config.paper_size || '80mm');
-        setIncludeLogo(config.include_logo ?? true);
         setIncludeCustomerInfo(config.include_customer_info ?? true);
         setIncludeTotals(config.include_totals ?? true);
       } else {
@@ -271,8 +220,6 @@ export default function PrinterSettingsScreen() {
         setAutoPrintEnabled(false);
         setAutoCutEnabled(true);
         setTextSize('small');
-        setPaperSize('80mm');
-        setIncludeLogo(true);
         setIncludeCustomerInfo(true);
         setIncludeTotals(true);
       }
@@ -289,21 +236,6 @@ export default function PrinterSettingsScreen() {
     loadConfig();
   }, [loadConfig]);
 
-  // Generate live preview based on current configuration
-  const previewReceipt = useMemo(() => {
-    const config: PrinterConfig = {
-      auto_print_enabled: autoPrintEnabled,
-      auto_cut_enabled: autoCutEnabled,
-      text_size: textSize,
-      paper_size: paperSize,
-      include_logo: includeLogo,
-      include_customer_info: includeCustomerInfo,
-      include_totals: includeTotals,
-    };
-    
-    return generateSampleReceipt(config);
-  }, [autoPrintEnabled, autoCutEnabled, textSize, paperSize, includeLogo, includeCustomerInfo, includeTotals]);
-
   const handleSaveConfig = async () => {
     try {
       setLoading(true);
@@ -312,8 +244,7 @@ export default function PrinterSettingsScreen() {
         auto_print_enabled: autoPrintEnabled,
         auto_cut_enabled: autoCutEnabled,
         text_size: textSize,
-        paper_size: paperSize,
-        include_logo: includeLogo,
+        paper_size: '80mm', // Fixed to 80mm (small size)
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
         printer_name: connectedDevice?.name || null,
@@ -455,23 +386,6 @@ export default function PrinterSettingsScreen() {
     }
   };
 
-  const getPreviewTextStyle = () => {
-    switch (textSize) {
-      case 'small':
-        return styles.previewTextSmall;
-      case 'medium':
-        return styles.previewTextMedium;
-      case 'large':
-        return styles.previewTextLarge;
-      default:
-        return styles.previewTextMedium;
-    }
-  };
-
-  const getPreviewPaperStyle = () => {
-    return paperSize === '58mm' ? styles.previewPaper58 : styles.previewPaper80;
-  };
-
   const handleNavigateToReceiptEditor = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push('/settings/receipt-editor');
@@ -522,25 +436,6 @@ export default function PrinterSettingsScreen() {
             </View>
             <IconSymbol name="chevron.right" size={24} color={colors.primary} />
           </TouchableOpacity>
-        </View>
-
-        {/* Live Preview Section */}
-        <View style={styles.previewSection}>
-          <Text style={styles.sectionTitle}>Vista Previa del Recibo</Text>
-          <Text style={styles.infoText}>
-            Esta es una representacion de como se vera el recibo impreso con la configuracion actual.
-            Los cambios se reflejan en tiempo real.
-          </Text>
-          
-          <View style={[styles.previewContainer, getPreviewPaperStyle()]}>
-            <Text style={[styles.previewText, getPreviewTextStyle()]}>
-              {previewReceipt}
-            </Text>
-          </View>
-          
-          <Text style={styles.previewLabel}>
-            Papel: {paperSize} | Texto: {textSize === 'small' ? 'Pequeño' : textSize === 'medium' ? 'Mediano' : 'Grande'}
-          </Text>
         </View>
 
         {/* Connection Section */}
@@ -675,30 +570,6 @@ export default function PrinterSettingsScreen() {
             </Text>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.settingRow}
-            onPress={() => {
-              setPaperSize(paperSize === '58mm' ? '80mm' : '58mm');
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-          >
-            <Text style={styles.settingLabel}>Tamano de papel</Text>
-            <Text style={styles.settingValue}>{paperSize}</Text>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-          
-          <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Incluir logo</Text>
-            <Switch
-              value={includeLogo}
-              onValueChange={(value) => {
-                setIncludeLogo(value);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-              trackColor={{ false: colors.border, true: colors.primary }}
-            />
-          </View>
           
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Incluir info del cliente</Text>

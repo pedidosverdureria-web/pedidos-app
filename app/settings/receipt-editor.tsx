@@ -451,7 +451,7 @@ export default function ReceiptEditorScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.settingRow}
+            style={[styles.settingRow, styles.settingRowLast]}
             onPress={() => {
               const newSpacing = (advancedConfig.header_spacing + 1) % 4;
               updateAdvancedConfig('header_spacing', newSpacing);
@@ -461,31 +461,6 @@ export default function ReceiptEditorScreen() {
             <Text style={styles.settingValue}>{advancedConfig.header_spacing} líneas</Text>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
-
-          <View style={[styles.settingRow, styles.settingRowLast]}>
-            <Text style={styles.settingLabel}>Mostrar Logo</Text>
-            <Switch
-              value={advancedConfig.show_logo}
-              onValueChange={(value) => updateAdvancedConfig('show_logo', value)}
-              trackColor={{ false: colors.border, true: colors.primary }}
-            />
-          </View>
-
-          {advancedConfig.show_logo && (
-            <TouchableOpacity
-              style={[styles.settingRow, styles.settingRowLast]}
-              onPress={() => {
-                const newPosition = advancedConfig.logo_position === 'top' ? 'header' : 'top';
-                updateAdvancedConfig('logo_position', newPosition);
-              }}
-            >
-              <Text style={styles.settingLabel}>Posición del Logo</Text>
-              <Text style={styles.settingValue}>
-                {advancedConfig.logo_position === 'top' ? 'Arriba' : 'En Encabezado'}
-              </Text>
-              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
         </View>
 
         {/* Product Section Configuration */}
