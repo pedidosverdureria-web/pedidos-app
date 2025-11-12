@@ -86,7 +86,13 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
   const addCustomerToMenu = async () => {
     if (!order) return;
 
-    if (!order.customer_name || !order.customer_name.trim()) {
+    // FIXED: Use the current order data, not the state variables
+    // The order should be refreshed after updateCustomerInfo is called
+    const currentCustomerName = order.customer_name;
+    const currentCustomerPhone = order.customer_phone;
+    const currentCustomerAddress = order.customer_address;
+
+    if (!currentCustomerName || !currentCustomerName.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       Alert.alert(
         '⚠️ Atención',
@@ -101,11 +107,12 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
       const supabase = getSupabase();
 
       // Check if the phone number is a special number (authorized phone)
-      if (order.customer_phone) {
+      // Only check if phone exists
+      if (currentCustomerPhone && currentCustomerPhone.trim()) {
         const { data: authorizedPhone, error: checkError } = await supabase
           .from('authorized_phones')
           .select('id, phone_number, customer_name')
-          .eq('phone_number', order.customer_phone)
+          .eq('phone_number', currentCustomerPhone)
           .maybeSingle();
 
         if (checkError) {
@@ -116,24 +123,83 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           Alert.alert(
             '⚠️ Número Especial',
-            `Este número (${order.customer_phone}) está registrado como número especial para subir pedidos.\n\nLos números especiales no se pueden agregar como clientes.`,
+            `Este número (${currentCustomerPhone}) está registrado como número especial para subir pedidos.\n\nLos números especiales no se pueden agregar como clientes.`,
             [{ text: 'OK' }]
           );
           return;
         }
       }
 
+      // Check if customer already exists with the same phone (if phone exists)
+      if (currentCustomerPhone && currentCustomerPhone.trim()) {
+        const { data: existingCustomer, error: existingError } = await supabase
+          .from('customers')
+          .select('id, name')
+          .eq('phone', currentCustomerPhone)
+          .maybeSingle();
+
+        if (existingError) {
+          console.error('[useOrderCustomer] Error checking existing customer:', existingError);
+        }
+
+        if (existingCustomer) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          Alert.alert(
+            '⚠️ Cliente Ya Existe',
+            `Ya existe un cliente con este número de teléfono: ${existingCustomer.name}\n\n¿Deseas vincular este pedido a ese cliente?`,
+            [
+              { text: 'Cancelar', style: 'cancel' },
+              {
+                text: 'Vincular',
+                onPress: async () => {
+                  try {
+                    const { error: updateError } = await supabase
+                      .from('orders')
+                      .update({ customer_id: existingCustomer.id })
+                      .eq('id', order.id);
+
+                    if (updateError) throw updateError;
+
+                    await onUpdate();
+
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    Alert.alert(
+                      '✅ Pedido Vinculado',
+                      `El pedido se vinculó correctamente al cliente ${existingCustomer.name}.`,
+                      [{ text: 'OK' }]
+                    );
+                  } catch (error) {
+                    console.error('[useOrderCustomer] Error linking order:', error);
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    Alert.alert(
+                      '❌ Error',
+                      'No se pudo vincular el pedido al cliente.',
+                      [{ text: 'OK' }]
+                    );
+                  }
+                },
+              },
+            ]
+          );
+          return;
+        }
+      }
+
       // Create customer with phone being optional
+      const customerData: any = {
+        name: currentCustomerName,
+        phone: currentCustomerPhone && currentCustomerPhone.trim() ? currentCustomerPhone : null,
+        address: currentCustomerAddress && currentCustomerAddress.trim() ? currentCustomerAddress : null,
+        total_debt: 0,
+        total_paid: 0,
+        blocked: false,
+      };
+
+      console.log('[useOrderCustomer] Creating customer with data:', customerData);
+
       const { data: newCustomer, error: customerError } = await supabase
         .from('customers')
-        .insert({
-          name: order.customer_name,
-          phone: order.customer_phone || null,
-          address: order.customer_address || null,
-          total_debt: 0,
-          total_paid: 0,
-          blocked: false,
-        })
+        .insert(customerData)
         .select()
         .single();
 
@@ -146,6 +212,8 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
         throw new Error('No se pudo crear el cliente: no se recibieron datos');
       }
 
+      console.log('[useOrderCustomer] Customer created successfully:', newCustomer);
+
       // Update the order with the new customer_id
       const { error: updateError } = await supabase
         .from('orders')
@@ -154,6 +222,7 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
 
       if (updateError) {
         console.error('[useOrderCustomer] Error updating order with customer_id:', updateError);
+        // Don't throw here, customer was created successfully
       }
 
       await onUpdate();
@@ -161,7 +230,7 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert(
         '✅ Cliente Agregado',
-        `${order.customer_name} se agregó correctamente al menú de Clientes.\n\nAhora puedes gestionar sus pedidos y pagos desde el menú de Clientes.`,
+        `${currentCustomerName} se agregó correctamente al menú de Clientes.\n\nAhora puedes gestionar sus pedidos y pagos desde el menú de Clientes.`,
         [{ text: 'OK' }]
       );
     } catch (error) {

@@ -18,15 +18,25 @@ export function useOrderDetail(orderId: string | undefined, userId: string | und
   const [customerExistsInMenu, setCustomerExistsInMenu] = useState(false);
   const [checkingCustomer, setCheckingCustomer] = useState(false);
 
-  const checkIfCustomerExists = useCallback(async (phone: string) => {
-    if (!phone || !phone.trim()) {
-      setCustomerExistsInMenu(false);
-      return;
-    }
-
+  const checkIfCustomerExists = useCallback(async (orderData: Order) => {
     try {
       setCheckingCustomer(true);
       const supabase = getSupabase();
+      
+      // FIXED: First check if order already has a customer_id
+      if (orderData.customer_id) {
+        console.log('[useOrderDetail] Order has customer_id, customer exists in menu');
+        setCustomerExistsInMenu(true);
+        return;
+      }
+
+      // If no customer_id, check by phone (if available)
+      const phone = orderData.customer_phone;
+      if (!phone || !phone.trim()) {
+        console.log('[useOrderDetail] No customer_id and no phone, customer does not exist in menu');
+        setCustomerExistsInMenu(false);
+        return;
+      }
       
       // First check if this is a special number (authorized phone)
       const { data: authorizedPhone, error: authError } = await supabase
@@ -94,12 +104,10 @@ export function useOrderDetail(orderId: string | undefined, userId: string | und
           .maybeSingle();
         
         setCustomerBlocked(customerData?.blocked || false);
-        
-        // Check if customer exists in menu
-        await checkIfCustomerExists(data.customer_phone);
-      } else {
-        setCustomerExistsInMenu(false);
       }
+      
+      // Check if customer exists in menu (using the full order data)
+      await checkIfCustomerExists(data);
     } catch (error) {
       console.error('[useOrderDetail] Error loading order:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
