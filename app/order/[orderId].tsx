@@ -471,7 +471,7 @@ export default function OrderDetailScreen() {
           />
         </View>
 
-        {/* Customer Section - Simplified for brevity */}
+        {/* Customer Section */}
         <View style={styles.section}>
           <View style={styles.customerInfoRow}>
             <Text style={styles.sectionTitle}>Cliente</Text>
@@ -484,7 +484,7 @@ export default function OrderDetailScreen() {
                 {checkingCustomer ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <IconSymbol name="plus" size={20} color="#fff" />
+                  <IconSymbol ios_icon_name="plus" android_material_icon_name="add" size={20} color="#fff" />
                 )}
               </TouchableOpacity>
             )}
@@ -501,7 +501,7 @@ export default function OrderDetailScreen() {
               
               {customerBlocked && (
                 <View style={styles.blockedBanner}>
-                  <IconSymbol name="exclamationmark.triangle.fill" size={20} color="#DC2626" />
+                  <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={20} color="#DC2626" />
                   <Text style={styles.blockedBannerText}>
                     Este cliente está bloqueado y no puede enviar pedidos
                   </Text>
@@ -515,40 +515,175 @@ export default function OrderDetailScreen() {
                   customerHook.setCustomerInputMode('manual');
                 }}
               >
-                <IconSymbol name="pencil" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Editar</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
-              <TextInput
-                style={styles.input}
-                placeholder="Nombre"
-                placeholderTextColor={colors.textSecondary}
-                value={customerHook.customerName}
-                onChangeText={customerHook.setCustomerName}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Teléfono"
-                placeholderTextColor={colors.textSecondary}
-                value={customerHook.customerPhone}
-                onChangeText={customerHook.setCustomerPhone}
-                keyboardType="phone-pad"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Dirección"
-                placeholderTextColor={colors.textSecondary}
-                value={customerHook.customerAddress}
-                onChangeText={customerHook.setCustomerAddress}
-              />
+              {/* Customer Input Mode Toggle */}
+              <View style={styles.inputModeToggle}>
+                <TouchableOpacity
+                  style={[
+                    styles.inputModeButton,
+                    customerHook.customerInputMode === 'manual' && styles.inputModeButtonActive
+                  ]}
+                  onPress={() => customerHook.setCustomerInputMode('manual')}
+                >
+                  <IconSymbol 
+                    ios_icon_name="keyboard" 
+                    android_material_icon_name="keyboard" 
+                    size={18} 
+                    color={customerHook.customerInputMode === 'manual' ? '#fff' : colors.text} 
+                  />
+                  <Text style={[
+                    styles.inputModeButtonText,
+                    customerHook.customerInputMode === 'manual' && styles.inputModeButtonTextActive
+                  ]}>
+                    Manual
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inputModeButton,
+                    customerHook.customerInputMode === 'select' && styles.inputModeButtonActive
+                  ]}
+                  onPress={() => customerHook.setCustomerInputMode('select')}
+                >
+                  <IconSymbol 
+                    ios_icon_name="person.2" 
+                    android_material_icon_name="people" 
+                    size={18} 
+                    color={customerHook.customerInputMode === 'select' ? '#fff' : colors.text} 
+                  />
+                  <Text style={[
+                    styles.inputModeButtonText,
+                    customerHook.customerInputMode === 'select' && styles.inputModeButtonTextActive
+                  ]}>
+                    Seleccionar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Manual Input Mode */}
+              {customerHook.customerInputMode === 'manual' ? (
+                <>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Nombre"
+                    placeholderTextColor={colors.textSecondary}
+                    value={customerHook.customerName}
+                    onChangeText={customerHook.setCustomerName}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Teléfono"
+                    placeholderTextColor={colors.textSecondary}
+                    value={customerHook.customerPhone}
+                    onChangeText={customerHook.setCustomerPhone}
+                    keyboardType="phone-pad"
+                  />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Dirección"
+                    placeholderTextColor={colors.textSecondary}
+                    value={customerHook.customerAddress}
+                    onChangeText={customerHook.setCustomerAddress}
+                  />
+                </>
+              ) : (
+                <>
+                  {/* Select Customer Mode */}
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Buscar cliente..."
+                    placeholderTextColor={colors.textSecondary}
+                    value={customerHook.customerSearchQuery}
+                    onChangeText={customerHook.setCustomerSearchQuery}
+                  />
+                  
+                  {customerHook.loadingCustomers ? (
+                    <View style={styles.loadingCustomersContainer}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.loadingCustomersText}>Cargando clientes...</Text>
+                    </View>
+                  ) : (
+                    <ScrollView style={styles.customerListContainer} nestedScrollEnabled>
+                      {filteredCustomers.length === 0 ? (
+                        <View style={styles.noCustomersContainer}>
+                          <IconSymbol 
+                            ios_icon_name="person.crop.circle.badge.xmark" 
+                            android_material_icon_name="person_off" 
+                            size={48} 
+                            color={colors.textSecondary} 
+                          />
+                          <Text style={styles.noCustomersText}>
+                            {customerHook.customerSearchQuery 
+                              ? 'No se encontraron clientes' 
+                              : 'No hay clientes registrados'}
+                          </Text>
+                        </View>
+                      ) : (
+                        filteredCustomers.map((customer) => (
+                          <TouchableOpacity
+                            key={customer.id}
+                            style={styles.customerListItem}
+                            onPress={() => customerHook.selectCustomer(customer)}
+                          >
+                            <View style={styles.customerListItemContent}>
+                              <Text style={styles.customerListItemName}>{customer.name}</Text>
+                              {customer.phone && (
+                                <Text style={styles.customerListItemPhone}>📞 {customer.phone}</Text>
+                              )}
+                              {customer.address && (
+                                <Text style={styles.customerListItemAddress}>📍 {customer.address}</Text>
+                              )}
+                            </View>
+                            <IconSymbol 
+                              ios_icon_name="chevron.right" 
+                              android_material_icon_name="chevron_right" 
+                              size={20} 
+                              color={colors.textSecondary} 
+                            />
+                          </TouchableOpacity>
+                        ))
+                      )}
+                    </ScrollView>
+                  )}
+                  
+                  {/* Show selected customer info */}
+                  {customerHook.customerName && (
+                    <View style={styles.selectedCustomerInfo}>
+                      <Text style={styles.selectedCustomerLabel}>Cliente seleccionado:</Text>
+                      <Text style={styles.selectedCustomerName}>{customerHook.customerName}</Text>
+                      {customerHook.customerPhone && (
+                        <Text style={styles.selectedCustomerDetails}>📞 {customerHook.customerPhone}</Text>
+                      )}
+                      {customerHook.customerAddress && (
+                        <Text style={styles.selectedCustomerDetails}>📍 {customerHook.customerAddress}</Text>
+                      )}
+                    </View>
+                  )}
+                </>
+              )}
+
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={customerHook.updateCustomerInfo}
               >
-                <IconSymbol name="checkmark.circle" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Guardar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.addButton, { backgroundColor: colors.border, marginTop: 8 }]}
+                onPress={() => {
+                  customerHook.setEditingCustomer(false);
+                  customerHook.setCustomerSearchQuery('');
+                }}
+              >
+                <IconSymbol ios_icon_name="xmark.circle" android_material_icon_name="cancel" size={20} color={colors.text} />
+                <Text style={[styles.addButtonText, { color: colors.text }]}>Cancelar</Text>
               </TouchableOpacity>
             </>
           )}
@@ -587,13 +722,13 @@ export default function OrderDetailScreen() {
                     style={styles.iconButton}
                     onPress={() => productsHook.startEditingProduct(item)}
                   >
-                    <IconSymbol name="pencil" size={20} color={colors.primary} />
+                    <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color={colors.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.iconButton}
                     onPress={() => deleteProduct(item.id)}
                   >
-                    <IconSymbol name="trash" size={20} color={colors.error} />
+                    <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={20} color={colors.error} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -641,27 +776,27 @@ export default function OrderDetailScreen() {
                 style={styles.addButton}
                 onPress={() => productsHook.updateProduct(productsHook.editingProduct.id)}
               >
-                <IconSymbol name="checkmark.circle" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Actualizar Producto</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.addButton, { backgroundColor: colors.border }]}
                 onPress={() => productsHook.setEditingProduct(null)}
               >
-                <IconSymbol name="xmark.circle" size={20} color={colors.text} />
+                <IconSymbol ios_icon_name="xmark.circle" android_material_icon_name="cancel" size={20} color={colors.text} />
                 <Text style={[styles.addButtonText, { color: colors.text }]}>Cancelar</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
               <TouchableOpacity style={styles.addButton} onPress={openAddProductModal}>
-                <IconSymbol name="plus.circle" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="plus.circle" android_material_icon_name="add_circle" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Agregar Producto</Text>
               </TouchableOpacity>
               
               {order.items && order.items.length > 0 && (
                 <TouchableOpacity style={styles.bulkPriceButton} onPress={productsHook.openPriceModal}>
-                  <IconSymbol name="dollarsign.circle" size={20} color="#fff" />
+                  <IconSymbol ios_icon_name="dollarsign.circle" android_material_icon_name="attach_money" size={20} color="#fff" />
                   <Text style={styles.addButtonText}>Agregar Precios</Text>
                 </TouchableOpacity>
               )}
@@ -695,7 +830,7 @@ export default function OrderDetailScreen() {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <IconSymbol name="paperplane.fill" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="paperplane.fill" android_material_icon_name="send" size={20} color="#fff" />
                 <Text style={styles.addButtonText}>Enviar Consulta</Text>
               </>
             )}
@@ -707,7 +842,7 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {/* Message History - Simplified */}
+        {/* Message History */}
         {sortedQueries.length > 0 && (
           <View style={styles.section}>
             <View style={styles.historyHeader}>
@@ -753,7 +888,8 @@ export default function OrderDetailScreen() {
                             isOutgoing && styles.messageDirectionBadgeOutgoing,
                           ]}>
                             <IconSymbol 
-                              name={isIncoming ? 'arrow.down.circle.fill' : 'arrow.up.circle.fill'} 
+                              ios_icon_name={isIncoming ? 'arrow.down.circle.fill' : 'arrow.up.circle.fill'} 
+                              android_material_icon_name={isIncoming ? 'arrow_downward' : 'arrow_upward'}
                               size={14} 
                               color={isIncoming ? '#1E40AF' : '#065F46'} 
                             />
@@ -778,7 +914,7 @@ export default function OrderDetailScreen() {
                           style={[styles.messageButton, styles.messageButtonPrint]}
                           onPress={() => queriesHook.handlePrintQuery(query)}
                         >
-                          <IconSymbol name="printer" size={14} color="#fff" />
+                          <IconSymbol ios_icon_name="printer" android_material_icon_name="print" size={14} color="#fff" />
                           <Text style={styles.messageButtonText}>Imprimir</Text>
                         </TouchableOpacity>
                         
@@ -787,7 +923,7 @@ export default function OrderDetailScreen() {
                             style={[styles.messageButton, styles.messageButtonRespond]}
                             onPress={() => queriesHook.openResponseModal(query)}
                           >
-                            <IconSymbol name="message.fill" size={14} color="#fff" />
+                            <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={14} color="#fff" />
                             <Text style={styles.messageButtonText}>Responder</Text>
                           </TouchableOpacity>
                         )}
@@ -812,7 +948,8 @@ export default function OrderDetailScreen() {
               
               <View style={styles.paymentTypeContainer}>
                 <IconSymbol 
-                  name={isFullPayment ? 'checkmark.circle.fill' : 'creditcard.fill'} 
+                  ios_icon_name={isFullPayment ? 'checkmark.circle.fill' : 'creditcard.fill'} 
+                  android_material_icon_name={isFullPayment ? 'check_circle' : 'credit_card'}
                   size={24} 
                   color="#10B981" 
                 />
@@ -848,7 +985,7 @@ export default function OrderDetailScreen() {
             style={[styles.actionButton, styles.printButton]} 
             onPress={handlePrint}
           >
-            <IconSymbol name="printer" size={22} color="#fff" />
+            <IconSymbol ios_icon_name="printer" android_material_icon_name="print" size={22} color="#fff" />
             <Text style={styles.actionButtonText}>Imprimir Pedido</Text>
           </TouchableOpacity>
         ) : (
@@ -856,7 +993,7 @@ export default function OrderDetailScreen() {
             style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]} 
             onPress={handleSendToPrinter}
           >
-            <IconSymbol name="paperplane.fill" size={22} color="#fff" />
+            <IconSymbol ios_icon_name="paperplane.fill" android_material_icon_name="send" size={22} color="#fff" />
             <Text style={styles.actionButtonText}>Enviar a Impresor</Text>
           </TouchableOpacity>
         )}
@@ -866,7 +1003,7 @@ export default function OrderDetailScreen() {
             style={[styles.actionButton, styles.whatsappButton]}
             onPress={handleWhatsApp}
           >
-            <IconSymbol name="message.fill" size={22} color="#fff" />
+            <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={22} color="#fff" />
             <Text style={styles.actionButtonText}>Enviar WhatsApp</Text>
           </TouchableOpacity>
         )}
@@ -875,7 +1012,7 @@ export default function OrderDetailScreen() {
           style={[styles.actionButton, styles.deleteButton]}
           onPress={handleDelete}
         >
-          <IconSymbol name="trash" size={22} color="#fff" />
+          <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={22} color="#fff" />
           <Text style={styles.actionButtonText}>Eliminar Pedido</Text>
         </TouchableOpacity>
 
@@ -885,7 +1022,7 @@ export default function OrderDetailScreen() {
               style={[styles.actionButton, styles.unblockButton]}
               onPress={handleUnblockCustomer}
             >
-              <IconSymbol name="checkmark.circle" size={22} color="#fff" />
+              <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={22} color="#fff" />
               <Text style={styles.actionButtonText}>Desbloquear Cliente</Text>
             </TouchableOpacity>
           ) : (
@@ -893,7 +1030,7 @@ export default function OrderDetailScreen() {
               style={[styles.actionButton, styles.blockButton]}
               onPress={handleBlockCustomer}
             >
-              <IconSymbol name="xmark.circle" size={22} color="#fff" />
+              <IconSymbol ios_icon_name="xmark.circle" android_material_icon_name="cancel" size={22} color="#fff" />
               <Text style={styles.actionButtonText}>Bloquear Cliente</Text>
             </TouchableOpacity>
           )
@@ -1635,6 +1772,116 @@ function createStyles(colors: any) {
       color: '#DC2626',
       fontWeight: '600',
       flex: 1,
+    },
+    inputModeToggle: {
+      flexDirection: 'row',
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 4,
+      marginBottom: 12,
+      gap: 4,
+    },
+    inputModeButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 6,
+      backgroundColor: 'transparent',
+    },
+    inputModeButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    inputModeButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    inputModeButtonTextActive: {
+      color: '#fff',
+    },
+    customerListContainer: {
+      maxHeight: 300,
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      marginBottom: 12,
+    },
+    customerListItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    customerListItemContent: {
+      flex: 1,
+    },
+    customerListItemName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    customerListItemPhone: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    customerListItemAddress: {
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    loadingCustomersContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 20,
+      gap: 10,
+    },
+    loadingCustomersText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    noCustomersContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 40,
+    },
+    noCustomersText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 12,
+      textAlign: 'center',
+    },
+    selectedCustomerInfo: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    selectedCustomerLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 6,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+    },
+    selectedCustomerName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    selectedCustomerDetails: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginBottom: 2,
     },
   });
 }
