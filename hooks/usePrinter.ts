@@ -1,4 +1,3 @@
-lista 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BleManager, Device } from 'react-native-ble-plx';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';

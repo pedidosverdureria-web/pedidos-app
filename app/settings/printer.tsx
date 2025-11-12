@@ -395,11 +395,6 @@ export default function PrinterSettingsScreen() {
     router.push('/settings/receipt-editor');
   };
 
-  const handleNavigateToReceiptLogo = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/settings/receipt-logo');
-  };
-
   return (
     <View style={styles.container}>
       <Stack.Screen
@@ -416,26 +411,13 @@ export default function PrinterSettingsScreen() {
           <Text style={styles.sectionTitle}>Edicion Avanzada</Text>
           
           <TouchableOpacity
-            style={styles.navigationRow}
+            style={[styles.navigationRow, styles.navigationRowLast]}
             onPress={handleNavigateToReceiptEditor}
           >
             <View style={styles.navigationContent}>
               <Text style={styles.navigationTitle}>Editor de Recibos Avanzado</Text>
               <Text style={styles.navigationDescription}>
                 Personaliza el diseño completo del recibo: encabezado, pie de página, espaciado, estilos predefinidos y más
-              </Text>
-            </View>
-            <IconSymbol name="chevron.right" size={24} color={colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.navigationRow, styles.navigationRowLast]}
-            onPress={handleNavigateToReceiptLogo}
-          >
-            <View style={styles.navigationContent}>
-              <Text style={styles.navigationTitle}>Logo del Recibo</Text>
-              <Text style={styles.navigationDescription}>
-                Configura un logo específico para los recibos, independiente de la imagen de perfil
               </Text>
             </View>
             <IconSymbol name="chevron.right" size={24} color={colors.primary} />
