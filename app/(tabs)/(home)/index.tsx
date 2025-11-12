@@ -31,7 +31,6 @@ import { usePrinter } from '@/hooks/usePrinter';
 import { IconSymbol } from '@/components/IconSymbol';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
-import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { Order, OrderStatus } from '@/types';
 import { useOrders } from '@/hooks/useOrders';
@@ -127,7 +126,8 @@ function formatDate(dateString: string): string {
 
 export default function HomeScreen() {
   const { user, isAuthenticated } = useAuth();
-  const { theme } = useTheme();
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
   const { orders, loading, refetch } = useOrders();
   const { printReceipt, isConnected } = usePrinter();
   
@@ -326,7 +326,7 @@ export default function HomeScreen() {
 
     return (
       <TouchableOpacity
-        style={styles.orderCard}
+        style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => router.push(`/order/${item.id}`)}
       >
         <View style={styles.orderHeader}>
@@ -334,7 +334,7 @@ export default function HomeScreen() {
             <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
             <View style={styles.orderInfo}>
               <View style={styles.orderNumberRow}>
-                <Text style={styles.orderNumber}>{item.order_number}</Text>
+                <Text style={[styles.orderNumber, { color: colors.text }]}>{item.order_number}</Text>
                 {/* Source icon - WhatsApp or Manual */}
                 <View style={[
                   styles.sourceIconContainer,
@@ -347,27 +347,27 @@ export default function HomeScreen() {
                   />
                 </View>
               </View>
-              <Text style={styles.orderCustomer}>{item.customer_name}</Text>
+              <Text style={[styles.orderCustomer, { color: colors.textSecondary }]}>{item.customer_name}</Text>
             </View>
           </View>
-          {!item.is_read && <View style={styles.unreadBadge} />}
+          {!item.is_read && <View style={[styles.unreadBadge, { backgroundColor: colors.error }]} />}
         </View>
         
         <View style={styles.orderDetails}>
           <View style={styles.orderDetailRow}>
             <IconSymbol name="clock.fill" size={14} color={colors.textSecondary} />
-            <Text style={styles.orderDetailText}>{formatDate(item.created_at)}</Text>
+            <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatDate(item.created_at)}</Text>
           </View>
           <View style={styles.orderDetailRow}>
             <IconSymbol name="bag.fill" size={14} color={colors.textSecondary} />
-            <Text style={styles.orderDetailText}>
+            <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>
               {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
             </Text>
           </View>
           {total > 0 && (
             <View style={styles.orderDetailRow}>
               <IconSymbol name="dollarsign.circle.fill" size={14} color={colors.textSecondary} />
-              <Text style={styles.orderDetailText}>{formatCLP(total)}</Text>
+              <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatCLP(total)}</Text>
             </View>
           )}
         </View>
@@ -380,7 +380,7 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen
         options={{
           title: 'Pedidos',
@@ -401,10 +401,10 @@ export default function HomeScreen() {
       />
 
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.card }]}>
         <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           placeholder="Buscar pedidos..."
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
@@ -422,14 +422,17 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[
                 styles.filterButton,
-                statusFilter === item.value && styles.filterButtonActive,
+                { 
+                  backgroundColor: statusFilter === item.value ? colors.primary : colors.card,
+                  borderColor: statusFilter === item.value ? colors.primary : colors.border
+                },
               ]}
               onPress={() => setStatusFilter(item.value)}
             >
               <Text
                 style={[
                   styles.filterButtonText,
-                  statusFilter === item.value && styles.filterButtonTextActive,
+                  { color: statusFilter === item.value ? '#fff' : colors.textSecondary }
                 ]}
               >
                 {item.label}
@@ -449,8 +452,8 @@ export default function HomeScreen() {
       ) : filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <IconSymbol name="tray.fill" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyTitle}>Sin Pedidos</Text>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Sin Pedidos</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {searchQuery
               ? 'No se encontraron pedidos con ese criterio'
               : 'No hay pedidos registrados'}
@@ -478,12 +481,10 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
     margin: 16,
     marginBottom: 8,
     paddingHorizontal: 16,
@@ -494,7 +495,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: colors.text,
   },
   filtersContainer: {
     marginBottom: 8,
@@ -507,33 +507,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   filterButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  filterButtonTextActive: {
-    color: '#fff',
   },
   listContent: {
     padding: 16,
     paddingBottom: 100,
   },
   orderCard: {
-    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border,
   },
   orderHeader: {
     flexDirection: 'row',
@@ -564,7 +552,6 @@ const styles = StyleSheet.create({
   orderNumber: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
   },
   sourceIconContainer: {
     width: 22,
@@ -575,13 +562,11 @@ const styles = StyleSheet.create({
   },
   orderCustomer: {
     fontSize: 14,
-    color: colors.textSecondary,
   },
   unreadBadge: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.error,
   },
   orderDetails: {
     gap: 8,
@@ -594,7 +579,6 @@ const styles = StyleSheet.create({
   },
   orderDetailText: {
     fontSize: 13,
-    color: colors.textSecondary,
   },
   statusBadge: {
     alignSelf: 'flex-start',
@@ -621,13 +605,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.text,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 15,
-    color: colors.textSecondary,
     textAlign: 'center',
   },
 });
