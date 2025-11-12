@@ -15,7 +15,44 @@ export interface PrinterConfig {
   include_totals?: boolean;
   use_webhook_format?: boolean;
   encoding?: 'UTF-8' | 'CP850' | 'ISO-8859-1';
+  print_special_chars?: boolean;
   advanced_config?: AdvancedReceiptConfig;
+}
+
+/**
+ * Remove special characters (ñ, accents) from text
+ * This is useful when the printer doesn't support these characters
+ */
+function removeSpecialChars(text: string): string {
+  const replacements: { [key: string]: string } = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+    'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+    'ñ': 'n', 'Ñ': 'N',
+    'ü': 'u', 'Ü': 'U',
+    'à': 'a', 'è': 'e', 'ì': 'i', 'ò': 'o', 'ù': 'u',
+    'À': 'A', 'È': 'E', 'Ì': 'I', 'Ò': 'O', 'Ù': 'U',
+    'â': 'a', 'ê': 'e', 'î': 'i', 'ô': 'o', 'û': 'u',
+    'Â': 'A', 'Ê': 'E', 'Î': 'I', 'Ô': 'O', 'Û': 'U',
+    'ã': 'a', 'õ': 'o',
+    'Ã': 'A', 'Õ': 'O',
+  };
+
+  let result = text;
+  for (const [special, replacement] of Object.entries(replacements)) {
+    result = result.replace(new RegExp(special, 'g'), replacement);
+  }
+  return result;
+}
+
+/**
+ * Process text based on printer configuration
+ * If print_special_chars is false, remove special characters
+ */
+function processText(text: string, config?: PrinterConfig): string {
+  if (config?.print_special_chars === false) {
+    return removeSpecialChars(text);
+  }
+  return text;
 }
 
 function getStatusLabel(status: string): string {
@@ -88,7 +125,7 @@ function getUnitFromNotes(notes: string | null | undefined): string {
   return '';
 }
 
-function formatProductDisplay(item: OrderItem): string {
+function formatProductDisplay(item: OrderItem, config?: PrinterConfig): string {
   const unit = getUnitFromNotes(item.notes);
   
   let unitText = '';
@@ -112,15 +149,16 @@ function formatProductDisplay(item: OrderItem): string {
     unitText = item.quantity === 1 ? 'unidad' : 'unidades';
   }
   
-  return `${item.quantity} ${unitText} de ${item.product_name}`;
+  const productName = processText(item.product_name, config);
+  return `${item.quantity} ${unitText} de ${productName}`;
 }
 
-function getAdditionalNotes(notes: string | null | undefined): string {
+function getAdditionalNotes(notes: string | null | undefined, config?: PrinterConfig): string {
   if (!notes) return '';
   
   const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
   
-  return cleanNotes;
+  return processText(cleanNotes, config);
 }
 
 function alignText(text: string, width: number, alignment: 'left' | 'center' | 'right'): string {
@@ -172,19 +210,25 @@ function formatProductLine(
 /**
  * Get the appropriate header text based on the receipt context
  */
-function getReceiptHeader(context: ReceiptContext): string {
+function getReceiptHeader(context: ReceiptContext, config?: PrinterConfig): string {
+  let header = '';
   switch (context) {
     case 'auto_print':
-      return 'NUEVO PEDIDO';
+      header = 'NUEVO PEDIDO';
+      break;
     case 'manual_print':
-      return 'PEDIDO CLIENTE';
+      header = 'PEDIDO CLIENTE';
+      break;
     case 'query':
-      return 'CONSULTA DE CLIENTE';
+      header = 'CONSULTA DE CLIENTE';
+      break;
     case 'customer_account':
-      return 'CUENTA DE CLIENTES';
+      header = 'CUENTA DE CLIENTES';
+      break;
     default:
-      return 'PEDIDO';
+      header = 'PEDIDO';
   }
+  return processText(header, config);
 }
 
 /**
@@ -212,14 +256,15 @@ export function generateAdvancedReceiptText(
   }
 
   // Header text - use context-specific header
-  const headerText = getReceiptHeader(context);
+  const headerText = getReceiptHeader(context, config);
   receipt += centerText(headerText, width) + '\n';
   
   // Additional header lines from config
   if (advConfig.header_text && advConfig.header_text.trim()) {
     const headerLines = advConfig.header_text.split('\n');
     for (const line of headerLines) {
-      receipt += alignText(line, width, advConfig.header_alignment) + '\n';
+      const processedLine = processText(line, config);
+      receipt += alignText(processedLine, width, advConfig.header_alignment) + '\n';
     }
   }
 
@@ -239,7 +284,8 @@ export function generateAdvancedReceiptText(
     receipt += `Pedido: ${order.order_number}\n`;
   }
   if (advConfig.show_status) {
-    receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+    const statusLabel = processText(getStatusLabel(order.status), config);
+    receipt += `Estado: ${statusLabel}\n`;
   }
   receipt += `Fecha: ${formatDate(order.created_at, advConfig.date_format)}\n`;
 
@@ -251,12 +297,14 @@ export function generateAdvancedReceiptText(
 
   // Customer information
   if (config?.include_customer_info !== false) {
-    receipt += `Cliente: ${order.customer_name}\n`;
+    const customerName = processText(order.customer_name, config);
+    receipt += `Cliente: ${customerName}\n`;
     if (order.customer_phone) {
       receipt += `Telefono: ${order.customer_phone}\n`;
     }
     if (order.customer_address) {
-      receipt += `Direccion: ${order.customer_address}\n`;
+      const customerAddress = processText(order.customer_address, config);
+      receipt += `Direccion: ${customerAddress}\n`;
     }
     if (advConfig.show_separator_lines) {
       receipt += advConfig.separator_char.repeat(width) + '\n';
@@ -267,7 +315,7 @@ export function generateAdvancedReceiptText(
   // Products section
   receipt += 'PRODUCTOS:\n\n';
   for (const item of order.items || []) {
-    const productDisplay = formatProductDisplay(item);
+    const productDisplay = formatProductDisplay(item, config);
     
     // Format product line with price alignment
     if (advConfig.show_prices && item.unit_price > 0) {
@@ -286,7 +334,7 @@ export function generateAdvancedReceiptText(
     
     // Show product notes if enabled
     if (advConfig.show_product_notes) {
-      const additionalNotes = getAdditionalNotes(item.notes);
+      const additionalNotes = getAdditionalNotes(item.notes, config);
       if (additionalNotes) {
         receipt += `  ${additionalNotes}\n`;
       }
@@ -301,7 +349,9 @@ export function generateAdvancedReceiptText(
       receipt += advConfig.separator_char.repeat(width) + '\n';
     }
     for (const field of advConfig.custom_fields) {
-      receipt += `${field.label}: ${field.value}\n`;
+      const label = processText(field.label, config);
+      const value = processText(field.value, config);
+      receipt += `${label}: ${value}\n`;
     }
     receipt += '\n';
   }
@@ -334,7 +384,8 @@ export function generateAdvancedReceiptText(
   // Footer text
   const footerLines = advConfig.footer_text.split('\n');
   for (const line of footerLines) {
-    receipt += alignText(line, width, advConfig.footer_alignment) + '\n';
+    const processedLine = processText(line, config);
+    receipt += alignText(processedLine, width, advConfig.footer_alignment) + '\n';
   }
 
   receipt += '\n\n';
@@ -362,25 +413,28 @@ export function generateReceiptText(
   
   // Header with logo - use context-specific header
   if (config?.include_logo !== false) {
-    const headerText = getReceiptHeader(context);
+    const headerText = getReceiptHeader(context, config);
     receipt += centerText(headerText, width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
   // Order information
   receipt += `Pedido: ${order.order_number}\n`;
-  receipt += `Estado: ${getStatusLabel(order.status)}\n`;
+  const statusLabel = processText(getStatusLabel(order.status), config);
+  receipt += `Estado: ${statusLabel}\n`;
   receipt += `Fecha: ${formatDate(order.created_at)}\n`;
   receipt += '-'.repeat(width) + '\n\n';
   
   // Customer information
   if (config?.include_customer_info !== false) {
-    receipt += `Cliente: ${order.customer_name}\n`;
+    const customerName = processText(order.customer_name, config);
+    receipt += `Cliente: ${customerName}\n`;
     if (order.customer_phone) {
       receipt += `Telefono: ${order.customer_phone}\n`;
     }
     if (order.customer_address) {
-      receipt += `Direccion: ${order.customer_address}\n`;
+      const customerAddress = processText(order.customer_address, config);
+      receipt += `Direccion: ${customerAddress}\n`;
     }
     receipt += '-'.repeat(width) + '\n\n';
   }
@@ -388,9 +442,9 @@ export function generateReceiptText(
   // Products section
   receipt += 'PRODUCTOS:\n\n';
   for (const item of order.items || []) {
-    receipt += `${formatProductDisplay(item)}\n`;
+    receipt += `${formatProductDisplay(item, config)}\n`;
     
-    const additionalNotes = getAdditionalNotes(item.notes);
+    const additionalNotes = getAdditionalNotes(item.notes, config);
     if (additionalNotes) {
       receipt += `  ${additionalNotes}\n`;
     }
@@ -418,7 +472,8 @@ export function generateReceiptText(
   
   // Footer
   receipt += '\n' + '='.repeat(width) + '\n';
-  receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
+  const footerText = processText('Gracias por su compra!', config);
+  receipt += centerText(footerText, width) + '\n\n\n';
   
   return receipt;
 }
@@ -438,29 +493,33 @@ export function generateQueryReceiptText(
   
   // Header - always use "CONSULTA DE CLIENTE" for queries
   if (config?.include_logo !== false) {
-    receipt += centerText('CONSULTA DE CLIENTE', width) + '\n';
+    const headerText = processText('CONSULTA DE CLIENTE', config);
+    receipt += centerText(headerText, width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
   // Order and customer info
   receipt += `Pedido: ${order.order_number}\n`;
-  receipt += `Cliente: ${order.customer_name}\n`;
+  const customerName = processText(order.customer_name, config);
+  receipt += `Cliente: ${customerName}\n`;
   receipt += `Fecha: ${formatDate(new Date().toISOString())}\n`;
   receipt += '-'.repeat(width) + '\n\n';
   
   // Query text
   receipt += 'CONSULTA:\n\n';
-  receipt += `${queryText}\n\n`;
+  const processedQuery = processText(queryText, config);
+  receipt += `${processedQuery}\n\n`;
   
   // Order status
   receipt += '-'.repeat(width) + '\n';
   receipt += 'ESTADO DEL PEDIDO:\n';
-  receipt += `Estado: ${getStatusLabel(order.status)}\n\n`;
+  const statusLabel = processText(getStatusLabel(order.status), config);
+  receipt += `Estado: ${statusLabel}\n\n`;
   
   // Products
   receipt += 'PRODUCTOS:\n\n';
   for (const item of order.items || []) {
-    const productDisplay = formatProductDisplay(item);
+    const productDisplay = formatProductDisplay(item, config);
     
     // Use advanced config if available
     if (advConfig) {
@@ -479,14 +538,14 @@ export function generateQueryReceiptText(
       }
       
       if (advConfig.show_product_notes) {
-        const additionalNotes = getAdditionalNotes(item.notes);
+        const additionalNotes = getAdditionalNotes(item.notes, config);
         if (additionalNotes) {
           receipt += `  ${additionalNotes}\n`;
         }
       }
     } else {
       receipt += `${productDisplay}\n`;
-      const additionalNotes = getAdditionalNotes(item.notes);
+      const additionalNotes = getAdditionalNotes(item.notes, config);
       if (additionalNotes) {
         receipt += `  ${additionalNotes}\n`;
       }
@@ -500,7 +559,8 @@ export function generateQueryReceiptText(
   
   // Footer
   receipt += '\n' + '='.repeat(width) + '\n';
-  receipt += centerText('Gracias por su compra!', width) + '\n\n\n';
+  const footerText = processText('Gracias por su compra!', config);
+  receipt += centerText(footerText, width) + '\n\n\n';
   
   return receipt;
 }
@@ -523,16 +583,19 @@ export function generateCustomerAccountReceipt(
   
   // Header - always use "CUENTA DE CLIENTES" for customer accounts
   if (config?.include_logo !== false) {
-    receipt += centerText('CUENTA DE CLIENTES', width) + '\n';
+    const headerText = processText('CUENTA DE CLIENTES', config);
+    receipt += centerText(headerText, width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
-  receipt += `Cliente: ${customerName}\n`;
+  const processedCustomerName = processText(customerName, config);
+  receipt += `Cliente: ${processedCustomerName}\n`;
   if (customerPhone) {
     receipt += `Telefono: ${customerPhone}\n`;
   }
   if (customerAddress) {
-    receipt += `Direccion: ${customerAddress}\n`;
+    const processedAddress = processText(customerAddress, config);
+    receipt += `Direccion: ${processedAddress}\n`;
   }
   receipt += `Fecha: ${formatDate(new Date().toISOString())}\n`;
   receipt += '-'.repeat(width) + '\n\n';
@@ -563,7 +626,8 @@ export function generateCustomerAccountReceipt(
   receipt += `PENDIENTE: ${formatCLP(totalDebt - totalPaid)}\n`;
   
   receipt += '\n' + '='.repeat(width) + '\n';
-  receipt += centerText('Gracias por su preferencia!', width) + '\n\n\n';
+  const footerText = processText('Gracias por su preferencia!', config);
+  receipt += centerText(footerText, width) + '\n\n\n';
   
   return receipt;
 }

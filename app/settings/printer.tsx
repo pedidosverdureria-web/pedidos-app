@@ -198,6 +198,7 @@ export default function PrinterSettingsScreen() {
   const [paperSize, setPaperSize] = useState<PaperSize>('80mm');
   const [includeCustomerInfo, setIncludeCustomerInfo] = useState(true);
   const [includeTotals, setIncludeTotals] = useState(true);
+  const [printSpecialChars, setPrintSpecialChars] = useState(true);
   const [loading, setLoading] = useState(false);
   const [backgroundTaskStatus, setBackgroundTaskStatus] = useState<any>(null);
 
@@ -215,6 +216,7 @@ export default function PrinterSettingsScreen() {
         setPaperSize(config.paper_size || '80mm');
         setIncludeCustomerInfo(config.include_customer_info ?? true);
         setIncludeTotals(config.include_totals ?? true);
+        setPrintSpecialChars(config.print_special_chars ?? true);
       } else {
         console.log('[PrinterSettings] No config found, using defaults');
         setAutoPrintEnabled(false);
@@ -222,6 +224,7 @@ export default function PrinterSettingsScreen() {
         setPaperSize('80mm');
         setIncludeCustomerInfo(true);
         setIncludeTotals(true);
+        setPrintSpecialChars(true);
       }
       
       const status = await getBackgroundTaskStatus();
@@ -247,6 +250,7 @@ export default function PrinterSettingsScreen() {
         paper_size: paperSize,
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
+        print_special_chars: printSpecialChars,
         printer_name: connectedDevice?.name || null,
         printer_address: connectedDevice?.id || null,
       };
@@ -581,12 +585,29 @@ export default function PrinterSettingsScreen() {
             />
           </View>
           
-          <View style={[styles.settingRow, styles.settingRowLast]}>
+          <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Incluir totales</Text>
             <Switch
               value={includeTotals}
               onValueChange={(value) => {
                 setIncludeTotals(value);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              trackColor={{ false: colors.border, true: colors.primary }}
+            />
+          </View>
+          
+          <View style={[styles.settingRow, styles.settingRowLast]}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.settingLabel}>Imprimir caracteres especiales</Text>
+              <Text style={[styles.infoText, { marginTop: 4 }]}>
+                Si se desactiva, la ñ y los acentos se reemplazaran (ej: piña → pina)
+              </Text>
+            </View>
+            <Switch
+              value={printSpecialChars}
+              onValueChange={(value) => {
+                setPrintSpecialChars(value);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
               trackColor={{ false: colors.border, true: colors.primary }}
