@@ -630,6 +630,13 @@ export default function CustomersScreen() {
       textAlign: 'center',
       fontWeight: '600',
     },
+    deleteDialogInfo: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginBottom: 20,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
     deleteDialogButtons: {
       gap: 12,
     },
@@ -851,37 +858,51 @@ export default function CustomersScreen() {
 
     const orderCount = selectedCustomer.orders?.length || 0;
     
-    if (orderCount > 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '⚠️ No se puede eliminar',
-        `Este cliente tiene ${orderCount} ${orderCount === 1 ? 'pedido asociado' : 'pedidos asociados'}. Para eliminar solo el cliente, primero debe eliminar todos sus pedidos, o use la opción "Eliminar Cliente y Pedidos".`,
-        [{ text: 'Entendido', style: 'default' }]
-      );
-      return;
-    }
-
     try {
       setIsDeleting(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
       const supabase = getSupabase();
       
-      console.log('[CustomersScreen] Deleting customer only:', selectedCustomer.id);
+      console.log('[CustomersScreen] Deleting customer only (disassociating from orders):', selectedCustomer.id);
       
-      const { error } = await supabase
+      // Step 1: Disassociate customer from all orders by setting customer_id to NULL
+      // The customer data (name, phone, address) remains in the order records
+      if (orderCount > 0) {
+        const orderIds = selectedCustomer.orders!.map(o => o.id);
+        
+        console.log('[CustomersScreen] Disassociating customer from orders:', orderIds);
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ customer_id: null })
+          .in('id', orderIds);
+
+        if (updateError) throw updateError;
+        
+        console.log('[CustomersScreen] Successfully disassociated customer from', orderCount, 'orders');
+      }
+      
+      // Step 2: Delete the customer record
+      console.log('[CustomersScreen] Deleting customer record:', selectedCustomer.id);
+      const { error: deleteError } = await supabase
         .from('customers')
         .delete()
         .eq('id', selectedCustomer.id);
 
-      if (error) throw error;
+      if (deleteError) throw deleteError;
 
       console.log('[CustomersScreen] Customer deleted successfully');
       
+      // Update local state
       setCustomers(prev => prev.filter(c => c.id !== selectedCustomer.id));
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ Éxito', 'Cliente eliminado correctamente');
+      
+      const message = orderCount > 0
+        ? `Cliente eliminado correctamente. Los ${orderCount} ${orderCount === 1 ? 'pedido asociado se mantiene' : 'pedidos asociados se mantienen'} con los datos del cliente preservados.`
+        : 'Cliente eliminado correctamente.';
+      
+      Alert.alert('✅ Éxito', message);
       
       setShowDeleteDialog(false);
       setShowDetailModal(false);
@@ -889,7 +910,7 @@ export default function CustomersScreen() {
     } catch (error) {
       console.error('[CustomersScreen] Error deleting customer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('❌ Error', 'No se pudo eliminar el cliente. Verifique que no tenga pedidos asociados.');
+      Alert.alert('❌ Error', 'No se pudo eliminar el cliente. Por favor, intente nuevamente.');
     } finally {
       setIsDeleting(false);
     }
@@ -1461,9 +1482,15 @@ export default function CustomersScreen() {
               ¿Qué desea eliminar?
             </Text>
             {selectedCustomer && selectedCustomer.orders && selectedCustomer.orders.length > 0 && (
-              <Text style={styles.deleteDialogWarning}>
-                Este cliente tiene {selectedCustomer.orders.length} {selectedCustomer.orders.length === 1 ? 'pedido' : 'pedidos'}
-              </Text>
+              <>
+                <Text style={styles.deleteDialogWarning}>
+                  Este cliente tiene {selectedCustomer.orders.length} {selectedCustomer.orders.length === 1 ? 'pedido' : 'pedidos'}
+                </Text>
+                <Text style={styles.deleteDialogInfo}>
+                  • Solo Cliente: Elimina el cliente pero mantiene los pedidos con todos sus datos{'\n'}
+                  • Cliente y Pedidos: Elimina el cliente y todos sus pedidos
+                </Text>
+              </>
             )}
             
             <View style={styles.deleteDialogButtons}>
