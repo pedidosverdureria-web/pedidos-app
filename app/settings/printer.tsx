@@ -24,7 +24,7 @@ import {
 } from '@/utils/backgroundAutoPrintTask';
 import { PrinterConfig } from '@/utils/receiptGenerator';
 
-type TextSize = 'small' | 'medium' | 'large';
+type PaperSize = '58mm' | '80mm';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
@@ -195,7 +195,7 @@ export default function PrinterSettingsScreen() {
 
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [autoCutEnabled, setAutoCutEnabled] = useState(true);
-  const [textSize, setTextSize] = useState<TextSize>('small');
+  const [paperSize, setPaperSize] = useState<PaperSize>('80mm');
   const [includeCustomerInfo, setIncludeCustomerInfo] = useState(true);
   const [includeTotals, setIncludeTotals] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -212,14 +212,14 @@ export default function PrinterSettingsScreen() {
         
         setAutoPrintEnabled(config.auto_print_enabled ?? false);
         setAutoCutEnabled(config.auto_cut_enabled ?? true);
-        setTextSize(config.text_size || 'small');
+        setPaperSize(config.paper_size || '80mm');
         setIncludeCustomerInfo(config.include_customer_info ?? true);
         setIncludeTotals(config.include_totals ?? true);
       } else {
         console.log('[PrinterSettings] No config found, using defaults');
         setAutoPrintEnabled(false);
         setAutoCutEnabled(true);
-        setTextSize('small');
+        setPaperSize('80mm');
         setIncludeCustomerInfo(true);
         setIncludeTotals(true);
       }
@@ -243,8 +243,8 @@ export default function PrinterSettingsScreen() {
       const config = {
         auto_print_enabled: autoPrintEnabled,
         auto_cut_enabled: autoCutEnabled,
-        text_size: textSize,
-        paper_size: '80mm', // Fixed to 80mm (small size)
+        text_size: 'small', // Fixed to small
+        paper_size: paperSize,
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
         printer_name: connectedDevice?.name || null,
@@ -557,17 +557,15 @@ export default function PrinterSettingsScreen() {
           <TouchableOpacity
             style={styles.settingRow}
             onPress={() => {
-              const sizes: TextSize[] = ['small', 'medium', 'large'];
-              const currentIndex = sizes.indexOf(textSize);
+              const sizes: PaperSize[] = ['58mm', '80mm'];
+              const currentIndex = sizes.indexOf(paperSize);
               const nextIndex = (currentIndex + 1) % sizes.length;
-              setTextSize(sizes[nextIndex]);
+              setPaperSize(sizes[nextIndex]);
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
-            <Text style={styles.settingLabel}>Tamano de texto</Text>
-            <Text style={styles.settingValue}>
-              {textSize === 'small' ? 'Pequeno' : textSize === 'medium' ? 'Mediano' : 'Grande'}
-            </Text>
+            <Text style={styles.settingLabel}>Tamano de papel</Text>
+            <Text style={styles.settingValue}>{paperSize}</Text>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
           
