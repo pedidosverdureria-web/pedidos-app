@@ -492,8 +492,7 @@ export default function OrderDetailScreen() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <IconSymbol 
-                    ios_icon_name="plus" 
-                    android_material_icon_name="add" 
+                    name="plus" 
                     size={20} 
                     color="#fff" 
                   />
