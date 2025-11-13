@@ -14,11 +14,11 @@ import {
   Platform,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
+import { useThemedStyles } from '@/hooks/useThemedStyles';
 
 // Format currency as Chilean Pesos
 const formatCLP = (amount: number): string => {
@@ -27,6 +27,7 @@ const formatCLP = (amount: number): string => {
 
 export default function NewOrderScreen() {
   const { user, isAuthenticated } = useAuth();
+  const { colors, commonStyles } = useThemedStyles();
   const [customerName, setCustomerName] = useState('');
   const [customerRut, setCustomerRut] = useState('');
   const [orderText, setOrderText] = useState('');
@@ -36,6 +37,244 @@ export default function NewOrderScreen() {
     customerName?: string;
     orderText?: string;
   }>({});
+
+  // Create dynamic styles based on theme
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    centerContent: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    warningTitle: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    warningText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: 24,
+    },
+    loginButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: 12,
+    },
+    loginButtonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    authBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.success,
+    },
+    authBannerText: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    infoBox: {
+      flexDirection: 'row',
+      backgroundColor: colors.card,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 16,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.info,
+    },
+    infoBoxText: {
+      flex: 1,
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 2,
+        },
+      }),
+    },
+    cardHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 16,
+    },
+    cardTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    required: {
+      color: colors.error,
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: colors.text,
+      marginBottom: 12,
+    },
+    inputError: {
+      borderColor: colors.error,
+      borderWidth: 2,
+    },
+    errorText: {
+      color: colors.error,
+      fontSize: 12,
+      marginTop: -8,
+      marginBottom: 8,
+    },
+    textArea: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: colors.text,
+      marginBottom: 12,
+      minHeight: 150,
+      textAlignVertical: 'top',
+    },
+    examplesBox: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    examplesTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    examplesText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 20,
+    },
+    parsedItemCard: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    parsedItemHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    parsedItemNumber: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.primary,
+      minWidth: 24,
+    },
+    parsedItemContent: {
+      flex: 1,
+    },
+    parsedItemProduct: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 2,
+    },
+    parsedItemDetails: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    warningBox: {
+      flexDirection: 'row',
+      backgroundColor: colors.background,
+      padding: 12,
+      borderRadius: 8,
+      marginTop: 8,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.warning,
+    },
+    warningBoxText: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.text,
+      lineHeight: 18,
+    },
+    submitButton: {
+      backgroundColor: colors.success,
+      paddingVertical: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+        },
+        android: {
+          elevation: 4,
+        },
+      }),
+    },
+    submitButtonDisabled: {
+      opacity: 0.6,
+    },
+    submitButtonText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: '600',
+    },
+  });
 
   // Parse order text when it changes
   useEffect(() => {
@@ -257,7 +496,7 @@ export default function NewOrderScreen() {
             headerBackTitle: 'Atrás',
           }}
         />
-        <IconSymbol name="exclamationmark.triangle.fill" size={64} color={colors.warning} />
+        <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={64} color={colors.warning} />
         <Text style={styles.warningTitle}>Sesión Requerida</Text>
         <Text style={styles.warningText}>
           Debes iniciar sesión para crear pedidos manualmente.
@@ -291,7 +530,7 @@ export default function NewOrderScreen() {
       >
         {/* Authentication Status Banner */}
         <View style={styles.authBanner}>
-          <IconSymbol name="checkmark.circle.fill" size={20} color={colors.success} />
+          <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color={colors.success} />
           <Text style={styles.authBannerText}>
             Conectado como: {user.full_name} ({user.role})
           </Text>
@@ -299,7 +538,7 @@ export default function NewOrderScreen() {
 
         {/* Info Box */}
         <View style={styles.infoBox}>
-          <IconSymbol name="info.circle.fill" size={20} color={colors.info} />
+          <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color={colors.info} />
           <Text style={styles.infoBoxText}>
             📝 Ingresa el pedido como si fuera recibido por WhatsApp. El sistema parseará automáticamente los productos, cantidades y unidades.
           </Text>
@@ -308,7 +547,7 @@ export default function NewOrderScreen() {
         {/* Customer Information Card */}
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
-            <IconSymbol name="person.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="person.fill" android_material_icon_name="person" size={24} color={colors.primary} />
             <Text style={styles.cardTitle}>Información del Cliente</Text>
           </View>
 
@@ -344,7 +583,7 @@ export default function NewOrderScreen() {
         {/* Order Text Card */}
         <View style={styles.card}>
           <View style={styles.cardHeaderRow}>
-            <IconSymbol name="text.bubble.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="text.bubble.fill" android_material_icon_name="chat_bubble" size={24} color={colors.primary} />
             <Text style={styles.cardTitle}>Pedido (Formato WhatsApp)</Text>
           </View>
 
@@ -389,7 +628,7 @@ export default function NewOrderScreen() {
         {parsedItems.length > 0 && (
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
-              <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
+              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color={colors.success} />
               <Text style={styles.cardTitle}>Productos Detectados ({parsedItems.length})</Text>
             </View>
 
@@ -404,7 +643,7 @@ export default function NewOrderScreen() {
                     </Text>
                   </View>
                   {item.quantity === '#' && (
-                    <IconSymbol name="exclamationmark.triangle.fill" size={20} color={colors.warning} />
+                    <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={20} color={colors.warning} />
                   )}
                 </View>
               </View>
@@ -412,7 +651,7 @@ export default function NewOrderScreen() {
 
             {parsedItems.some(item => item.quantity === '#') && (
               <View style={styles.warningBox}>
-                <IconSymbol name="exclamationmark.triangle.fill" size={16} color={colors.warning} />
+                <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={16} color={colors.warning} />
                 <Text style={styles.warningBoxText}>
                   Algunos productos tienen cantidad "#" porque no pudieron ser procesados. Podrás editarlos después de crear el pedido.
                 </Text>
@@ -431,7 +670,7 @@ export default function NewOrderScreen() {
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <IconSymbol name="checkmark.circle.fill" size={24} color="#FFFFFF" />
+              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color="#FFFFFF" />
               <Text style={styles.submitButtonText}>
                 Crear Pedido ({parsedItems.length} producto{parsedItems.length !== 1 ? 's' : ''})
               </Text>
@@ -444,240 +683,3 @@ export default function NewOrderScreen() {
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  warningTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  warningText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  loginButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-  },
-  loginButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  authBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.success,
-  },
-  authBannerText: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.info,
-  },
-  infoBoxText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  required: {
-    color: colors.error,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 12,
-  },
-  inputError: {
-    borderColor: colors.error,
-    borderWidth: 2,
-  },
-  errorText: {
-    color: colors.error,
-    fontSize: 12,
-    marginTop: -8,
-    marginBottom: 8,
-  },
-  textArea: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 12,
-    minHeight: 150,
-    textAlignVertical: 'top',
-  },
-  examplesBox: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  examplesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  examplesText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 20,
-  },
-  parsedItemCard: {
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  parsedItemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  parsedItemNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
-    minWidth: 24,
-  },
-  parsedItemContent: {
-    flex: 1,
-  },
-  parsedItemProduct: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  parsedItemDetails: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  warningBox: {
-    flexDirection: 'row',
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 8,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  warningBoxText: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-    lineHeight: 18,
-  },
-  submitButton: {
-    backgroundColor: colors.success,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-  },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-});
