@@ -116,7 +116,10 @@ module.exports = {
       typedRoutes: true
     },
     extra: {
-      router: {}
+      router: {},
+      eas: {
+        projectId: "f0dd536d-f195-4a75-9cc1-60519b5f49be"
+      }
     },
     scheme: "Pedidos"
   }
