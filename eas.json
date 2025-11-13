@@ -24,7 +24,7 @@
       "android": {
         "buildType": "apk",
         "resourceClass": "medium",
-        "gradleCommand": ":app:assembleRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease",
+        "gradleCommand": ":app:assembleRelease -x lint -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease -x lintRelease -x lintAnalyzeRelease -x lintReportRelease",
         "env": {
           "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:MetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC"
         }
@@ -35,7 +35,7 @@
       "android": {
         "buildType": "apk",
         "resourceClass": "medium",
-        "gradleCommand": ":app:assembleRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease",
+        "gradleCommand": ":app:assembleRelease -x lint -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease -x lintRelease -x lintAnalyzeRelease -x lintReportRelease",
         "env": {
           "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:MetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC"
         }

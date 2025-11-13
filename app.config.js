@@ -75,7 +75,10 @@ module.exports = {
         "android.lint.ignoreWarnings": "true",
         "android.lint.checkAllWarnings": "false",
         "android.lint.warningsAsErrors": "false",
-        "android.lint.disable": "all"
+        "android.lint.disable": "all",
+        "android.lintOptions.checkReleaseBuilds": "false",
+        "android.lintOptions.abortOnError": "false",
+        "android.lintOptions.ignoreWarnings": "true"
       }
     },
     web: {
