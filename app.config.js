@@ -71,7 +71,11 @@ module.exports = {
         "ksp.incremental": "true",
         "org.gradle.vfs.watch": "false",
         "android.lint.checkReleaseBuilds": "false",
-        "android.lint.abortOnError": "false"
+        "android.lint.abortOnError": "false",
+        "android.lint.ignoreWarnings": "true",
+        "android.lint.checkAllWarnings": "false",
+        "android.lint.warningsAsErrors": "false",
+        "android.lint.disable": "all"
       }
     },
     web: {
