@@ -837,12 +837,39 @@ export default function PendingPaymentsScreen() {
   }, []);
 
   const openPaymentModal = useCallback((type: 'account' | 'order' = 'account', orderId?: string) => {
+    console.log('[PendingPaymentsScreen] Opening payment modal:', { type, orderId });
     setPaymentType(type);
     setSelectedOrderId(orderId || null);
-    setPaymentAmount('');
     setPaymentNotes('');
+    
+    // Auto-fill payment amount if an order is selected
+    if (type === 'order' && orderId && selectedCustomer) {
+      const selectedOrder = selectedCustomer.orders?.find(o => o.id === orderId);
+      if (selectedOrder) {
+        const pendingAmount = selectedOrder.total_amount - selectedOrder.paid_amount;
+        setPaymentAmount(pendingAmount.toString());
+        console.log('[PendingPaymentsScreen] Auto-filled payment amount:', pendingAmount);
+      } else {
+        setPaymentAmount('');
+      }
+    } else {
+      setPaymentAmount('');
+    }
+    
     setShowPaymentModal(true);
-  }, []);
+  }, [selectedCustomer]);
+
+  // Effect to auto-fill payment amount when order is selected in the modal
+  useEffect(() => {
+    if (paymentType === 'order' && selectedOrderId && selectedCustomer) {
+      const selectedOrder = selectedCustomer.orders?.find(o => o.id === selectedOrderId);
+      if (selectedOrder) {
+        const pendingAmount = selectedOrder.total_amount - selectedOrder.paid_amount;
+        setPaymentAmount(pendingAmount.toString());
+        console.log('[PendingPaymentsScreen] Auto-filled payment amount on order selection:', pendingAmount);
+      }
+    }
+  }, [selectedOrderId, paymentType, selectedCustomer]);
 
   const handleFinalizeCustomer = async () => {
     if (!selectedCustomer) return;
@@ -1673,6 +1700,7 @@ export default function PendingPaymentsScreen() {
                 onPress={() => {
                   setPaymentType('account');
                   setSelectedOrderId(null);
+                  setPaymentAmount('');
                 }}
               >
                 <Text
@@ -1689,7 +1717,10 @@ export default function PendingPaymentsScreen() {
                   styles.paymentTypeButton,
                   paymentType === 'order' && styles.paymentTypeButtonActive,
                 ]}
-                onPress={() => setPaymentType('order')}
+                onPress={() => {
+                  setPaymentType('order');
+                  setPaymentAmount('');
+                }}
               >
                 <Text
                   style={[
@@ -1714,7 +1745,10 @@ export default function PendingPaymentsScreen() {
                         styles.orderSelectorItem,
                         selectedOrderId === order.id && styles.orderSelectorItemActive,
                       ]}
-                      onPress={() => setSelectedOrderId(order.id)}
+                      onPress={() => {
+                        console.log('[PendingPaymentsScreen] Order selected in modal:', order.order_number);
+                        setSelectedOrderId(order.id);
+                      }}
                     >
                       <View style={styles.orderSelectorItemHeader}>
                         <Text style={styles.orderSelectorItemNumber}>
