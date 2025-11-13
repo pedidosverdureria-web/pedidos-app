@@ -9,7 +9,6 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
   Dimensions,
@@ -27,6 +26,7 @@ import { usePrinter } from '@/hooks/usePrinter';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PrinterConfig } from '@/utils/receiptGenerator';
 import { addToPrintQueue } from '@/utils/printQueue';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 
 const { width } = Dimensions.get('window');
 const PRINTER_CONFIG_KEY = '@printer_config';
@@ -146,6 +146,14 @@ function generateDebtReceipt(customer: Customer, config?: PrinterConfig): string
   return receipt;
 }
 
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
+
 export default function CustomersScreen() {
   const { user } = useAuth();
   const { colors } = useThemedStyles();
@@ -164,6 +172,12 @@ export default function CustomersScreen() {
   const [editedPhone, setEditedPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const styles = StyleSheet.create({
     container: {
@@ -714,7 +728,12 @@ export default function CustomersScreen() {
       setCustomers(data || []);
     } catch (error) {
       console.error('[CustomersScreen] Error loading customers:', error);
-      Alert.alert('❌ Error', 'No se pudieron cargar los clientes');
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudieron cargar los clientes',
+      });
     } finally {
       setLoading(false);
     }
@@ -746,7 +765,12 @@ export default function CustomersScreen() {
     
     if (pendingOrders.length === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('⚠️ Sin Vales Pendientes', 'Este cliente no tiene vales pendientes de pago');
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Sin Vales Pendientes',
+        message: 'Este cliente no tiene vales pendientes de pago',
+      });
       return;
     }
 
@@ -759,7 +783,12 @@ export default function CustomersScreen() {
         // If printer is connected, print directly
         await print(receiptText);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('✅ Impreso', 'El recibo de deuda se imprimió correctamente');
+        setDialog({
+          visible: true,
+          type: 'success',
+          title: 'Impreso',
+          message: 'El recibo de deuda se imprimió correctamente',
+        });
       } else {
         // If no printer is connected, add to print queue
         console.log('[CustomersScreen] No printer connected, adding debt receipt to print queue');
@@ -773,10 +802,12 @@ export default function CustomersScreen() {
         
         if (result.success) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          Alert.alert(
-            '📋 Agregado a Cola de Impresión',
-            'El recibo de deuda se agregó a la cola de impresión. Se imprimirá automáticamente cuando conectes una impresora.'
-          );
+          setDialog({
+            visible: true,
+            type: 'success',
+            title: 'Agregado a Cola de Impresión',
+            message: 'El recibo de deuda se agregó a la cola de impresión. Se imprimirá automáticamente cuando conectes una impresora.',
+          });
         } else {
           throw new Error(result.error || 'Error al agregar a la cola de impresión');
         }
@@ -784,7 +815,12 @@ export default function CustomersScreen() {
     } catch (error) {
       console.error('[CustomersScreen] Error printing debt receipt:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('❌ Error', 'No se pudo imprimir el recibo de deuda');
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo imprimir el recibo de deuda',
+      });
     }
   };
 
@@ -792,7 +828,12 @@ export default function CustomersScreen() {
     if (!selectedCustomer) return;
 
     if (!editedName.trim()) {
-      Alert.alert('⚠️ Error', 'El nombre del cliente es obligatorio');
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Error',
+        message: 'El nombre del cliente es obligatorio',
+      });
       return;
     }
 
@@ -829,11 +870,21 @@ export default function CustomersScreen() {
 
       setIsEditMode(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ Éxito', 'Información del cliente actualizada correctamente');
+      setDialog({
+        visible: true,
+        type: 'success',
+        title: 'Éxito',
+        message: 'Información del cliente actualizada correctamente',
+      });
     } catch (error) {
       console.error('[CustomersScreen] Error updating customer info:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('❌ Error', 'No se pudo actualizar la información del cliente');
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo actualizar la información del cliente',
+      });
     } finally {
       setIsSaving(false);
     }
@@ -902,15 +953,30 @@ export default function CustomersScreen() {
         ? `Cliente eliminado correctamente. Los ${orderCount} ${orderCount === 1 ? 'pedido asociado se mantiene' : 'pedidos asociados se mantienen'} con los datos del cliente preservados.`
         : 'Cliente eliminado correctamente.';
       
-      Alert.alert('✅ Éxito', message);
-      
-      setShowDeleteDialog(false);
-      setShowDetailModal(false);
-      setSelectedCustomer(null);
+      setDialog({
+        visible: true,
+        type: 'success',
+        title: 'Éxito',
+        message: message,
+        buttons: [{
+          text: 'OK',
+          style: 'primary',
+          onPress: () => {
+            setShowDeleteDialog(false);
+            setShowDetailModal(false);
+            setSelectedCustomer(null);
+          },
+        }],
+      });
     } catch (error) {
       console.error('[CustomersScreen] Error deleting customer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('❌ Error', 'No se pudo eliminar el cliente. Por favor, intente nuevamente.');
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo eliminar el cliente. Por favor, intente nuevamente.',
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -970,18 +1036,30 @@ export default function CustomersScreen() {
       setCustomers(prev => prev.filter(c => c.id !== selectedCustomer.id));
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '✅ Éxito',
-        `Cliente y ${orderCount} ${orderCount === 1 ? 'pedido eliminado' : 'pedidos eliminados'} correctamente`
-      );
-      
-      setShowDeleteDialog(false);
-      setShowDetailModal(false);
-      setSelectedCustomer(null);
+      setDialog({
+        visible: true,
+        type: 'success',
+        title: 'Éxito',
+        message: `Cliente y ${orderCount} ${orderCount === 1 ? 'pedido eliminado' : 'pedidos eliminados'} correctamente`,
+        buttons: [{
+          text: 'OK',
+          style: 'primary',
+          onPress: () => {
+            setShowDeleteDialog(false);
+            setShowDetailModal(false);
+            setSelectedCustomer(null);
+          },
+        }],
+      });
     } catch (error) {
       console.error('[CustomersScreen] Error deleting customer and orders:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('❌ Error', 'No se pudo eliminar el cliente y sus pedidos');
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo eliminar el cliente y sus pedidos',
+      });
     } finally {
       setIsDeleting(false);
     }
@@ -1094,14 +1172,14 @@ export default function CustomersScreen() {
 
         {item.phone && (
           <View style={styles.customerInfo}>
-            <IconSymbol name="phone.fill" size={14} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="phone.fill" android_material_icon_name="phone" size={14} color={colors.textSecondary} />
             <Text style={styles.customerInfoText}>{item.phone}</Text>
           </View>
         )}
         
         {item.address && (
           <View style={styles.customerInfo}>
-            <IconSymbol name="location.fill" size={14} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="location.fill" android_material_icon_name="location_on" size={14} color={colors.textSecondary} />
             <Text style={styles.customerInfoText}>{item.address}</Text>
           </View>
         )}
@@ -1139,7 +1217,7 @@ export default function CustomersScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Clientes</Text>
         <View style={styles.searchContainer}>
-          <IconSymbol name="magnifyingglass" size={20} color="#fff" style={styles.searchIcon} />
+          <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color="#fff" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar clientes..."
@@ -1152,7 +1230,7 @@ export default function CustomersScreen() {
 
       {filteredCustomers.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="person.2" size={64} color={colors.textSecondary} />
+          <IconSymbol ios_icon_name="person.2" android_material_icon_name="people" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>
             {searchQuery
               ? 'No se encontraron clientes'
@@ -1174,6 +1252,16 @@ export default function CustomersScreen() {
           }
         />
       )}
+
+      {/* Custom Dialog */}
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={() => setDialog({ ...dialog, visible: false })}
+      />
 
       <Modal
         visible={showDetailModal}
@@ -1207,25 +1295,25 @@ export default function CustomersScreen() {
                       <>
                         {selectedCustomer.rut && (
                           <View style={styles.modalInfoRow}>
-                            <IconSymbol name="person.text.rectangle.fill" size={20} color={colors.textSecondary} />
+                            <IconSymbol ios_icon_name="person.text.rectangle.fill" android_material_icon_name="badge" size={20} color={colors.textSecondary} />
                             <Text style={styles.modalInfoText}>RUT: {selectedCustomer.rut}</Text>
                           </View>
                         )}
                         {selectedCustomer.phone && (
                           <View style={styles.modalInfoRow}>
-                            <IconSymbol name="phone.fill" size={16} color={colors.textSecondary} />
+                            <IconSymbol ios_icon_name="phone.fill" android_material_icon_name="phone" size={16} color={colors.textSecondary} />
                             <Text style={[styles.modalInfoText, { fontSize: 16, fontWeight: 'normal' }]}>{selectedCustomer.phone}</Text>
                           </View>
                         )}
                         {selectedCustomer.address && (
                           <View style={styles.modalInfoRow}>
-                            <IconSymbol name="location.fill" size={16} color={colors.textSecondary} />
+                            <IconSymbol ios_icon_name="location.fill" android_material_icon_name="location_on" size={16} color={colors.textSecondary} />
                             <Text style={[styles.modalInfoText, { fontSize: 16, fontWeight: 'normal' }]}>{selectedCustomer.address}</Text>
                           </View>
                         )}
                         {selectedCustomer.blocked && (
                           <View style={styles.modalInfoRow}>
-                            <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#DC2626" />
+                            <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={16} color="#DC2626" />
                             <Text style={[styles.modalInfoText, { fontSize: 16, fontWeight: 'normal', color: '#DC2626' }]}>Cliente bloqueado</Text>
                           </View>
                         )}
@@ -1298,7 +1386,7 @@ export default function CustomersScreen() {
                         style={styles.editModeButton}
                         onPress={() => setIsEditMode(true)}
                       >
-                        <IconSymbol name="pencil" size={16} color="#fff" />
+                        <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={16} color="#fff" />
                         <Text style={styles.editModeButtonText}>Editar Información</Text>
                       </TouchableOpacity>
 
@@ -1307,7 +1395,7 @@ export default function CustomersScreen() {
                           style={styles.printDebtButton}
                           onPress={handlePrintDebt}
                         >
-                          <IconSymbol name="printer.fill" size={16} color="#fff" />
+                          <IconSymbol ios_icon_name="printer.fill" android_material_icon_name="print" size={16} color="#fff" />
                           <Text style={styles.printDebtButtonText}>Imprimir Deuda</Text>
                         </TouchableOpacity>
                       )}
@@ -1316,7 +1404,7 @@ export default function CustomersScreen() {
                         style={styles.deleteButton}
                         onPress={handleOpenDeleteDialog}
                       >
-                        <IconSymbol name="trash.fill" size={16} color="#fff" />
+                        <IconSymbol ios_icon_name="trash.fill" android_material_icon_name="delete" size={16} color="#fff" />
                         <Text style={styles.deleteButtonText}>Eliminar Cliente</Text>
                       </TouchableOpacity>
 
