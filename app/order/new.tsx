@@ -497,6 +497,11 @@ export default function NewOrderScreen() {
           options={{
             title: 'Nuevo Pedido Manual',
             headerBackTitle: 'Atrás',
+            headerStyle: {
+              backgroundColor: colors.card,
+            },
+            headerTintColor: colors.text,
+            headerShadowVisible: true,
           }}
         />
         <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={64} color={colors.warning} />
@@ -524,6 +529,11 @@ export default function NewOrderScreen() {
         options={{
           title: 'Nuevo Pedido Manual',
           headerBackTitle: 'Atrás',
+          headerStyle: {
+            backgroundColor: colors.card,
+          },
+          headerTintColor: colors.text,
+          headerShadowVisible: true,
         }}
       />
       <ScrollView
