@@ -284,14 +284,15 @@ export function useOrderDetail(orderId: string | undefined, userId: string | und
         console.error('[useOrderDetail] Error sending WhatsApp notification:', whatsappError);
       }
 
-      // Create in-app notification
+      // Create in-app notification - FIXED: Correct parameter order
       try {
         console.log('[useOrderDetail] Creating in-app notification');
         await createInAppNotification(
-          userId || '',
-          'order_status_changed',
+          userId || null,
+          'Estado de Pedido Actualizado',
           `Pedido ${order.order_number} cambió a ${newStatus}`,
-          { orderId: order.id }
+          'order',
+          order.id
         );
         console.log('[useOrderDetail] In-app notification created');
       } catch (notifError) {
