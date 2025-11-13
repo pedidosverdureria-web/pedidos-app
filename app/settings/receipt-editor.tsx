@@ -9,7 +9,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   TextInput,
   Switch,
   Modal,
@@ -20,8 +19,17 @@ import { colors } from '@/styles/commonStyles';
 import { generateSampleReceipt, PrinterConfig } from '@/utils/receiptGenerator';
 import { AdvancedReceiptConfig, ReceiptStyle } from '@/types';
 import { RECEIPT_STYLES, getStyleName, getStyleDescription } from '@/utils/receiptStyles';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -249,6 +257,12 @@ export default function ReceiptEditorScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showStyleModal, setShowStyleModal] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
   
   // Basic config
   const [paperSize, setPaperSize] = useState<'58mm' | '80mm'>('80mm');
@@ -263,6 +277,19 @@ export default function ReceiptEditorScreen() {
     show_product_notes: true,
     product_name_max_width: 70,
   });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const loadConfig = useCallback(async () => {
     try {
@@ -328,18 +355,18 @@ export default function ReceiptEditorScreen() {
       await AsyncStorage.setItem(PRINTER_CONFIG_KEY, JSON.stringify(newConfig));
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
+      showDialog(
+        'success',
         'Configuración Guardada',
-        'El estilo del recibo se guardó correctamente y se aplicará en todas las impresiones: auto-impresión, impresión manual, consultas y pagos.',
-        [{ text: 'OK' }]
+        'El estilo del recibo se guardó correctamente y se aplicará en todas las impresiones: auto-impresión, impresión manual, consultas y pagos.'
       );
     } catch (error) {
       console.error('[ReceiptEditor] Error saving config:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
+      showDialog(
+        'error',
         'Error al Guardar',
-        'No se pudo guardar la configuración: ' + (error as Error).message,
-        [{ text: 'OK' }]
+        'No se pudo guardar la configuración: ' + (error as Error).message
       );
     } finally {
       setLoading(false);
@@ -762,6 +789,16 @@ export default function ReceiptEditorScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Dialog */}
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </View>
   );
 }

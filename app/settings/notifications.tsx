@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Switch,
 } from 'react-native';
@@ -17,6 +16,15 @@ import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Notification } from '@/types';
 import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 export default function NotificationsScreen() {
   const { user } = useAuth();
@@ -30,6 +38,25 @@ export default function NotificationsScreen() {
     pushNotificationsEnabled: false,
   });
   const [savingSettings, setSavingSettings] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -54,7 +81,7 @@ export default function NotificationsScreen() {
       setNotifications(data || []);
     } catch (error) {
       console.error('Error loading notifications:', error);
-      Alert.alert('Error', 'No se pudieron cargar las notificaciones');
+      showDialog('error', 'Error', 'No se pudieron cargar las notificaciones');
     } finally {
       setLoading(false);
     }
@@ -104,13 +131,13 @@ export default function NotificationsScreen() {
         const token = await registerForPushNotificationsAsync(user.user_id);
         if (token) {
           setSettings({ ...settings, pushNotificationsEnabled: true });
-          Alert.alert('Éxito', 'Notificaciones push activadas');
+          showDialog('success', 'Éxito', 'Notificaciones push activadas');
         } else {
-          Alert.alert('Error', 'No se pudieron activar las notificaciones push');
+          showDialog('error', 'Error', 'No se pudieron activar las notificaciones push');
         }
       } catch (error) {
         console.error('Error enabling push notifications:', error);
-        Alert.alert('Error', 'No se pudieron activar las notificaciones push');
+        showDialog('error', 'Error', 'No se pudieron activar las notificaciones push');
       } finally {
         setSavingSettings(false);
       }
@@ -143,7 +170,7 @@ export default function NotificationsScreen() {
       const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
 
       if (unreadIds.length === 0) {
-        Alert.alert('Info', 'No hay notificaciones sin leer');
+        showDialog('info', 'Info', 'No hay notificaciones sin leer');
         return;
       }
 
@@ -155,10 +182,10 @@ export default function NotificationsScreen() {
       if (error) throw error;
 
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      Alert.alert('Éxito', 'Todas las notificaciones marcadas como leídas');
+      showDialog('success', 'Éxito', 'Todas las notificaciones marcadas como leídas');
     } catch (error) {
       console.error('Error marking all as read:', error);
-      Alert.alert('Error', 'No se pudieron marcar las notificaciones');
+      showDialog('error', 'Error', 'No se pudieron marcar las notificaciones');
     }
   };
 
@@ -175,20 +202,22 @@ export default function NotificationsScreen() {
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
     } catch (error) {
       console.error('Error deleting notification:', error);
-      Alert.alert('Error', 'No se pudo eliminar la notificación');
+      showDialog('error', 'Error', 'No se pudo eliminar la notificación');
     }
   };
 
   const clearAll = () => {
-    Alert.alert(
+    showDialog(
+      'warning',
       'Confirmar',
       '¿Estás seguro de que quieres eliminar todas las notificaciones?',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel', onPress: closeDialog },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
+            closeDialog();
             try {
               const supabase = getSupabase();
               const notificationIds = notifications.map((n) => n.id);
@@ -201,10 +230,10 @@ export default function NotificationsScreen() {
               if (error) throw error;
 
               setNotifications([]);
-              Alert.alert('Éxito', 'Todas las notificaciones eliminadas');
+              showDialog('success', 'Éxito', 'Todas las notificaciones eliminadas');
             } catch (error) {
               console.error('Error clearing notifications:', error);
-              Alert.alert('Error', 'No se pudieron eliminar las notificaciones');
+              showDialog('error', 'Error', 'No se pudieron eliminar las notificaciones');
             }
           },
         },
@@ -424,6 +453,16 @@ export default function NotificationsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Custom Dialog */}
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </>
   );
 }

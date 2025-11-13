@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   TextInput,
   Modal,
@@ -16,6 +15,7 @@ import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabase } from '@/lib/supabase';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import * as Haptics from 'expo-haptics';
 
 interface AuthorizedPhone {
@@ -24,6 +24,14 @@ interface AuthorizedPhone {
   customer_name: string | null;
   notes: string | null;
   created_at: string;
+}
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
 }
 
 export default function UserManagementScreen() {
@@ -35,11 +43,43 @@ export default function UserManagementScreen() {
   const [newCustomerName, setNewCustomerName] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   useEffect(() => {
     if (user?.role !== 'admin' && user?.role !== 'desarrollador') {
-      Alert.alert('Acceso Denegado', 'Solo los administradores y desarrolladores pueden acceder a esta pantalla');
-      router.back();
+      showDialog(
+        'error',
+        'Acceso Denegado',
+        'Solo los administradores y desarrolladores pueden acceder a esta pantalla',
+        [
+          {
+            text: 'Volver',
+            style: 'primary',
+            onPress: () => {
+              closeDialog();
+              router.back();
+            },
+          },
+        ]
+      );
     }
   }, [user?.role]);
 
@@ -55,14 +95,14 @@ export default function UserManagementScreen() {
 
       if (error) {
         console.error('Error loading authorized phones:', error);
-        Alert.alert('Error', 'No se pudieron cargar los números autorizados');
+        showDialog('error', 'Error', 'No se pudieron cargar los números autorizados');
         return;
       }
 
       setAuthorizedPhones(data || []);
     } catch (error) {
       console.error('Exception loading authorized phones:', error);
-      Alert.alert('Error', 'Ocurrió un error al cargar los números autorizados');
+      showDialog('error', 'Error', 'Ocurrió un error al cargar los números autorizados');
     } finally {
       setLoading(false);
     }
@@ -74,14 +114,15 @@ export default function UserManagementScreen() {
 
   const handleAddPhone = async () => {
     if (!newPhoneNumber.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un número de teléfono');
+      showDialog('error', 'Error', 'Por favor ingresa un número de teléfono');
       return;
     }
 
     // Validate phone format (should start with +)
     const phoneRegex = /^\+\d{10,15}$/;
     if (!phoneRegex.test(newPhoneNumber.trim())) {
-      Alert.alert(
+      showDialog(
+        'error',
         'Formato Inválido',
         'El número debe estar en formato internacional (ej: +56912345678)'
       );
@@ -104,16 +145,16 @@ export default function UserManagementScreen() {
 
       if (error) {
         if (error.code === '23505') {
-          Alert.alert('Error', 'Este número ya está autorizado');
+          showDialog('error', 'Error', 'Este número ya está autorizado');
         } else {
           console.error('Error adding authorized phone:', error);
-          Alert.alert('Error', 'No se pudo agregar el número autorizado');
+          showDialog('error', 'Error', 'No se pudo agregar el número autorizado');
         }
         return;
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Éxito', 'Número autorizado agregado correctamente');
+      showDialog('success', 'Éxito', 'Número autorizado agregado correctamente');
       
       setNewPhoneNumber('');
       setNewCustomerName('');
@@ -123,25 +164,28 @@ export default function UserManagementScreen() {
       loadAuthorizedPhones();
     } catch (error) {
       console.error('Exception adding authorized phone:', error);
-      Alert.alert('Error', 'Ocurrió un error al agregar el número');
+      showDialog('error', 'Error', 'Ocurrió un error al agregar el número');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDeletePhone = async (phone: AuthorizedPhone) => {
-    Alert.alert(
+    showDialog(
+      'warning',
       'Confirmar Eliminación',
       `¿Estás seguro de que deseas eliminar el número ${phone.phone_number}?`,
       [
         {
           text: 'Cancelar',
           style: 'cancel',
+          onPress: closeDialog,
         },
         {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
+            closeDialog();
             try {
               await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               
@@ -154,17 +198,17 @@ export default function UserManagementScreen() {
 
               if (error) {
                 console.error('Error deleting authorized phone:', error);
-                Alert.alert('Error', 'No se pudo eliminar el número autorizado');
+                showDialog('error', 'Error', 'No se pudo eliminar el número autorizado');
                 return;
               }
 
               await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('Éxito', 'Número autorizado eliminado correctamente');
+              showDialog('success', 'Éxito', 'Número autorizado eliminado correctamente');
               
               loadAuthorizedPhones();
             } catch (error) {
               console.error('Exception deleting authorized phone:', error);
-              Alert.alert('Error', 'Ocurrió un error al eliminar el número');
+              showDialog('error', 'Error', 'Ocurrió un error al eliminar el número');
             }
           },
         },
@@ -468,6 +512,16 @@ export default function UserManagementScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Custom Dialog */}
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </>
   );
 }

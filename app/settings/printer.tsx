@@ -10,13 +10,13 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Switch,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import { 
   registerBackgroundAutoPrintTask, 
   unregisterBackgroundAutoPrintTask,
@@ -27,6 +27,14 @@ import { PrinterConfig } from '@/utils/receiptGenerator';
 type PaperSize = '58mm' | '80mm';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -201,6 +209,25 @@ export default function PrinterSettingsScreen() {
   const [printSpecialChars, setPrintSpecialChars] = useState(true);
   const [loading, setLoading] = useState(false);
   const [backgroundTaskStatus, setBackgroundTaskStatus] = useState<any>(null);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const loadConfig = useCallback(async () => {
     try {
@@ -272,18 +299,18 @@ export default function PrinterSettingsScreen() {
       setBackgroundTaskStatus(status);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Configuracion Guardada',
-        'La configuracion de la impresora se guardo correctamente y se aplicara en las proximas impresiones',
-        [{ text: 'OK' }]
+      showDialog(
+        'success',
+        'Configuración Guardada',
+        'La configuración de la impresora se guardó correctamente y se aplicará en las próximas impresiones'
       );
     } catch (error) {
       console.error('[PrinterSettings] Error saving config:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
+      showDialog(
+        'error',
         'Error al Guardar',
-        'No se pudo guardar la configuracion: ' + (error as Error).message,
-        [{ text: 'OK' }]
+        'No se pudo guardar la configuración: ' + (error as Error).message
       );
     } finally {
       setLoading(false);
@@ -296,18 +323,18 @@ export default function PrinterSettingsScreen() {
       await testPrint(autoCutEnabled);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Impresion de Prueba',
-        'La impresion de prueba se envio correctamente',
-        [{ text: 'OK' }]
+      showDialog(
+        'success',
+        'Impresión de Prueba',
+        'La impresión de prueba se envió correctamente'
       );
     } catch (error) {
       console.error('[PrinterSettings] Test print error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        'Error de Impresion',
-        'No se pudo imprimir. Verifica la conexion con la impresora.',
-        [{ text: 'OK' }]
+      showDialog(
+        'error',
+        'Error de Impresión',
+        'No se pudo imprimir. Verifica la conexión con la impresora.'
       );
     } finally {
       setLoading(false);
@@ -321,10 +348,10 @@ export default function PrinterSettingsScreen() {
     } catch (error) {
       console.error('[PrinterSettings] Scan error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
+      showDialog(
+        'error',
         'Error al Escanear',
-        'No se pudo escanear dispositivos Bluetooth',
-        [{ text: 'OK' }]
+        'No se pudo escanear dispositivos Bluetooth'
       );
     }
   };
@@ -337,10 +364,10 @@ export default function PrinterSettingsScreen() {
         await connect(device);
         
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
+        showDialog(
+          'success',
           'Conectado',
-          `Conectado exitosamente a ${device.name || 'la impresora'}`,
-          [{ text: 'OK' }]
+          `Conectado exitosamente a ${device.name || 'la impresora'}`
         );
         
         if (autoPrintEnabled) {
@@ -352,10 +379,10 @@ export default function PrinterSettingsScreen() {
     } catch (error) {
       console.error('[PrinterSettings] Connect error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        'Error de Conexion',
-        'No se pudo conectar a la impresora. Verifica que este encendida y cerca.',
-        [{ text: 'OK' }]
+      showDialog(
+        'error',
+        'Error de Conexión',
+        'No se pudo conectar a la impresora. Verifica que esté encendida y cerca.'
       );
     } finally {
       setLoading(false);
@@ -372,18 +399,18 @@ export default function PrinterSettingsScreen() {
       setBackgroundTaskStatus(status);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
+      showDialog(
+        'success',
         'Desconectado',
-        'La impresora se desconecto correctamente',
-        [{ text: 'OK' }]
+        'La impresora se desconectó correctamente'
       );
     } catch (error) {
       console.error('[PrinterSettings] Disconnect error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
+      showDialog(
+        'error',
         'Error',
-        'No se pudo desconectar la impresora',
-        [{ text: 'OK' }]
+        'No se pudo desconectar la impresora'
       );
     } finally {
       setLoading(false);
@@ -399,7 +426,7 @@ export default function PrinterSettingsScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: 'Configuracion de Impresora',
+          title: 'Configuración de Impresora',
           headerShown: true,
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: '#fff',
@@ -408,7 +435,7 @@ export default function PrinterSettingsScreen() {
       <ScrollView style={styles.content}>
         {/* Advanced Receipt Editor Navigation */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Edicion Avanzada</Text>
+          <Text style={styles.sectionTitle}>Edición Avanzada</Text>
           
           <TouchableOpacity
             style={[styles.navigationRow, styles.navigationRowLast]}
@@ -426,7 +453,7 @@ export default function PrinterSettingsScreen() {
 
         {/* Connection Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Conexion</Text>
+          <Text style={styles.sectionTitle}>Conexión</Text>
           
           {connectedDevice ? (
             <>
@@ -480,7 +507,7 @@ export default function PrinterSettingsScreen() {
                 disabled={loading}
               >
                 <Text style={styles.buttonText}>
-                  {isScanning ? 'Detener busqueda' : 'Buscar impresoras'}
+                  {isScanning ? 'Detener búsqueda' : 'Buscar impresoras'}
                 </Text>
               </TouchableOpacity>
             </>
@@ -489,10 +516,10 @@ export default function PrinterSettingsScreen() {
 
         {/* Auto-Print Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Auto-impresion</Text>
+          <Text style={styles.sectionTitle}>Auto-impresión</Text>
           
           <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Activar auto-impresion</Text>
+            <Text style={styles.settingLabel}>Activar auto-impresión</Text>
             <Switch
               value={autoPrintEnabled}
               onValueChange={setAutoPrintEnabled}
@@ -503,8 +530,8 @@ export default function PrinterSettingsScreen() {
           {autoPrintEnabled && (
             <>
               <Text style={styles.infoText}>
-                La auto-impresion funcionara en segundo plano y con la pantalla apagada. 
-                Los pedidos nuevos se imprimiran automaticamente cuando lleguen.
+                La auto-impresión funcionará en segundo plano y con la pantalla apagada. 
+                Los pedidos nuevos se imprimirán automáticamente cuando lleguen.
               </Text>
               
               {backgroundTaskStatus && (
@@ -529,10 +556,10 @@ export default function PrinterSettingsScreen() {
 
         {/* Print Settings Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configuracion de Impresion</Text>
+          <Text style={styles.sectionTitle}>Configuración de Impresión</Text>
           
           <View style={styles.settingRow}>
-            <Text style={styles.settingLabel}>Corte automatico</Text>
+            <Text style={styles.settingLabel}>Corte automático</Text>
             <Switch
               value={autoCutEnabled}
               onValueChange={setAutoCutEnabled}
@@ -550,7 +577,7 @@ export default function PrinterSettingsScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
           >
-            <Text style={styles.settingLabel}>Tamano de papel</Text>
+            <Text style={styles.settingLabel}>Tamaño de papel</Text>
             <Text style={styles.settingValue}>{paperSize}</Text>
             <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -583,7 +610,7 @@ export default function PrinterSettingsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.settingLabel}>Imprimir caracteres especiales</Text>
               <Text style={[styles.infoText, { marginTop: 4 }]}>
-                Si se desactiva, la ñ y los acentos se reemplazaran (ej: piña → pina)
+                Si se desactiva, la ñ y los acentos se reemplazarán (ej: piña → pina)
               </Text>
             </View>
             <Switch
@@ -607,7 +634,7 @@ export default function PrinterSettingsScreen() {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Guardando...' : 'Guardar configuracion'}
+              {loading ? 'Guardando...' : 'Guardar configuración'}
             </Text>
           </TouchableOpacity>
           
@@ -622,6 +649,16 @@ export default function PrinterSettingsScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Custom Dialog */}
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </View>
   );
 }
