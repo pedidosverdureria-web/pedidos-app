@@ -9,7 +9,6 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
-  Alert,
   Modal,
   ScrollView,
 } from 'react-native';
@@ -24,8 +23,17 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PrinterConfig } from '@/utils/receiptGenerator';
 import { addToPrintQueue } from '@/utils/printQueue';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', {
@@ -206,8 +214,27 @@ export default function PendingPaymentsScreen() {
   const [paymentNotes, setPaymentNotes] = useState('');
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   const { print, isConnected } = usePrinter();
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -766,8 +793,6 @@ export default function PendingPaymentsScreen() {
       setLoading(true);
       const supabase = getSupabase();
       
-      // Load customers that have NOT been finalized
-      // Show customers with orders in: pending_payment, abonado, or pagado status
       const { data, error } = await supabase
         .from('customers')
         .select(`
@@ -800,7 +825,6 @@ export default function PendingPaymentsScreen() {
 
       if (error) throw error;
 
-      // Filter to show only orders with pending_payment, abonado, or pagado status
       const customersWithFilteredOrders = data
         .map(customer => ({
           ...customer,
@@ -814,7 +838,7 @@ export default function PendingPaymentsScreen() {
       setCustomers(customersWithFilteredOrders);
     } catch (error) {
       console.error('[PendingPaymentsScreen] Error loading customers:', error);
-      Alert.alert('❌ Error', 'No se pudieron cargar los clientes');
+      showDialog('error', 'Error', 'No se pudieron cargar los clientes');
     } finally {
       setLoading(false);
     }
@@ -842,7 +866,6 @@ export default function PendingPaymentsScreen() {
     setSelectedOrderId(orderId || null);
     setPaymentNotes('');
     
-    // Auto-fill payment amount if an order is selected
     if (type === 'order' && orderId && selectedCustomer) {
       const selectedOrder = selectedCustomer.orders?.find(o => o.id === orderId);
       if (selectedOrder) {
@@ -859,7 +882,6 @@ export default function PendingPaymentsScreen() {
     setShowPaymentModal(true);
   }, [selectedCustomer]);
 
-  // Effect to auto-fill payment amount when order is selected in the modal
   useEffect(() => {
     if (paymentType === 'order' && selectedOrderId && selectedCustomer) {
       const selectedOrder = selectedCustomer.orders?.find(o => o.id === selectedOrderId);
@@ -878,30 +900,34 @@ export default function PendingPaymentsScreen() {
     
     if (remainingDebt > 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Atención',
+      showDialog(
+        'warning',
+        'Atención',
         `No se puede finalizar porque el cliente aún tiene una deuda pendiente de ${formatCLP(remainingDebt)}`
       );
       return;
     }
 
-    Alert.alert(
-      '✅ Finalizar Cliente',
+    showDialog(
+      'info',
+      'Finalizar Cliente',
       `¿Estás seguro de que deseas finalizar a ${selectedCustomer.name}?\n\nTodos los pedidos pagados pasarán a estado "Finalizado" y el cliente será removido de la lista de vales pendientes.`,
       [
         {
           text: 'Cancelar',
           style: 'cancel',
+          onPress: closeDialog,
         },
         {
           text: 'Finalizar',
+          style: 'primary',
           onPress: async () => {
+            closeDialog();
             try {
               const supabase = getSupabase();
               
               console.log('[PendingPaymentsScreen] Finalizing customer:', selectedCustomer.name);
               
-              // Step 1: Get all orders for this customer that are in 'pagado' status
               const { data: ordersToUpdate, error: fetchError } = await supabase
                 .from('orders')
                 .select('id, order_number, total_amount, paid_amount, status')
@@ -912,7 +938,6 @@ export default function PendingPaymentsScreen() {
 
               console.log('[PendingPaymentsScreen] Orders to finalize:', ordersToUpdate?.length || 0);
 
-              // Step 2: Update all 'pagado' orders to 'finalizado' status
               if (ordersToUpdate && ordersToUpdate.length > 0) {
                 const orderIds = ordersToUpdate.map(order => order.id);
                 
@@ -926,7 +951,6 @@ export default function PendingPaymentsScreen() {
                 console.log('[PendingPaymentsScreen] Updated orders to finalizado status:', orderIds);
               }
 
-              // Step 3: Mark customer as finalized
               const { error: finalizeError } = await supabase
                 .from('customers')
                 .update({ finalized: true })
@@ -940,7 +964,7 @@ export default function PendingPaymentsScreen() {
                 ? `${selectedCustomer.name} ha sido finalizado.\n\n${ordersToUpdate.length} ${ordersToUpdate.length === 1 ? 'pedido ha sido finalizado' : 'pedidos han sido finalizados'}.`
                 : `${selectedCustomer.name} ha sido removido de la lista de vales pendientes.`;
               
-              Alert.alert('✅ Cliente Finalizado', message);
+              showDialog('success', 'Cliente Finalizado', message);
               
               setShowDetailModal(false);
               setSelectedCustomer(null);
@@ -948,7 +972,7 @@ export default function PendingPaymentsScreen() {
             } catch (error) {
               console.error('[PendingPaymentsScreen] Error finalizing customer:', error);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              Alert.alert('❌ Error', 'No se pudo finalizar al cliente');
+              showDialog('error', 'Error', 'No se pudo finalizar al cliente');
             }
           },
         },
@@ -959,18 +983,21 @@ export default function PendingPaymentsScreen() {
   const handleBlockCustomer = async () => {
     if (!selectedCustomer) return;
 
-    Alert.alert(
-      '⚠️ Bloquear Cliente',
+    showDialog(
+      'warning',
+      'Bloquear Cliente',
       `¿Estás seguro de que deseas bloquear a ${selectedCustomer.name}?\n\nEl cliente no podrá enviar pedidos ni mensajes por WhatsApp mientras esté bloqueado.`,
       [
         {
           text: 'Cancelar',
           style: 'cancel',
+          onPress: closeDialog,
         },
         {
           text: 'Bloquear',
           style: 'destructive',
           onPress: async () => {
+            closeDialog();
             try {
               const supabase = getSupabase();
               const { error } = await supabase
@@ -981,7 +1008,7 @@ export default function PendingPaymentsScreen() {
               if (error) throw error;
 
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('✅ Cliente Bloqueado', `${selectedCustomer.name} ha sido bloqueado correctamente`);
+              showDialog('success', 'Cliente Bloqueado', `${selectedCustomer.name} ha sido bloqueado correctamente`);
               
               setShowDetailModal(false);
               setSelectedCustomer(null);
@@ -989,7 +1016,7 @@ export default function PendingPaymentsScreen() {
             } catch (error) {
               console.error('[PendingPaymentsScreen] Error blocking customer:', error);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              Alert.alert('❌ Error', 'No se pudo bloquear al cliente');
+              showDialog('error', 'Error', 'No se pudo bloquear al cliente');
             }
           },
         },
@@ -1000,17 +1027,21 @@ export default function PendingPaymentsScreen() {
   const handleUnblockCustomer = async () => {
     if (!selectedCustomer) return;
 
-    Alert.alert(
-      '✅ Desbloquear Cliente',
+    showDialog(
+      'info',
+      'Desbloquear Cliente',
       `¿Estás seguro de que deseas desbloquear a ${selectedCustomer.name}?\n\nEl cliente podrá volver a enviar pedidos y mensajes por WhatsApp.`,
       [
         {
           text: 'Cancelar',
           style: 'cancel',
+          onPress: closeDialog,
         },
         {
           text: 'Desbloquear',
+          style: 'success',
           onPress: async () => {
+            closeDialog();
             try {
               const supabase = getSupabase();
               const { error } = await supabase
@@ -1021,7 +1052,7 @@ export default function PendingPaymentsScreen() {
               if (error) throw error;
 
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert('✅ Cliente Desbloqueado', `${selectedCustomer.name} ha sido desbloqueado correctamente`);
+              showDialog('success', 'Cliente Desbloqueado', `${selectedCustomer.name} ha sido desbloqueado correctamente`);
               
               setShowDetailModal(false);
               setSelectedCustomer(null);
@@ -1029,7 +1060,7 @@ export default function PendingPaymentsScreen() {
             } catch (error) {
               console.error('[PendingPaymentsScreen] Error unblocking customer:', error);
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-              Alert.alert('❌ Error', 'No se pudo desbloquear al cliente');
+              showDialog('error', 'Error', 'No se pudo desbloquear al cliente');
             }
           },
         },
@@ -1041,8 +1072,9 @@ export default function PendingPaymentsScreen() {
     if (!selectedCustomer) return;
 
     if (!isConnected) {
-      Alert.alert(
-        '⚠️ Impresora no conectada',
+      showDialog(
+        'warning',
+        'Impresora no conectada',
         'Por favor conecta una impresora en Configuración > Impresora'
       );
       return;
@@ -1053,11 +1085,11 @@ export default function PendingPaymentsScreen() {
       await print(receiptText);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('✅ Impreso', 'El estado de cuenta se imprimió correctamente');
+      showDialog('success', 'Impreso', 'El estado de cuenta se imprimió correctamente');
     } catch (error) {
       console.error('[PendingPaymentsScreen] Error printing pending orders:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('❌ Error', 'No se pudo imprimir el estado de cuenta');
+      showDialog('error', 'Error', 'No se pudo imprimir el estado de cuenta');
     }
   };
 
@@ -1073,10 +1105,10 @@ export default function PendingPaymentsScreen() {
       
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          '✅ Enviado a Impresor',
-          'El estado de cuenta se agregó a la cola de impresión. El perfil Impresor lo imprimirá.',
-          [{ text: 'OK' }]
+        showDialog(
+          'success',
+          'Enviado a Impresor',
+          'El estado de cuenta se agregó a la cola de impresión. El perfil Impresor lo imprimirá.'
         );
       } else {
         throw new Error(result.error || 'Error desconocido');
@@ -1084,10 +1116,10 @@ export default function PendingPaymentsScreen() {
     } catch (error: any) {
       console.error('[PendingPaymentsScreen] Error sending to printer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        `No se pudo enviar a la cola de impresión: ${error.message}`,
-        [{ text: 'OK' }]
+      showDialog(
+        'error',
+        'Error',
+        `No se pudo enviar a la cola de impresión: ${error.message}`
       );
     }
   };
@@ -1095,29 +1127,30 @@ export default function PendingPaymentsScreen() {
   const handleAddPayment = async () => {
     if (!selectedCustomer || !paymentAmount.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('⚠️ Atención', 'Por favor ingresa el monto del pago');
+      showDialog('warning', 'Atención', 'Por favor ingresa el monto del pago');
       return;
     }
 
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('⚠️ Atención', 'El monto debe ser un número válido mayor a 0');
+      showDialog('warning', 'Atención', 'El monto debe ser un número válido mayor a 0');
       return;
     }
 
     if (paymentType === 'order' && selectedOrderId) {
       const selectedOrder = selectedCustomer.orders?.find(o => o.id === selectedOrderId);
       if (!selectedOrder) {
-        Alert.alert('❌ Error', 'No se encontró el pedido seleccionado');
+        showDialog('error', 'Error', 'No se encontró el pedido seleccionado');
         return;
       }
       
       const orderPending = selectedOrder.total_amount - selectedOrder.paid_amount;
       if (amount > orderPending) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert(
-          '⚠️ Atención',
+        showDialog(
+          'warning',
+          'Atención',
           `El monto ingresado (${formatCLP(amount)}) es mayor al pendiente del pedido (${formatCLP(orderPending)})`
         );
         return;
@@ -1126,8 +1159,9 @@ export default function PendingPaymentsScreen() {
       const remainingDebt = selectedCustomer.total_debt - selectedCustomer.total_paid;
       if (amount > remainingDebt) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        Alert.alert(
-          '⚠️ Atención',
+        showDialog(
+          'warning',
+          'Atención',
           `El monto ingresado (${formatCLP(amount)}) es mayor a la deuda pendiente (${formatCLP(remainingDebt)})`
         );
         return;
@@ -1183,10 +1217,10 @@ export default function PendingPaymentsScreen() {
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          '✅ Pago Registrado',
-          `Se registró el pago de ${formatCLP(amount)} para el pedido ${orderNumber}${isConnected ? ' y se imprimió el recibo' : ''}`,
-          [{ text: 'OK' }]
+        showDialog(
+          'success',
+          'Pago Registrado',
+          `Se registró el pago de ${formatCLP(amount)} para el pedido ${orderNumber}${isConnected ? ' y se imprimió el recibo' : ''}`
         );
       } else {
         const paymentData: any = {
@@ -1222,10 +1256,10 @@ export default function PendingPaymentsScreen() {
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          '✅ Pago Registrado',
-          `Se registró el abono de ${formatCLP(amount)} a la cuenta${isConnected ? ' y se imprimió el recibo' : ''}`,
-          [{ text: 'OK' }]
+        showDialog(
+          'success',
+          'Pago Registrado',
+          `Se registró el abono de ${formatCLP(amount)} a la cuenta${isConnected ? ' y se imprimió el recibo' : ''}`
         );
       }
 
@@ -1234,10 +1268,8 @@ export default function PendingPaymentsScreen() {
       setPaymentNotes('');
       setSelectedOrderId(null);
       
-      // Reload the main customer list
       await loadCustomers();
       
-      // Reload the selected customer data to show updated payment status
       console.log('[PendingPaymentsScreen] Reloading customer data after payment...');
       
       const { data: updatedCustomerData, error: fetchError } = await supabase
@@ -1286,7 +1318,6 @@ export default function PendingPaymentsScreen() {
           all_orders_count: updatedCustomerData.orders?.length || 0,
         });
 
-        // Filter orders to show only pending_payment, abonado, or pagado for display purposes
         const relevantOrders = updatedCustomerData.orders?.filter((order: Order) => 
           ['pending_payment', 'abonado', 'pagado'].includes(order.status)
         ) || [];
@@ -1298,10 +1329,8 @@ export default function PendingPaymentsScreen() {
         
         console.log('[PendingPaymentsScreen] Filtered relevant orders:', relevantOrders.length);
         
-        // Update the selected customer with the latest data
         setSelectedCustomer(customerWithFilteredOrders);
         
-        // Check if customer is fully paid
         const isFullyPaid = (updatedCustomerData.total_debt - updatedCustomerData.total_paid) === 0;
         console.log('[PendingPaymentsScreen] Customer fully paid?', isFullyPaid);
         
@@ -1316,7 +1345,7 @@ export default function PendingPaymentsScreen() {
     } catch (error) {
       console.error('[PendingPaymentsScreen] Error adding payment:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('❌ Error', 'No se pudo registrar el pago. Por favor intenta nuevamente.');
+      showDialog('error', 'Error', 'No se pudo registrar el pago. Por favor intenta nuevamente.');
     } finally {
       setSubmittingPayment(false);
     }
@@ -1445,7 +1474,6 @@ export default function PendingPaymentsScreen() {
     );
   }
 
-  // Calculate if customer is fully paid for showing the Finalizar button
   const isCustomerFullyPaid = selectedCustomer 
     ? (selectedCustomer.total_debt - selectedCustomer.total_paid) === 0 
     : false;
@@ -1493,7 +1521,6 @@ export default function PendingPaymentsScreen() {
         />
       )}
 
-      {/* Customer Detail Modal */}
       <Modal
         visible={showDetailModal}
         transparent
@@ -1509,7 +1536,6 @@ export default function PendingPaymentsScreen() {
             </Text>
 
             <ScrollView style={styles.modalScrollView}>
-              {/* Orders Section */}
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>Pedidos Pendientes</Text>
                 {selectedCustomer?.orders && selectedCustomer.orders.length > 0 ? (
@@ -1581,7 +1607,6 @@ export default function PendingPaymentsScreen() {
                 )}
               </View>
 
-              {/* Payments Section */}
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionTitle}>Historial de Pagos</Text>
                 {selectedCustomer?.payments && selectedCustomer.payments.length > 0 ? (
@@ -1604,7 +1629,6 @@ export default function PendingPaymentsScreen() {
               </View>
             </ScrollView>
 
-            {/* Action Buttons */}
             {!isCustomerFullyPaid && (
               <TouchableOpacity
                 style={styles.addPaymentButton}
@@ -1678,7 +1702,6 @@ export default function PendingPaymentsScreen() {
         </View>
       </Modal>
 
-      {/* Payment Modal */}
       <Modal
         visible={showPaymentModal}
         transparent
@@ -1690,7 +1713,6 @@ export default function PendingPaymentsScreen() {
             <Text style={styles.modalTitle}>Registrar Pago</Text>
             <Text style={styles.modalSubtitle}>{selectedCustomer?.name}</Text>
 
-            {/* Payment Type Selector */}
             <View style={styles.paymentTypeSelector}>
               <TouchableOpacity
                 style={[
@@ -1733,7 +1755,6 @@ export default function PendingPaymentsScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Order Selector (only for order payment type) */}
             {paymentType === 'order' && (
               <View style={styles.orderSelector}>
                 <Text style={styles.orderSelectorLabel}>Selecciona el pedido:</Text>
@@ -1812,6 +1833,15 @@ export default function PendingPaymentsScreen() {
           </View>
         </View>
       </Modal>
+
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </View>
   );
 }
