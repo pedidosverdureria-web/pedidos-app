@@ -6,7 +6,6 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   Switch,
@@ -15,6 +14,7 @@ import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import { PrintQueueItem, Order, OrderQuery, Customer, OrderStatus } from '@/types';
 import { getSupabase } from '@/lib/supabase';
 import { usePrinter } from '@/hooks/usePrinter';
@@ -33,6 +33,14 @@ import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 const PRINTER_CONFIG_KEY = '@printer_config';
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 const AUTO_PRINT_CHECK_INTERVAL = 5000; // 5 seconds
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 function formatDate(dateString: string): string {
   const date = new Date(dateString);
@@ -252,6 +260,12 @@ export default function PrinterQueueScreen() {
   const [printing, setPrinting] = useState<string | null>(null);
   const [autoPrintEnabled, setAutoPrintEnabled] = useState(false);
   const [viewMode, setViewMode] = useState<'orders' | 'queue'>('orders');
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
   
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoPrintIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -259,11 +273,27 @@ export default function PrinterQueueScreen() {
   const keepAwakeTagRef = useRef<string>('printer-profile');
   const isKeepAwakeActiveRef = useRef<boolean>(false);
 
+  const showDialog = (type: 'success' | 'error' | 'warning' | 'info', title: string, message: string, buttons?: DialogButton[]) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
+
   // Redirect if not printer role
   useEffect(() => {
     if (user && user.role !== 'printer') {
-      Alert.alert('Acceso Denegado', 'Esta pantalla es solo para el perfil Impresor');
-      router.back();
+      showDialog('error', 'Acceso Denegado', 'Esta pantalla es solo para el perfil Impresor', [
+        {
+          text: 'OK',
+          onPress: () => {
+            closeDialog();
+            router.back();
+          },
+          style: 'primary',
+        },
+      ]);
     }
   }, [user]);
 
@@ -415,7 +445,7 @@ export default function PrinterQueueScreen() {
   // handlePrintItem function - defined before being used in checkAndPrintNewOrders
   const handlePrintItem = useCallback(async (item: PrintQueueItem) => {
     if (!isConnected) {
-      Alert.alert('Error', 'No hay impresora conectada. Ve a Configuración > Impresora para conectar una.');
+      showDialog('error', 'Error', 'No hay impresora conectada. Ve a Configuración > Impresora para conectar una.');
       return;
     }
 
@@ -533,7 +563,7 @@ export default function PrinterQueueScreen() {
       console.error('[PrinterQueue] Error printing:', error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       await markAsFailed(item.id, error.message || 'Error desconocido');
-      Alert.alert('Error de Impresión', error.message || 'No se pudo imprimir el documento');
+      showDialog('error', 'Error de Impresión', error.message || 'No se pudo imprimir el documento');
       loadData();
     } finally {
       setPrinting(null);
@@ -699,32 +729,33 @@ export default function PrinterQueueScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Cerrar Sesión',
-      '¿Estás seguro que deseas cerrar sesión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Cerrar Sesión',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              await signOut();
-              router.replace('/login');
-            } catch (error) {
-              console.error('[PrinterQueue] Error signing out:', error);
-              Alert.alert('Error', 'No se pudo cerrar sesión');
-            }
-          },
+    showDialog('warning', 'Cerrar Sesión', '¿Estás seguro que deseas cerrar sesión?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+        onPress: closeDialog,
+      },
+      {
+        text: 'Cerrar Sesión',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            await signOut();
+            closeDialog();
+            router.replace('/login');
+          } catch (error) {
+            console.error('[PrinterQueue] Error signing out:', error);
+            showDialog('error', 'Error', 'No se pudo cerrar sesión');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handlePrintOrder = async (order: Order) => {
     if (!isConnected) {
-      Alert.alert('Error', 'No hay impresora conectada. Ve a Configuración > Impresora para conectar una.');
+      showDialog('error', 'Error', 'No hay impresora conectada. Ve a Configuración > Impresora para conectar una.');
       return;
     }
 
@@ -741,51 +772,54 @@ export default function PrinterQueueScreen() {
       await markOrderAsPrinted(order.id);
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Éxito', 'Pedido impreso correctamente');
+      showDialog('success', 'Éxito', 'Pedido impreso correctamente');
       
       loadData();
     } catch (error: any) {
       console.error('[PrinterQueue] Error printing order:', error);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error de Impresión', error.message || 'No se pudo imprimir el pedido');
+      showDialog('error', 'Error de Impresión', error.message || 'No se pudo imprimir el pedido');
     } finally {
       setPrinting(null);
     }
   };
 
   const handleDeleteItem = (item: PrintQueueItem) => {
-    Alert.alert(
-      'Eliminar de la Cola',
-      '¿Estás seguro que deseas eliminar este elemento de la cola de impresión?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            await deletePrintQueueItem(item.id);
-            loadData();
-          },
+    showDialog('warning', 'Eliminar de la Cola', '¿Estás seguro que deseas eliminar este elemento de la cola de impresión?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+        onPress: closeDialog,
+      },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          await deletePrintQueueItem(item.id);
+          closeDialog();
+          loadData();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleClearPrinted = () => {
-    Alert.alert(
-      'Limpiar Cola',
-      '¿Deseas eliminar todos los elementos ya impresos?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Limpiar',
-          onPress: async () => {
-            await clearPrintedItems();
-            loadData();
-          },
+    showDialog('info', 'Limpiar Cola', '¿Deseas eliminar todos los elementos ya impresos?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+        onPress: closeDialog,
+      },
+      {
+        text: 'Limpiar',
+        style: 'primary',
+        onPress: async () => {
+          await clearPrintedItems();
+          closeDialog();
+          loadData();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const getItemTypeLabel = (type: string): string => {
@@ -1079,6 +1113,16 @@ export default function PrinterQueueScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Custom Dialog */}
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </>
   );
 }
