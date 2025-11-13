@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -26,6 +27,16 @@ const formatCLP = (amount: number): string => {
   return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 };
 
+interface OrderResultDialog {
+  visible: boolean;
+  success: boolean;
+  title: string;
+  message: string;
+  orderNumber?: string;
+  orderId?: string;
+  itemCount?: number;
+}
+
 export default function NewOrderScreen() {
   const { user, isAuthenticated } = useAuth();
   const { themeVersion } = useTheme();
@@ -39,6 +50,12 @@ export default function NewOrderScreen() {
     customerName?: string;
     orderText?: string;
   }>({});
+  const [resultDialog, setResultDialog] = useState<OrderResultDialog>({
+    visible: false,
+    success: false,
+    title: '',
+    message: '',
+  });
 
   // Create dynamic styles based on theme using useMemo for optimization
   // Include themeVersion in dependencies to force re-creation when theme changes
@@ -277,6 +294,102 @@ export default function NewOrderScreen() {
       fontSize: 18,
       fontWeight: '600',
     },
+    // Dialog styles
+    dialogOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    dialogContainer: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 24,
+      width: '100%',
+      maxWidth: 400,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.3,
+          shadowRadius: 16,
+        },
+        android: {
+          elevation: 8,
+        },
+      }),
+    },
+    dialogIconContainer: {
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    dialogTitle: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 12,
+    },
+    dialogMessage: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+      marginBottom: 8,
+    },
+    dialogOrderInfo: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 12,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    dialogOrderNumber: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.primary,
+      textAlign: 'center',
+      marginBottom: 4,
+    },
+    dialogOrderItems: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    dialogButtonsContainer: {
+      gap: 10,
+    },
+    dialogButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      borderRadius: 10,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    dialogButtonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    dialogButtonSuccess: {
+      backgroundColor: colors.success,
+    },
+    dialogButtonSecondary: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    dialogButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    dialogButtonTextSecondary: {
+      color: colors.text,
+    },
   }), [colors, themeVersion]);
 
   // Memoize header options to ensure they update with theme
@@ -331,6 +444,14 @@ export default function NewOrderScreen() {
     return true;
   };
 
+  const resetForm = () => {
+    setCustomerName('');
+    setCustomerRut('');
+    setOrderText('');
+    setParsedItems([]);
+    setErrors({});
+  };
+
   const handleSubmit = async () => {
     console.log('=== Starting manual order creation ===');
     console.log('User:', user?.email, 'Role:', user?.role);
@@ -345,27 +466,24 @@ export default function NewOrderScreen() {
     if (!isAuthenticated || !user) {
       console.error('User not authenticated');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Sesión Expirada',
-        'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
-        [
-          {
-            text: 'Iniciar Sesión',
-            onPress: () => router.replace('/login')
-          }
-        ]
-      );
+      setResultDialog({
+        visible: true,
+        success: false,
+        title: 'Sesión Expirada',
+        message: 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.',
+      });
       return;
     }
 
     const supabase = getSupabase();
     if (!supabase) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        'Supabase no está inicializado. Por favor configura la conexión primero.',
-        [{ text: 'OK' }]
-      );
+      setResultDialog({
+        visible: true,
+        success: false,
+        title: 'Error de Configuración',
+        message: 'Supabase no está inicializado. Por favor configura la conexión primero.',
+      });
       return;
     }
 
@@ -405,25 +523,27 @@ export default function NewOrderScreen() {
         });
         
         // Provide specific error messages based on error code
+        let errorMessage = 'No se pudo crear el pedido. Por favor intenta de nuevo.';
+        let errorTitle = 'Error al Crear Pedido';
+        
         if (orderError.code === '23503') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          Alert.alert(
-            '❌ Error de Base de Datos',
-            'Error al crear el pedido. Por favor verifica la configuración de la base de datos.',
-            [{ text: 'OK' }]
-          );
-          return;
+          errorTitle = 'Error de Base de Datos';
+          errorMessage = 'Error al crear el pedido. Por favor verifica la configuración de la base de datos.';
         } else if (orderError.code === '42501') {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          Alert.alert(
-            '❌ Error de Permisos',
-            'No tienes permisos para crear pedidos. Por favor contacta al administrador.',
-            [{ text: 'OK' }]
-          );
-          return;
+          errorTitle = 'Error de Permisos';
+          errorMessage = 'No tienes permisos para crear pedidos. Por favor contacta al administrador.';
+        } else if (orderError.message) {
+          errorMessage = orderError.message;
         }
         
-        throw new Error(orderError.message || 'Error al crear el pedido');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setResultDialog({
+          visible: true,
+          success: false,
+          title: errorTitle,
+          message: errorMessage,
+        });
+        return;
       }
 
       console.log('Order created successfully:', order.id, 'Order number:', order.order_number);
@@ -448,41 +568,29 @@ export default function NewOrderScreen() {
 
       if (itemsError) {
         console.error('Order items creation error:', itemsError);
-        throw new Error('Error al crear los productos del pedido');
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setResultDialog({
+          visible: true,
+          success: false,
+          title: 'Error al Crear Productos',
+          message: 'El pedido fue creado pero hubo un error al agregar los productos. Por favor intenta agregarlos manualmente.',
+        });
+        return;
       }
 
       console.log('Order items created successfully');
       console.log('=== Order creation completed successfully ===');
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '✅ Pedido Creado',
-        `El pedido #${order.order_number} se creó exitosamente con ${parsedItems.length} producto(s)`,
-        [
-          {
-            text: 'Ver Pedido',
-            onPress: () => {
-              router.replace(`/order/${order.id}`);
-            },
-          },
-          {
-            text: 'Crear Otro',
-            onPress: () => {
-              // Reset form
-              setCustomerName('');
-              setCustomerRut('');
-              setOrderText('');
-              setParsedItems([]);
-              setErrors({});
-            },
-          },
-          {
-            text: 'Volver',
-            onPress: () => router.back(),
-            style: 'cancel',
-          },
-        ]
-      );
+      setResultDialog({
+        visible: true,
+        success: true,
+        title: 'Pedido Creado Exitosamente',
+        message: 'El pedido se ha creado correctamente y está listo para ser procesado.',
+        orderNumber: order.order_number,
+        orderId: order.id,
+        itemCount: parsedItems.length,
+      });
     } catch (error: any) {
       console.error('=== Error creating order ===');
       console.error('Error type:', error.constructor?.name);
@@ -490,14 +598,41 @@ export default function NewOrderScreen() {
       console.error('Error details:', error);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error al Crear Pedido',
-        error.message || 'No se pudo crear el pedido. Por favor intenta de nuevo.',
-        [{ text: 'OK' }]
-      );
+      setResultDialog({
+        visible: true,
+        success: false,
+        title: 'Error Inesperado',
+        message: error.message || 'Ocurrió un error inesperado al crear el pedido. Por favor intenta de nuevo.',
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseDialog = () => {
+    setResultDialog({ ...resultDialog, visible: false });
+  };
+
+  const handleViewOrder = () => {
+    if (resultDialog.orderId) {
+      handleCloseDialog();
+      router.replace(`/order/${resultDialog.orderId}`);
+    }
+  };
+
+  const handleCreateAnother = () => {
+    handleCloseDialog();
+    resetForm();
+  };
+
+  const handleGoBack = () => {
+    handleCloseDialog();
+    router.back();
+  };
+
+  const handleLoginRedirect = () => {
+    handleCloseDialog();
+    router.replace('/login');
   };
 
   // Show warning if not authenticated
@@ -684,6 +819,135 @@ export default function NewOrderScreen() {
 
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Result Dialog Modal */}
+      <Modal
+        visible={resultDialog.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseDialog}
+      >
+        <TouchableOpacity
+          style={styles.dialogOverlay}
+          activeOpacity={1}
+          onPress={handleCloseDialog}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.dialogContainer}>
+              {/* Icon */}
+              <View style={styles.dialogIconContainer}>
+                {resultDialog.success ? (
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
+                    size={64}
+                    color={colors.success}
+                  />
+                ) : (
+                  <IconSymbol
+                    ios_icon_name="xmark.circle.fill"
+                    android_material_icon_name="error"
+                    size={64}
+                    color={colors.error}
+                  />
+                )}
+              </View>
+
+              {/* Title */}
+              <Text style={styles.dialogTitle}>{resultDialog.title}</Text>
+
+              {/* Message */}
+              <Text style={styles.dialogMessage}>{resultDialog.message}</Text>
+
+              {/* Order Info (only for success) */}
+              {resultDialog.success && resultDialog.orderNumber && (
+                <View style={styles.dialogOrderInfo}>
+                  <Text style={styles.dialogOrderNumber}>
+                    Pedido #{resultDialog.orderNumber}
+                  </Text>
+                  <Text style={styles.dialogOrderItems}>
+                    {resultDialog.itemCount} producto{resultDialog.itemCount !== 1 ? 's' : ''} agregado{resultDialog.itemCount !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              )}
+
+              {/* Buttons */}
+              <View style={styles.dialogButtonsContainer}>
+                {resultDialog.success ? (
+                  <>
+                    {/* View Order Button */}
+                    <TouchableOpacity
+                      style={[styles.dialogButton, styles.dialogButtonPrimary]}
+                      onPress={handleViewOrder}
+                    >
+                      <IconSymbol
+                        ios_icon_name="eye.fill"
+                        android_material_icon_name="visibility"
+                        size={20}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.dialogButtonText}>Ver Pedido</Text>
+                    </TouchableOpacity>
+
+                    {/* Create Another Button */}
+                    <TouchableOpacity
+                      style={[styles.dialogButton, styles.dialogButtonSuccess]}
+                      onPress={handleCreateAnother}
+                    >
+                      <IconSymbol
+                        ios_icon_name="plus.circle.fill"
+                        android_material_icon_name="add_circle"
+                        size={20}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.dialogButtonText}>Crear Otro</Text>
+                    </TouchableOpacity>
+
+                    {/* Go Back Button */}
+                    <TouchableOpacity
+                      style={[styles.dialogButton, styles.dialogButtonSecondary]}
+                      onPress={handleGoBack}
+                    >
+                      <Text style={styles.dialogButtonTextSecondary}>Volver</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    {/* Try Again / Close Button */}
+                    <TouchableOpacity
+                      style={[styles.dialogButton, styles.dialogButtonPrimary]}
+                      onPress={handleCloseDialog}
+                    >
+                      <Text style={styles.dialogButtonText}>
+                        {resultDialog.title === 'Sesión Expirada' ? 'Entendido' : 'Intentar de Nuevo'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {/* Login Button (only for session expired) */}
+                    {resultDialog.title === 'Sesión Expirada' && (
+                      <TouchableOpacity
+                        style={[styles.dialogButton, styles.dialogButtonSuccess]}
+                        onPress={handleLoginRedirect}
+                      >
+                        <IconSymbol
+                          ios_icon_name="arrow.right.circle.fill"
+                          android_material_icon_name="login"
+                          size={20}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.dialogButtonText}>Iniciar Sesión</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
