@@ -8,11 +8,19 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
 import { Stack } from 'expo-router';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import React, { useState } from 'react';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -139,10 +147,29 @@ const styles = StyleSheet.create({
 export default function WhatsAppTestScreen() {
   const [message, setMessage] = useState('');
   const [result, setResult] = useState<ParsedOrderItem[]>([]);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const handleTest = () => {
     if (!message.trim()) {
-      Alert.alert('Error', 'Por favor ingresa un mensaje para probar');
+      showDialog('error', 'Error', 'Por favor ingresa un mensaje para probar');
       return;
     }
 
@@ -151,12 +178,14 @@ export default function WhatsAppTestScreen() {
     setResult(parsed);
 
     if (parsed.length === 0) {
-      Alert.alert(
+      showDialog(
+        'warning',
         'Sin resultados',
         'No se pudo parsear ningún item del mensaje. Revisa el formato.'
       );
     } else {
-      Alert.alert(
+      showDialog(
+        'success',
         'Éxito',
         `Se parsearon ${parsed.length} item(s) correctamente`
       );
@@ -434,6 +463,15 @@ un atado de cilantro`);
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </View>
   );
 }

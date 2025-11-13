@@ -7,17 +7,44 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Platform,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useTheme, COLOR_THEMES } from '@/contexts/ThemeContext';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import * as Haptics from 'expo-haptics';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 export default function ThemeSettingsScreen() {
   const { currentTheme, setTheme, isLoading } = useTheme();
   const [changingTheme, setChangingTheme] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const handleThemeChange = async (themeId: string) => {
     if (themeId === currentTheme.id) return;
@@ -31,7 +58,8 @@ export default function ThemeSettingsScreen() {
       // Show reload instructions for Expo Go
       if (__DEV__ && Platform.OS !== 'web') {
         setTimeout(() => {
-          Alert.alert(
+          showDialog(
+            'success',
             '🎨 Tema Cambiado',
             'El tema se ha guardado correctamente.\n\n' +
             'Para ver todos los cambios en Expo Go:\n\n' +
@@ -41,7 +69,9 @@ export default function ThemeSettingsScreen() {
             [
               {
                 text: 'Entendido',
+                style: 'primary',
                 onPress: () => {
+                  closeDialog();
                   setChangingTheme(false);
                   // Navigate back to show the change
                   router.back();
@@ -60,7 +90,8 @@ export default function ThemeSettingsScreen() {
     } catch (error) {
       console.error('[ThemeSettings] Error changing theme:', error);
       setChangingTheme(false);
-      Alert.alert(
+      showDialog(
+        'error',
         'Error',
         'No se pudo cambiar el tema. Por favor intenta de nuevo.'
       );
@@ -367,6 +398,15 @@ export default function ThemeSettingsScreen() {
           );
         })}
       </ScrollView>
+
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </View>
   );
 }
