@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   View,
@@ -38,8 +38,8 @@ export default function NewOrderScreen() {
     orderText?: string;
   }>({});
 
-  // Create dynamic styles based on theme
-  const styles = StyleSheet.create({
+  // Create dynamic styles based on theme using useMemo for optimization
+  const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
@@ -274,7 +274,7 @@ export default function NewOrderScreen() {
       fontSize: 18,
       fontWeight: '600',
     },
-  });
+  }), [colors]);
 
   // Parse order text when it changes
   useEffect(() => {
