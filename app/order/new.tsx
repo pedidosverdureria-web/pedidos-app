@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  FlatList,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -21,6 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Customer } from '@/types';
 
 // Format currency as Chilean Pesos
 const formatCLP = (amount: number): string => {
@@ -41,8 +43,21 @@ export default function NewOrderScreen() {
   const { user, isAuthenticated } = useAuth();
   const { themeVersion } = useTheme();
   const { colors, commonStyles } = useThemedStyles();
+  
+  // Customer input mode: 'manual' or 'select'
+  const [customerInputMode, setCustomerInputMode] = useState<'manual' | 'select'>('manual');
   const [customerName, setCustomerName] = useState('');
   const [customerRut, setCustomerRut] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  
+  // Customer list for selection
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [showCustomerList, setShowCustomerList] = useState(false);
+  
   const [orderText, setOrderText] = useState('');
   const [parsedItems, setParsedItems] = useState<ParsedOrderItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -390,6 +405,189 @@ export default function NewOrderScreen() {
     dialogButtonTextSecondary: {
       color: colors.text,
     },
+    // Customer input mode toggle
+    modeToggleContainer: {
+      flexDirection: 'row',
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 4,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modeToggleButton: {
+      flex: 1,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      borderRadius: 6,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    modeToggleButtonActive: {
+      backgroundColor: colors.primary,
+    },
+    modeToggleButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    modeToggleButtonTextActive: {
+      color: '#FFFFFF',
+    },
+    // Customer selection button
+    selectCustomerButton: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    selectCustomerButtonText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    selectCustomerButtonPlaceholder: {
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+    selectedCustomerInfo: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.success,
+    },
+    selectedCustomerName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    selectedCustomerDetail: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    changeCustomerButton: {
+      marginTop: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: colors.primary,
+      borderRadius: 6,
+      alignItems: 'center',
+    },
+    changeCustomerButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    // Customer list modal
+    customerListModal: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    customerListContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+      marginTop: 100,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+        },
+        android: {
+          elevation: 8,
+        },
+      }),
+    },
+    customerListHeader: {
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    customerListTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    customerListSearchContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    customerListSearchInput: {
+      flex: 1,
+      height: 40,
+      fontSize: 16,
+      color: colors.text,
+      marginLeft: 8,
+    },
+    customerListContent: {
+      flex: 1,
+    },
+    customerListItem: {
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    customerListItemName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    customerListItemDetail: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    customerListItemStats: {
+      flexDirection: 'row',
+      marginTop: 8,
+      gap: 16,
+    },
+    customerListItemStat: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    customerListEmpty: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    customerListEmptyText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 16,
+    },
+    customerListCloseButton: {
+      padding: 16,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.card,
+    },
+    customerListCloseButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+      textAlign: 'center',
+    },
   }), [colors, themeVersion]);
 
   // Memoize header options to ensure they update with theme
@@ -402,6 +600,64 @@ export default function NewOrderScreen() {
     headerTintColor: '#FFFFFF',
     headerShadowVisible: true,
   }), [colors.primary, themeVersion]);
+
+  // Load customers when switching to select mode
+  useEffect(() => {
+    if (customerInputMode === 'select' && customers.length === 0) {
+      loadCustomers();
+    }
+  }, [customerInputMode]);
+
+  const loadCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+      const supabase = getSupabase();
+      
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      console.log('[NewOrderScreen] Loaded customers:', data?.length);
+      setCustomers(data || []);
+    } catch (error) {
+      console.error('[NewOrderScreen] Error loading customers:', error);
+      Alert.alert('Error', 'No se pudieron cargar los clientes');
+    } finally {
+      setLoadingCustomers(false);
+    }
+  };
+
+  const handleSelectCustomer = (customer: Customer) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerRut(customer.rut || '');
+    setCustomerPhone(customer.phone || '');
+    setCustomerAddress(customer.address || '');
+    setShowCustomerList(false);
+    
+    // Clear any customer name errors
+    if (errors.customerName) {
+      setErrors({ ...errors, customerName: undefined });
+    }
+  };
+
+  const handleModeChange = (mode: 'manual' | 'select') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCustomerInputMode(mode);
+    
+    // Clear customer data when switching modes
+    if (mode === 'manual') {
+      setSelectedCustomerId(null);
+      setCustomerName('');
+      setCustomerRut('');
+      setCustomerPhone('');
+      setCustomerAddress('');
+    }
+  };
 
   // Parse order text when it changes
   useEffect(() => {
@@ -445,8 +701,12 @@ export default function NewOrderScreen() {
   };
 
   const resetForm = () => {
+    setCustomerInputMode('manual');
     setCustomerName('');
     setCustomerRut('');
+    setCustomerPhone('');
+    setCustomerAddress('');
+    setSelectedCustomerId(null);
     setOrderText('');
     setParsedItems([]);
     setErrors({});
@@ -492,17 +752,15 @@ export default function NewOrderScreen() {
       console.log('Creating order with', parsedItems.length, 'parsed items');
 
       // Prepare order data
-      // Note: We don't include created_by for PIN-based auth users since they don't exist in auth.users
-      // The created_by field is nullable and optional
       const orderData = {
         customer_name: customerName.trim(),
         customer_rut: customerRut.trim() || null,
-        customer_phone: null, // Manual orders don't have phone initially
+        customer_phone: customerPhone.trim() || null,
+        customer_address: customerAddress.trim() || null,
+        customer_id: selectedCustomerId,
         status: 'pending' as const,
         source: 'manual' as const,
         is_read: true,
-        // created_by is intentionally omitted for PIN-based auth users
-        // It will be NULL in the database, which is allowed
       };
 
       console.log('Order data prepared:', orderData);
@@ -635,6 +893,17 @@ export default function NewOrderScreen() {
     router.replace('/login');
   };
 
+  // Filter customers based on search query
+  const filteredCustomers = customers.filter((customer) => {
+    const query = customerSearchQuery.toLowerCase();
+    return (
+      customer.name.toLowerCase().includes(query) ||
+      (customer.phone && customer.phone.toLowerCase().includes(query)) ||
+      (customer.rut && customer.rut.toLowerCase().includes(query)) ||
+      (customer.address && customer.address.toLowerCase().includes(query))
+    );
+  });
+
   // Show warning if not authenticated
   if (!isAuthenticated || !user) {
     return (
@@ -690,33 +959,135 @@ export default function NewOrderScreen() {
             <Text style={styles.cardTitle}>Información del Cliente</Text>
           </View>
 
-          <Text style={styles.label}>
-            Nombre <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.input, errors.customerName && styles.inputError]}
-            placeholder="Nombre del cliente"
-            placeholderTextColor={colors.textSecondary}
-            value={customerName}
-            onChangeText={(text) => {
-              setCustomerName(text);
-              if (errors.customerName) {
-                setErrors({ ...errors, customerName: undefined });
-              }
-            }}
-          />
-          {errors.customerName && (
-            <Text style={styles.errorText}>{errors.customerName}</Text>
-          )}
+          {/* Mode Toggle */}
+          <View style={styles.modeToggleContainer}>
+            <TouchableOpacity
+              style={[
+                styles.modeToggleButton,
+                customerInputMode === 'manual' && styles.modeToggleButtonActive,
+              ]}
+              onPress={() => handleModeChange('manual')}
+            >
+              <Text
+                style={[
+                  styles.modeToggleButtonText,
+                  customerInputMode === 'manual' && styles.modeToggleButtonTextActive,
+                ]}
+              >
+                Ingresar Manualmente
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.modeToggleButton,
+                customerInputMode === 'select' && styles.modeToggleButtonActive,
+              ]}
+              onPress={() => handleModeChange('select')}
+            >
+              <Text
+                style={[
+                  styles.modeToggleButtonText,
+                  customerInputMode === 'select' && styles.modeToggleButtonTextActive,
+                ]}
+              >
+                Seleccionar de Lista
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-          <Text style={styles.label}>RUT (Opcional)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="12.345.678-9"
-            placeholderTextColor={colors.textSecondary}
-            value={customerRut}
-            onChangeText={setCustomerRut}
-          />
+          {customerInputMode === 'manual' ? (
+            <>
+              <Text style={styles.label}>
+                Nombre <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.input, errors.customerName && styles.inputError]}
+                placeholder="Nombre del cliente"
+                placeholderTextColor={colors.textSecondary}
+                value={customerName}
+                onChangeText={(text) => {
+                  setCustomerName(text);
+                  if (errors.customerName) {
+                    setErrors({ ...errors, customerName: undefined });
+                  }
+                }}
+              />
+              {errors.customerName && (
+                <Text style={styles.errorText}>{errors.customerName}</Text>
+              )}
+
+              <Text style={styles.label}>RUT (Opcional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="12.345.678-9"
+                placeholderTextColor={colors.textSecondary}
+                value={customerRut}
+                onChangeText={setCustomerRut}
+              />
+
+              <Text style={styles.label}>Teléfono (Opcional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="+56912345678"
+                placeholderTextColor={colors.textSecondary}
+                value={customerPhone}
+                onChangeText={setCustomerPhone}
+                keyboardType="phone-pad"
+              />
+
+              <Text style={styles.label}>Dirección (Opcional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Dirección del cliente"
+                placeholderTextColor={colors.textSecondary}
+                value={customerAddress}
+                onChangeText={setCustomerAddress}
+              />
+            </>
+          ) : (
+            <>
+              {selectedCustomerId ? (
+                <View style={styles.selectedCustomerInfo}>
+                  <Text style={styles.selectedCustomerName}>{customerName}</Text>
+                  {customerRut && (
+                    <Text style={styles.selectedCustomerDetail}>RUT: {customerRut}</Text>
+                  )}
+                  {customerPhone && (
+                    <Text style={styles.selectedCustomerDetail}>📞 {customerPhone}</Text>
+                  )}
+                  {customerAddress && (
+                    <Text style={styles.selectedCustomerDetail}>📍 {customerAddress}</Text>
+                  )}
+                  <TouchableOpacity
+                    style={styles.changeCustomerButton}
+                    onPress={() => setShowCustomerList(true)}
+                  >
+                    <Text style={styles.changeCustomerButtonText}>Cambiar Cliente</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.selectCustomerButton, errors.customerName && styles.inputError]}
+                    onPress={() => setShowCustomerList(true)}
+                  >
+                    <Text style={styles.selectCustomerButtonPlaceholder}>
+                      Seleccionar cliente...
+                    </Text>
+                    <IconSymbol
+                      ios_icon_name="chevron.right"
+                      android_material_icon_name="chevron_right"
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                  {errors.customerName && (
+                    <Text style={styles.errorText}>{errors.customerName}</Text>
+                  )}
+                </>
+              )}
+            </>
+          )}
         </View>
 
         {/* Order Text Card */}
@@ -947,6 +1318,95 @@ export default function NewOrderScreen() {
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Customer List Modal */}
+      <Modal
+        visible={showCustomerList}
+        animationType="slide"
+        onRequestClose={() => setShowCustomerList(false)}
+      >
+        <View style={styles.customerListModal}>
+          <View style={styles.customerListContainer}>
+            <View style={styles.customerListHeader}>
+              <Text style={styles.customerListTitle}>Seleccionar Cliente</Text>
+              <View style={styles.customerListSearchContainer}>
+                <IconSymbol
+                  ios_icon_name="magnifyingglass"
+                  android_material_icon_name="search"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+                <TextInput
+                  style={styles.customerListSearchInput}
+                  placeholder="Buscar por nombre, teléfono, RUT..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={customerSearchQuery}
+                  onChangeText={setCustomerSearchQuery}
+                />
+              </View>
+            </View>
+
+            {loadingCustomers ? (
+              <View style={styles.customerListEmpty}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text style={styles.customerListEmptyText}>Cargando clientes...</Text>
+              </View>
+            ) : filteredCustomers.length === 0 ? (
+              <View style={styles.customerListEmpty}>
+                <IconSymbol
+                  ios_icon_name="person.2"
+                  android_material_icon_name="people"
+                  size={64}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.customerListEmptyText}>
+                  {customerSearchQuery
+                    ? 'No se encontraron clientes'
+                    : 'No hay clientes registrados'}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                style={styles.customerListContent}
+                data={filteredCustomers}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.customerListItem}
+                    onPress={() => handleSelectCustomer(item)}
+                  >
+                    <Text style={styles.customerListItemName}>{item.name}</Text>
+                    {item.rut && (
+                      <Text style={styles.customerListItemDetail}>RUT: {item.rut}</Text>
+                    )}
+                    {item.phone && (
+                      <Text style={styles.customerListItemDetail}>📞 {item.phone}</Text>
+                    )}
+                    {item.address && (
+                      <Text style={styles.customerListItemDetail}>📍 {item.address}</Text>
+                    )}
+                    <View style={styles.customerListItemStats}>
+                      <Text style={styles.customerListItemStat}>
+                        Deuda: {formatCLP(item.total_debt)}
+                      </Text>
+                      <Text style={styles.customerListItemStat}>
+                        Pagado: {formatCLP(item.total_paid)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            <TouchableOpacity
+              style={styles.customerListCloseButton}
+              onPress={() => setShowCustomerList(false)}
+            >
+              <Text style={styles.customerListCloseButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </KeyboardAvoidingView>
   );
