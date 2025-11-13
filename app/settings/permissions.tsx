@@ -7,12 +7,12 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   RefreshControl,
 } from 'react-native';
 import { Stack } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import * as Haptics from 'expo-haptics';
 import {
   getAllPermissionsStatus,
@@ -23,6 +23,14 @@ import {
   getPermissionStatusLabel,
   PermissionInfo,
 } from '@/utils/permissions';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -206,6 +214,25 @@ export default function PermissionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [permissions, setPermissions] = useState<PermissionInfo[]>([]);
   const [requesting, setRequesting] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const loadPermissions = useCallback(async () => {
     try {
@@ -215,7 +242,7 @@ export default function PermissionsScreen() {
       console.log('[PermissionsScreen] Permissions loaded:', permissionsStatus);
     } catch (error) {
       console.error('[PermissionsScreen] Error loading permissions:', error);
-      Alert.alert('Error', 'No se pudieron cargar los permisos');
+      showDialog('error', 'Error', 'No se pudieron cargar los permisos');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -245,26 +272,27 @@ export default function PermissionsScreen() {
       
       if (status === 'granted') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
+        showDialog(
+          'success',
           '✅ Permiso Concedido',
-          `El permiso de ${permission.name} ha sido concedido correctamente.`,
-          [{ text: 'OK' }]
+          `El permiso de ${permission.name} ha sido concedido correctamente.`
         );
       } else if (status === 'denied') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
+        showDialog(
+          'error',
           '❌ Permiso Denegado',
           `El permiso de ${permission.name} fue denegado. Puedes habilitarlo manualmente en la configuración del sistema.`,
           [
-            { text: 'Cancelar', style: 'cancel' },
-            { text: 'Abrir Configuración', onPress: openAppSettings },
+            { text: 'Cancelar', style: 'cancel', onPress: closeDialog },
+            { text: 'Abrir Configuración', style: 'primary', onPress: openAppSettings },
           ]
         );
       }
     } catch (error) {
       console.error('[PermissionsScreen] Error requesting permission:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'No se pudo solicitar el permiso');
+      showDialog('error', 'Error', 'No se pudo solicitar el permiso');
     } finally {
       setRequesting(null);
     }
@@ -282,15 +310,15 @@ export default function PermissionsScreen() {
       await loadPermissions();
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
+      showDialog(
+        'success',
         '✅ Permisos Solicitados',
-        'Se han solicitado todos los permisos necesarios. Revisa el estado de cada uno abajo.',
-        [{ text: 'OK' }]
+        'Se han solicitado todos los permisos necesarios. Revisa el estado de cada uno abajo.'
       );
     } catch (error) {
       console.error('[PermissionsScreen] Error requesting all permissions:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'No se pudieron solicitar todos los permisos');
+      showDialog('error', 'Error', 'No se pudieron solicitar todos los permisos');
     } finally {
       setLoading(false);
     }
@@ -492,6 +520,15 @@ export default function PermissionsScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </View>
   );
 }

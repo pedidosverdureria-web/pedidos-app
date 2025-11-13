@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,36 +7,66 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  Alert,
   Image,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   const handleSignOut = () => {
-    Alert.alert(
+    showDialog(
+      'warning',
       'Cerrar Sesión',
       '¿Estás seguro que deseas cerrar sesión?',
       [
         {
           text: 'Cancelar',
           style: 'cancel',
+          onPress: closeDialog,
         },
         {
           text: 'Cerrar Sesión',
           style: 'destructive',
           onPress: async () => {
+            closeDialog();
             try {
               await signOut();
               router.replace('/login');
             } catch (error) {
               console.error('[Profile] Error signing out:', error);
-              Alert.alert('Error', 'No se pudo cerrar sesión');
+              showDialog('error', 'Error', 'No se pudo cerrar sesión');
             }
           },
         },
@@ -239,6 +269,15 @@ export default function ProfileScreen() {
           <Text style={styles.footerText}>Aplicación de uso privado</Text>
         </View>
       </ScrollView>
+
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </>
   );
 }

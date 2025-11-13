@@ -8,7 +8,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   Image,
 } from 'react-native';
@@ -16,11 +15,39 @@ import { router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
 
 export default function LoginScreen() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const { signInWithPin, isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
 
   // Redirect based on user role
   useEffect(() => {
@@ -38,12 +65,12 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     // Validate PIN
     if (!pin) {
-      Alert.alert('Error', 'Por favor ingresa tu PIN');
+      showDialog('error', 'Error', 'Por favor ingresa tu PIN');
       return;
     }
 
     if (pin.length !== 4) {
-      Alert.alert('Error', 'El PIN debe tener 4 dígitos');
+      showDialog('error', 'Error', 'El PIN debe tener 4 dígitos');
       return;
     }
 
@@ -70,7 +97,7 @@ export default function LoginScreen() {
         errorMessage = error.message;
       }
       
-      Alert.alert('Error de inicio de sesión', errorMessage);
+      showDialog('error', 'Error de inicio de sesión', errorMessage);
       setPin(''); // Clear PIN on error
     }
   };
@@ -166,6 +193,15 @@ export default function LoginScreen() {
           <Text style={styles.footerText}>Aplicación de uso privado</Text>
         </View>
       </View>
+
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
     </KeyboardAvoidingView>
   );
 }
