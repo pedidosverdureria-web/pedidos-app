@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   Linking,
   TextInput,
@@ -28,6 +27,7 @@ import { useOrderCustomer } from '@/hooks/useOrderCustomer';
 import { useOrderProducts } from '@/hooks/useOrderProducts';
 import { useOrderQueries } from '@/hooks/useOrderQueries';
 import { OrderStatusSection } from '@/components/order/OrderStatusSection';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import {
   getAvailableStatusTransitions,
   formatCLP,
@@ -39,6 +39,14 @@ import {
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
+
 export default function OrderDetailScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const { user } = useAuth();
@@ -49,6 +57,12 @@ export default function OrderDetailScreen() {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [whatsappInput, setWhatsappInput] = useState('');
   const [parsedProducts, setParsedProducts] = useState<ParsedOrderItem[]>([]);
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   // Use custom hooks
   const {
@@ -121,11 +135,12 @@ export default function OrderDetailScreen() {
 
     if (!isConnected) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Impresora No Conectada',
-        'Por favor conecta una impresora antes de imprimir',
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Impresora No Conectada',
+        message: 'Por favor conecta una impresora antes de imprimir',
+      });
       return;
     }
 
@@ -140,19 +155,21 @@ export default function OrderDetailScreen() {
       await printReceipt(receiptText, autoCut, textSize, encoding);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '✅ Impresión Exitosa',
-        'El pedido se imprimió correctamente',
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'success',
+        title: 'Impresión Exitosa',
+        message: 'El pedido se imprimió correctamente',
+      });
     } catch (error) {
       console.error('[OrderDetail] Print error:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error de Impresión',
-        'No se pudo imprimir el pedido. Verifica la conexión con la impresora.',
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error de Impresión',
+        message: 'No se pudo imprimir el pedido. Verifica la conexión con la impresora.',
+      });
     }
   };
 
@@ -166,33 +183,36 @@ export default function OrderDetailScreen() {
       
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          '✅ Enviado a Impresor',
-          'El pedido se agregó a la cola de impresión. El perfil Impresor lo imprimirá.',
-          [{ text: 'OK' }]
-        );
+        setDialog({
+          visible: true,
+          type: 'success',
+          title: 'Enviado a Impresor',
+          message: 'El pedido se agregó a la cola de impresión. El perfil Impresor lo imprimirá.',
+        });
       } else {
         throw new Error(result.error || 'Error desconocido');
       }
     } catch (error: any) {
       console.error('[OrderDetail] Error sending to printer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        `No se pudo enviar a la cola de impresión: ${error.message}`,
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: `No se pudo enviar a la cola de impresión: ${error.message}`,
+      });
     }
   };
 
   const handleWhatsApp = async () => {
     if (!order?.customer_phone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Sin Número de Teléfono',
-        'Este pedido no tiene un número de teléfono asociado',
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Sin Número de Teléfono',
+        message: 'Este pedido no tiene un número de teléfono asociado',
+      });
       return;
     }
 
@@ -205,11 +225,12 @@ export default function OrderDetailScreen() {
     } catch (error) {
       console.error('[OrderDetail] Error opening WhatsApp:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        'No se pudo abrir WhatsApp. Verifica que esté instalado en tu dispositivo.',
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo abrir WhatsApp. Verifica que esté instalado en tu dispositivo.',
+      });
     }
   };
 
@@ -222,19 +243,26 @@ export default function OrderDetailScreen() {
       deleteMessage += `\n\n⚠️ Este pedido está vinculado a un cliente y en estado "Pendiente de Pago". Al eliminarlo:\n\n- Se restará ${formatCLP(order.total_amount)} de la deuda del cliente\n- Se actualizarán automáticamente los totales de la cuenta`;
     }
 
-    Alert.alert(
-      '🗑️ Eliminar Pedido',
-      deleteMessage,
-      [
-        { 
-          text: 'Cancelar', 
+    setDialog({
+      visible: true,
+      type: 'warning',
+      title: 'Eliminar Pedido',
+      message: deleteMessage,
+      buttons: [
+        {
+          text: 'Cancelar',
           style: 'cancel',
-          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setDialog({ ...dialog, visible: false });
+          },
         },
         {
           text: 'Eliminar',
           style: 'destructive',
+          icon: 'trash.fill',
           onPress: async () => {
+            setDialog({ ...dialog, visible: false });
             const success = await deleteOrder();
             if (success) {
               let successMessage = `El pedido ${order.order_number} se eliminó correctamente`;
@@ -242,130 +270,159 @@ export default function OrderDetailScreen() {
                 successMessage += `\n\nLos totales de la cuenta del cliente se actualizaron automáticamente`;
               }
               
-              Alert.alert(
-                '✅ Pedido Eliminado',
-                successMessage,
-                [{ 
+              setDialog({
+                visible: true,
+                type: 'success',
+                title: 'Pedido Eliminado',
+                message: successMessage,
+                buttons: [{
                   text: 'OK',
-                  onPress: () => router.back()
-                }]
-              );
+                  style: 'primary',
+                  onPress: () => router.back(),
+                }],
+              });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleBlockCustomer = () => {
     if (!order?.customer_phone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Sin Número de Teléfono',
-        'Este pedido no tiene un número de teléfono asociado para bloquear',
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Sin Número de Teléfono',
+        message: 'Este pedido no tiene un número de teléfono asociado para bloquear',
+      });
       return;
     }
 
-    Alert.alert(
-      '⚠️ Bloquear Cliente - Confirmación 1/2',
-      `¿Estás seguro de que deseas bloquear a ${order.customer_name}?\n\nEl cliente no podrá enviar pedidos ni mensajes por WhatsApp mientras esté bloqueado.`,
-      [
+    setDialog({
+      visible: true,
+      type: 'warning',
+      title: 'Bloquear Cliente - Confirmación 1/2',
+      message: `¿Estás seguro de que deseas bloquear a ${order.customer_name}?\n\nEl cliente no podrá enviar pedidos ni mensajes por WhatsApp mientras esté bloqueado.`,
+      buttons: [
         {
           text: 'Cancelar',
           style: 'cancel',
-          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setDialog({ ...dialog, visible: false });
+          },
         },
         {
           text: 'Continuar',
           style: 'destructive',
           onPress: () => {
-            Alert.alert(
-              '🚫 Bloquear Cliente - Confirmación 2/2',
-              `Esta es tu última oportunidad para cancelar.\n\n¿Realmente deseas bloquear a ${order.customer_name}?`,
-              [
+            setDialog({
+              visible: true,
+              type: 'warning',
+              title: 'Bloquear Cliente - Confirmación 2/2',
+              message: `Esta es tu última oportunidad para cancelar.\n\n¿Realmente deseas bloquear a ${order.customer_name}?`,
+              buttons: [
                 {
                   text: 'Cancelar',
                   style: 'cancel',
-                  onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+                  onPress: () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setDialog({ ...dialog, visible: false });
+                  },
                 },
                 {
                   text: 'Bloquear',
                   style: 'destructive',
+                  icon: 'xmark.circle.fill',
                   onPress: async () => {
+                    setDialog({ ...dialog, visible: false });
                     const success = await customerHook.blockCustomer();
                     if (success) {
                       setCustomerBlocked(true);
-                      Alert.alert(
-                        '✅ Cliente Bloqueado',
-                        `${order.customer_name} ha sido bloqueado correctamente.\n\nNo podrá enviar pedidos ni mensajes por WhatsApp.`,
-                        [{ text: 'OK' }]
-                      );
+                      setDialog({
+                        visible: true,
+                        type: 'success',
+                        title: 'Cliente Bloqueado',
+                        message: `${order.customer_name} ha sido bloqueado correctamente.\n\nNo podrá enviar pedidos ni mensajes por WhatsApp.`,
+                      });
                     }
                   },
                 },
-              ]
-            );
+              ],
+            });
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleUnblockCustomer = async () => {
     if (!order?.customer_phone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Sin Número de Teléfono',
-        'Este pedido no tiene un número de teléfono asociado',
-        [{ text: 'OK' }]
-      );
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Sin Número de Teléfono',
+        message: 'Este pedido no tiene un número de teléfono asociado',
+      });
       return;
     }
 
-    Alert.alert(
-      '✅ Desbloquear Cliente',
-      `¿Estás seguro de que deseas desbloquear a ${order.customer_name}?\n\nEl cliente podrá volver a enviar pedidos y mensajes por WhatsApp.`,
-      [
+    setDialog({
+      visible: true,
+      type: 'info',
+      title: 'Desbloquear Cliente',
+      message: `¿Estás seguro de que deseas desbloquear a ${order.customer_name}?\n\nEl cliente podrá volver a enviar pedidos y mensajes por WhatsApp.`,
+      buttons: [
         {
           text: 'Cancelar',
           style: 'cancel',
-          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setDialog({ ...dialog, visible: false });
+          },
         },
         {
           text: 'Desbloquear',
+          style: 'success',
+          icon: 'checkmark.circle.fill',
           onPress: async () => {
+            setDialog({ ...dialog, visible: false });
             const success = await customerHook.unblockCustomer();
             if (success) {
               setCustomerBlocked(false);
-              Alert.alert(
-                '✅ Cliente Desbloqueado',
-                `${order.customer_name} ha sido desbloqueado correctamente.\n\nPodrá volver a enviar pedidos y mensajes por WhatsApp.`,
-                [{ text: 'OK' }]
-              );
+              setDialog({
+                visible: true,
+                type: 'success',
+                title: 'Cliente Desbloqueado',
+                message: `${order.customer_name} ha sido desbloqueado correctamente.\n\nPodrá volver a enviar pedidos y mensajes por WhatsApp.`,
+              });
             }
           },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const handleStatusChange = async (newStatus: any) => {
     const success = await updateStatus(newStatus, user?.role);
     if (success) {
       if (newStatus === 'pending_payment') {
-        Alert.alert(
-          '✅ Estado Actualizado',
-          `El pedido ahora está en estado: Pendiente de Pago\n\nEl cliente ha sido creado automáticamente y aparecerá en "Vales Pendientes".`,
-          [{ text: 'OK' }]
-        );
+        setDialog({
+          visible: true,
+          type: 'success',
+          title: 'Estado Actualizado',
+          message: `El pedido ahora está en estado: Pendiente de Pago\n\nEl cliente ha sido creado automáticamente y aparecerá en "Vales Pendientes".`,
+        });
       } else {
-        Alert.alert(
-          '✅ Estado Actualizado',
-          `El pedido ahora está en estado: ${newStatus}`,
-          [{ text: 'OK' }]
-        );
+        setDialog({
+          visible: true,
+          type: 'success',
+          title: 'Estado Actualizado',
+          message: `El pedido ahora está en estado: ${newStatus}`,
+        });
       }
     }
   };
@@ -391,22 +448,31 @@ export default function OrderDetailScreen() {
     const item = order.items?.find(i => i.id === itemId);
     if (!item) return;
 
-    Alert.alert(
-      '🗑️ Eliminar Producto',
-      `¿Estás seguro de que deseas eliminar "${item.product_name}" del pedido?`,
-      [
-        { 
-          text: 'Cancelar', 
+    setDialog({
+      visible: true,
+      type: 'warning',
+      title: 'Eliminar Producto',
+      message: `¿Estás seguro de que deseas eliminar "${item.product_name}" del pedido?`,
+      buttons: [
+        {
+          text: 'Cancelar',
           style: 'cancel',
-          onPress: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setDialog({ ...dialog, visible: false });
+          },
         },
         {
           text: 'Eliminar',
           style: 'destructive',
-          onPress: () => productsHook.deleteProduct(itemId),
+          icon: 'trash.fill',
+          onPress: () => {
+            setDialog({ ...dialog, visible: false });
+            productsHook.deleteProduct(itemId);
+          },
         },
-      ]
-    );
+      ],
+    });
   };
 
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -492,7 +558,8 @@ export default function OrderDetailScreen() {
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <IconSymbol 
-                    name="plus" 
+                    ios_icon_name="plus" 
+                    android_material_icon_name="add"
                     size={20} 
                     color="#fff" 
                   />
@@ -1061,6 +1128,16 @@ export default function OrderDetailScreen() {
           )
         )}
       </ScrollView>
+
+      {/* Custom Dialog */}
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={() => setDialog({ ...dialog, visible: false })}
+      />
 
       {/* Modals - Add Product Modal */}
       <Modal
