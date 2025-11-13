@@ -1,10 +1,16 @@
+
 {
+  "cli": {
+    "version": ">= 13.2.0",
+    "appVersionSource": "remote"
+  },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
       "autoIncrement": true,
       "android": {
+        "buildType": "apk",
         "resourceClass": "medium",
         "gradleCommand": ":app:assembleDebug",
         "env": {
@@ -16,6 +22,7 @@
       "distribution": "internal",
       "autoIncrement": true,
       "android": {
+        "buildType": "apk",
         "resourceClass": "medium",
         "gradleCommand": ":app:assembleRelease",
         "env": {
@@ -26,12 +33,16 @@
     "production": {
       "autoIncrement": true,
       "android": {
+        "buildType": "apk",
         "resourceClass": "medium",
-        "gradleCommand": ":app:bundleRelease",
+        "gradleCommand": ":app:assembleRelease",
         "env": {
           "GRADLE_OPTS": "-Xmx6144m -XX:MaxMetaspaceSize=2048m -XX:MetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8 -XX:+UseG1GC"
         }
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }
