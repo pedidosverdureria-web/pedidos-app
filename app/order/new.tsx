@@ -28,7 +28,7 @@ const formatCLP = (amount: number): string => {
 
 export default function NewOrderScreen() {
   const { user, isAuthenticated } = useAuth();
-  const { themeVersion } = useTheme(); // Add theme version to force re-render
+  const { themeVersion } = useTheme();
   const { colors, commonStyles } = useThemedStyles();
   const [customerName, setCustomerName] = useState('');
   const [customerRut, setCustomerRut] = useState('');
@@ -277,7 +277,18 @@ export default function NewOrderScreen() {
       fontSize: 18,
       fontWeight: '600',
     },
-  }), [colors, themeVersion]); // Add themeVersion to dependencies
+  }), [colors, themeVersion]);
+
+  // Memoize header options to ensure they update with theme
+  const headerOptions = useMemo(() => ({
+    title: 'Nuevo Pedido Manual',
+    headerBackTitle: 'Atrás',
+    headerStyle: {
+      backgroundColor: colors.primary,
+    },
+    headerTintColor: '#FFFFFF',
+    headerShadowVisible: true,
+  }), [colors.primary, themeVersion]);
 
   // Parse order text when it changes
   useEffect(() => {
@@ -493,17 +504,7 @@ export default function NewOrderScreen() {
   if (!isAuthenticated || !user) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <Stack.Screen
-          options={{
-            title: 'Nuevo Pedido Manual',
-            headerBackTitle: 'Atrás',
-            headerStyle: {
-              backgroundColor: colors.card,
-            },
-            headerTintColor: colors.text,
-            headerShadowVisible: true,
-          }}
-        />
+        <Stack.Screen options={headerOptions} />
         <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={64} color={colors.warning} />
         <Text style={styles.warningTitle}>Sesión Requerida</Text>
         <Text style={styles.warningText}>
@@ -525,17 +526,7 @@ export default function NewOrderScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <Stack.Screen
-        options={{
-          title: 'Nuevo Pedido Manual',
-          headerBackTitle: 'Atrás',
-          headerStyle: {
-            backgroundColor: colors.card,
-          },
-          headerTintColor: colors.text,
-          headerShadowVisible: true,
-        }}
-      />
+      <Stack.Screen options={headerOptions} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
