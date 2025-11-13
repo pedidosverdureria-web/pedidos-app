@@ -19,6 +19,7 @@ import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { useTheme } from '@/contexts/ThemeContext';
 
 // Format currency as Chilean Pesos
 const formatCLP = (amount: number): string => {
@@ -27,6 +28,7 @@ const formatCLP = (amount: number): string => {
 
 export default function NewOrderScreen() {
   const { user, isAuthenticated } = useAuth();
+  const { themeVersion } = useTheme(); // Add theme version to force re-render
   const { colors, commonStyles } = useThemedStyles();
   const [customerName, setCustomerName] = useState('');
   const [customerRut, setCustomerRut] = useState('');
@@ -39,6 +41,7 @@ export default function NewOrderScreen() {
   }>({});
 
   // Create dynamic styles based on theme using useMemo for optimization
+  // Include themeVersion in dependencies to force re-creation when theme changes
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
@@ -274,7 +277,7 @@ export default function NewOrderScreen() {
       fontSize: 18,
       fontWeight: '600',
     },
-  }), [colors]);
+  }), [colors, themeVersion]); // Add themeVersion to dependencies
 
   // Parse order text when it changes
   useEffect(() => {
