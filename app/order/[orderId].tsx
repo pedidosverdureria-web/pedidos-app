@@ -102,13 +102,13 @@ export default function OrderDetailScreen() {
     loadPrinterConfig();
   }, [loadPrinterConfig]);
 
-  // FIXED: Added customerHook to dependencies
+  // FIXED: Only depend on the specific properties and the loadCustomers function
   useEffect(() => {
     if (customerHook.editingCustomer && customerHook.customerInputMode === 'select') {
       console.log('[OrderDetail] Loading customers for select mode...');
       customerHook.loadCustomers();
     }
-  }, [customerHook.editingCustomer, customerHook.customerInputMode, customerHook]);
+  }, [customerHook.editingCustomer, customerHook.customerInputMode, customerHook.loadCustomers]);
 
   useEffect(() => {
     if (order) {
@@ -116,7 +116,7 @@ export default function OrderDetailScreen() {
       customerHook.setCustomerPhone(order.customer_phone || '');
       customerHook.setCustomerAddress(order.customer_address || '');
     }
-  }, [order, customerHook]);
+  }, [order, customerHook.setCustomerName, customerHook.setCustomerPhone, customerHook.setCustomerAddress]);
 
   useEffect(() => {
     if (whatsappInput.trim()) {
