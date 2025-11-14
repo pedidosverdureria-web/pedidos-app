@@ -130,6 +130,65 @@ export default function OrderDetailScreen() {
     }
   }, [whatsappInput]);
 
+  const handleAddCustomerToMenu = async () => {
+    const result = await customerHook.addCustomerToMenu();
+    
+    if (result.needsConfirmation && result.existingCustomerId) {
+      // Show confirmation dialog for linking to existing customer
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Cliente Ya Existe',
+        message: result.message,
+        buttons: [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+            onPress: () => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setDialog({ ...dialog, visible: false });
+            },
+          },
+          {
+            text: 'Vincular',
+            style: 'primary',
+            icon: 'link',
+            onPress: async () => {
+              setDialog({ ...dialog, visible: false });
+              const linkResult = await customerHook.linkOrderToCustomer(result.existingCustomerId);
+              
+              setDialog({
+                visible: true,
+                type: linkResult.type || 'info',
+                title: linkResult.success ? 'Pedido Vinculado' : 'Error',
+                message: linkResult.message,
+              });
+            },
+          },
+        ],
+      });
+    } else {
+      // Show result dialog
+      setDialog({
+        visible: true,
+        type: result.type || (result.success ? 'success' : 'error'),
+        title: result.success ? 'Cliente Agregado' : 'Error',
+        message: result.message,
+      });
+    }
+  };
+
+  const handleUpdateCustomerInfo = async () => {
+    const result = await customerHook.updateCustomerInfo();
+    
+    setDialog({
+      visible: true,
+      type: result.success ? 'success' : 'error',
+      title: result.success ? 'Éxito' : 'Error',
+      message: result.message,
+    });
+  };
+
   const handlePrint = async () => {
     if (!order) return;
 
@@ -551,7 +610,7 @@ export default function OrderDetailScreen() {
             {showAddCustomerButton && (
               <TouchableOpacity
                 style={styles.addCustomerButton}
-                onPress={customerHook.addCustomerToMenu}
+                onPress={handleAddCustomerToMenu}
                 disabled={checkingCustomer}
               >
                 {checkingCustomer ? (
@@ -580,8 +639,8 @@ export default function OrderDetailScreen() {
               {customerExistsInMenu && (
                 <View style={styles.customerExistsBanner}>
                   <IconSymbol 
-                    ios_icon_name="checkmark.circle.fill" 
-                    android_material_icon_name="check_circle" 
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
                     size={20} 
                     color="#10B981" 
                   />
@@ -593,7 +652,12 @@ export default function OrderDetailScreen() {
               
               {customerBlocked && (
                 <View style={styles.blockedBanner}>
-                  <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={20} color="#DC2626" />
+                  <IconSymbol 
+                    ios_icon_name="exclamationmark.triangle.fill"
+                    android_material_icon_name="warning"
+                    size={20} 
+                    color="#DC2626" 
+                  />
                   <Text style={styles.blockedBannerText}>
                     Este cliente está bloqueado y no puede enviar pedidos
                   </Text>
@@ -607,7 +671,12 @@ export default function OrderDetailScreen() {
                   customerHook.setCustomerInputMode('manual');
                 }}
               >
-                <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color="#fff" />
+                <IconSymbol 
+                  ios_icon_name="pencil"
+                  android_material_icon_name="edit"
+                  size={20} 
+                  color="#fff" 
+                />
                 <Text style={styles.addButtonText}>Editar</Text>
               </TouchableOpacity>
             </>
@@ -623,8 +692,8 @@ export default function OrderDetailScreen() {
                   onPress={() => customerHook.setCustomerInputMode('manual')}
                 >
                   <IconSymbol 
-                    ios_icon_name="keyboard" 
-                    android_material_icon_name="keyboard" 
+                    ios_icon_name="pencil"
+                    android_material_icon_name="edit"
                     size={18} 
                     color={customerHook.customerInputMode === 'manual' ? '#fff' : colors.text} 
                   />
@@ -643,8 +712,8 @@ export default function OrderDetailScreen() {
                   onPress={() => customerHook.setCustomerInputMode('select')}
                 >
                   <IconSymbol 
-                    ios_icon_name="person.2" 
-                    android_material_icon_name="people" 
+                    ios_icon_name="person.2.fill"
+                    android_material_icon_name="people"
                     size={18} 
                     color={customerHook.customerInputMode === 'select' ? '#fff' : colors.text} 
                   />
@@ -704,8 +773,8 @@ export default function OrderDetailScreen() {
                       {filteredCustomers.length === 0 ? (
                         <View style={styles.noCustomersContainer}>
                           <IconSymbol 
-                            ios_icon_name="person.crop.circle.badge.xmark" 
-                            android_material_icon_name="person_off" 
+                            ios_icon_name="person.crop.circle"
+                            android_material_icon_name="account_circle"
                             size={48} 
                             color={colors.textSecondary} 
                           />
@@ -732,8 +801,8 @@ export default function OrderDetailScreen() {
                               )}
                             </View>
                             <IconSymbol 
-                              ios_icon_name="chevron.right" 
-                              android_material_icon_name="chevron_right" 
+                              ios_icon_name="chevron.right"
+                              android_material_icon_name="chevron_right"
                               size={20} 
                               color={colors.textSecondary} 
                             />
@@ -761,9 +830,14 @@ export default function OrderDetailScreen() {
 
               <TouchableOpacity
                 style={styles.addButton}
-                onPress={customerHook.updateCustomerInfo}
+                onPress={handleUpdateCustomerInfo}
               >
-                <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={20} color="#fff" />
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle"
+                  android_material_icon_name="check_circle"
+                  size={20} 
+                  color="#fff" 
+                />
                 <Text style={styles.addButtonText}>Guardar</Text>
               </TouchableOpacity>
               
@@ -774,7 +848,12 @@ export default function OrderDetailScreen() {
                   customerHook.setCustomerSearchQuery('');
                 }}
               >
-                <IconSymbol ios_icon_name="xmark.circle" android_material_icon_name="cancel" size={20} color={colors.text} />
+                <IconSymbol 
+                  ios_icon_name="xmark.circle"
+                  android_material_icon_name="cancel"
+                  size={20} 
+                  color={colors.text} 
+                />
                 <Text style={[styles.addButtonText, { color: colors.text }]}>Cancelar</Text>
               </TouchableOpacity>
             </>
@@ -814,13 +893,23 @@ export default function OrderDetailScreen() {
                     style={styles.iconButton}
                     onPress={() => productsHook.startEditingProduct(item)}
                   >
-                    <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color={colors.primary} />
+                    <IconSymbol 
+                      ios_icon_name="pencil"
+                      android_material_icon_name="edit"
+                      size={20} 
+                      color={colors.primary} 
+                    />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.iconButton}
                     onPress={() => deleteProduct(item.id)}
                   >
-                    <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={20} color={colors.error} />
+                    <IconSymbol 
+                      ios_icon_name="trash"
+                      android_material_icon_name="delete"
+                      size={20} 
+                      color={colors.error} 
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -868,27 +957,47 @@ export default function OrderDetailScreen() {
                 style={styles.addButton}
                 onPress={() => productsHook.updateProduct(productsHook.editingProduct.id)}
               >
-                <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={20} color="#fff" />
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle"
+                  android_material_icon_name="check_circle"
+                  size={20} 
+                  color="#fff" 
+                />
                 <Text style={styles.addButtonText}>Actualizar Producto</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.addButton, { backgroundColor: colors.border }]}
                 onPress={() => productsHook.setEditingProduct(null)}
               >
-                <IconSymbol ios_icon_name="xmark.circle" android_material_icon_name="cancel" size={20} color={colors.text} />
+                <IconSymbol 
+                  ios_icon_name="xmark.circle"
+                  android_material_icon_name="cancel"
+                  size={20} 
+                  color={colors.text} 
+                />
                 <Text style={[styles.addButtonText, { color: colors.text }]}>Cancelar</Text>
               </TouchableOpacity>
             </>
           ) : (
             <>
               <TouchableOpacity style={styles.addButton} onPress={openAddProductModal}>
-                <IconSymbol ios_icon_name="plus.circle" android_material_icon_name="add_circle" size={20} color="#fff" />
+                <IconSymbol 
+                  ios_icon_name="plus.circle.fill"
+                  android_material_icon_name="add_circle"
+                  size={20} 
+                  color="#fff" 
+                />
                 <Text style={styles.addButtonText}>Agregar Producto</Text>
               </TouchableOpacity>
               
               {order.items && order.items.length > 0 && (
                 <TouchableOpacity style={styles.bulkPriceButton} onPress={productsHook.openPriceModal}>
-                  <IconSymbol ios_icon_name="dollarsign.circle" android_material_icon_name="attach_money" size={20} color="#fff" />
+                  <IconSymbol 
+                    ios_icon_name="dollarsign.circle.fill"
+                    android_material_icon_name="attach_money"
+                    size={20} 
+                    color="#fff" 
+                  />
                   <Text style={styles.addButtonText}>Agregar Precios</Text>
                 </TouchableOpacity>
               )}
@@ -922,7 +1031,12 @@ export default function OrderDetailScreen() {
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <>
-                <IconSymbol ios_icon_name="paperplane.fill" android_material_icon_name="send" size={20} color="#fff" />
+                <IconSymbol 
+                  ios_icon_name="paperplane.fill"
+                  android_material_icon_name="send"
+                  size={20} 
+                  color="#fff" 
+                />
                 <Text style={styles.addButtonText}>Enviar Consulta</Text>
               </>
             )}
@@ -980,7 +1094,7 @@ export default function OrderDetailScreen() {
                             isOutgoing && styles.messageDirectionBadgeOutgoing,
                           ]}>
                             <IconSymbol 
-                              ios_icon_name={isIncoming ? 'arrow.down.circle.fill' : 'arrow.up.circle.fill'} 
+                              ios_icon_name={isIncoming ? 'arrow.down' : 'arrow.up'}
                               android_material_icon_name={isIncoming ? 'arrow_downward' : 'arrow_upward'}
                               size={14} 
                               color={isIncoming ? '#1E40AF' : '#065F46'} 
@@ -1006,7 +1120,12 @@ export default function OrderDetailScreen() {
                           style={[styles.messageButton, styles.messageButtonPrint]}
                           onPress={() => queriesHook.handlePrintQuery(query)}
                         >
-                          <IconSymbol ios_icon_name="printer" android_material_icon_name="print" size={14} color="#fff" />
+                          <IconSymbol 
+                            ios_icon_name="printer"
+                            android_material_icon_name="print"
+                            size={14} 
+                            color="#fff" 
+                          />
                           <Text style={styles.messageButtonText}>Imprimir</Text>
                         </TouchableOpacity>
                         
@@ -1015,7 +1134,12 @@ export default function OrderDetailScreen() {
                             style={[styles.messageButton, styles.messageButtonRespond]}
                             onPress={() => queriesHook.openResponseModal(query)}
                           >
-                            <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={14} color="#fff" />
+                            <IconSymbol 
+                              ios_icon_name="message.fill"
+                              android_material_icon_name="message"
+                              size={14} 
+                              color="#fff" 
+                            />
                             <Text style={styles.messageButtonText}>Responder</Text>
                           </TouchableOpacity>
                         )}
@@ -1040,7 +1164,7 @@ export default function OrderDetailScreen() {
               
               <View style={styles.paymentTypeContainer}>
                 <IconSymbol 
-                  ios_icon_name={isFullPayment ? 'checkmark.circle.fill' : 'creditcard.fill'} 
+                  ios_icon_name={isFullPayment ? 'checkmark.circle.fill' : 'creditcard.fill'}
                   android_material_icon_name={isFullPayment ? 'check_circle' : 'credit_card'}
                   size={24} 
                   color="#10B981" 
@@ -1077,7 +1201,12 @@ export default function OrderDetailScreen() {
             style={[styles.actionButton, styles.printButton]} 
             onPress={handlePrint}
           >
-            <IconSymbol ios_icon_name="printer" android_material_icon_name="print" size={22} color="#fff" />
+            <IconSymbol 
+              ios_icon_name="printer"
+              android_material_icon_name="print"
+              size={22} 
+              color="#fff" 
+            />
             <Text style={styles.actionButtonText}>Imprimir Pedido</Text>
           </TouchableOpacity>
         ) : (
@@ -1085,7 +1214,12 @@ export default function OrderDetailScreen() {
             style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]} 
             onPress={handleSendToPrinter}
           >
-            <IconSymbol ios_icon_name="paperplane.fill" android_material_icon_name="send" size={22} color="#fff" />
+            <IconSymbol 
+              ios_icon_name="paperplane.fill"
+              android_material_icon_name="send"
+              size={22} 
+              color="#fff" 
+            />
             <Text style={styles.actionButtonText}>Enviar a Impresor</Text>
           </TouchableOpacity>
         )}
@@ -1095,7 +1229,12 @@ export default function OrderDetailScreen() {
             style={[styles.actionButton, styles.whatsappButton]}
             onPress={handleWhatsApp}
           >
-            <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={22} color="#fff" />
+            <IconSymbol 
+              ios_icon_name="message.fill"
+              android_material_icon_name="message"
+              size={22} 
+              color="#fff" 
+            />
             <Text style={styles.actionButtonText}>Enviar WhatsApp</Text>
           </TouchableOpacity>
         )}
@@ -1104,7 +1243,12 @@ export default function OrderDetailScreen() {
           style={[styles.actionButton, styles.deleteButton]}
           onPress={handleDelete}
         >
-          <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={22} color="#fff" />
+          <IconSymbol 
+            ios_icon_name="trash"
+            android_material_icon_name="delete"
+            size={22} 
+            color="#fff" 
+          />
           <Text style={styles.actionButtonText}>Eliminar Pedido</Text>
         </TouchableOpacity>
 
@@ -1114,7 +1258,12 @@ export default function OrderDetailScreen() {
               style={[styles.actionButton, styles.unblockButton]}
               onPress={handleUnblockCustomer}
             >
-              <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={22} color="#fff" />
+              <IconSymbol 
+                ios_icon_name="checkmark.circle"
+                android_material_icon_name="check_circle"
+                size={22} 
+                color="#fff" 
+              />
               <Text style={styles.actionButtonText}>Desbloquear Cliente</Text>
             </TouchableOpacity>
           ) : (
@@ -1122,7 +1271,12 @@ export default function OrderDetailScreen() {
               style={[styles.actionButton, styles.blockButton]}
               onPress={handleBlockCustomer}
             >
-              <IconSymbol ios_icon_name="xmark.circle" android_material_icon_name="cancel" size={22} color="#fff" />
+              <IconSymbol 
+                ios_icon_name="xmark.circle"
+                android_material_icon_name="cancel"
+                size={22} 
+                color="#fff" 
+              />
               <Text style={styles.actionButtonText}>Bloquear Cliente</Text>
             </TouchableOpacity>
           )

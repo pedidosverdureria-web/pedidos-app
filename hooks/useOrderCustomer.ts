@@ -1,6 +1,5 @@
 
 import { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { getSupabase } from '@/lib/supabase';
 import { Customer, Order } from '@/types';
@@ -35,12 +34,11 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
   }, []);
 
   const updateCustomerInfo = async () => {
-    if (!order) return;
+    if (!order) return { success: false, message: 'No hay pedido' };
 
     if (!customerName.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert('⚠️ Atención', 'El nombre del cliente es obligatorio');
-      return;
+      return { success: false, message: 'El nombre del cliente es obligatorio' };
     }
 
     try {
@@ -60,19 +58,11 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
       await onUpdate();
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '✅ Éxito',
-        'La información del cliente se actualizó correctamente',
-        [{ text: 'OK' }]
-      );
+      return { success: true, message: 'La información del cliente se actualizó correctamente' };
     } catch (error) {
       console.error('[useOrderCustomer] Error updating customer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        'No se pudo actualizar la información del cliente. Por favor intenta nuevamente.',
-        [{ text: 'OK' }]
-      );
+      return { success: false, message: 'No se pudo actualizar la información del cliente. Por favor intenta nuevamente.' };
     }
   };
 
@@ -84,22 +74,19 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
   };
 
   const addCustomerToMenu = async () => {
-    if (!order) return;
+    if (!order) return { success: false, message: 'No hay pedido' };
 
-    // FIXED: Use the current order data, not the state variables
-    // The order should be refreshed after updateCustomerInfo is called
+    // Use the current order data
     const currentCustomerName = order.customer_name;
     const currentCustomerPhone = order.customer_phone;
     const currentCustomerAddress = order.customer_address;
 
     if (!currentCustomerName || !currentCustomerName.trim()) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Atención',
-        'No se puede agregar el cliente sin un nombre. Por favor edita la información del cliente primero.',
-        [{ text: 'OK' }]
-      );
-      return;
+      return { 
+        success: false, 
+        message: 'No se puede agregar el cliente sin un nombre. Por favor edita la información del cliente primero.' 
+      };
     }
 
     try {
@@ -121,12 +108,11 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
 
         if (authorizedPhone) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          Alert.alert(
-            '⚠️ Número Especial',
-            `Este número (${currentCustomerPhone}) está registrado como número especial para subir pedidos.\n\nLos números especiales no se pueden agregar como clientes.`,
-            [{ text: 'OK' }]
-          );
-          return;
+          return {
+            success: false,
+            type: 'warning' as const,
+            message: `Este número (${currentCustomerPhone}) está registrado como número especial para subir pedidos.\n\nLos números especiales no se pueden agregar como clientes.`
+          };
         }
       }
 
@@ -144,44 +130,14 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
 
         if (existingCustomer) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          Alert.alert(
-            '⚠️ Cliente Ya Existe',
-            `Ya existe un cliente con este número de teléfono: ${existingCustomer.name}\n\n¿Deseas vincular este pedido a ese cliente?`,
-            [
-              { text: 'Cancelar', style: 'cancel' },
-              {
-                text: 'Vincular',
-                onPress: async () => {
-                  try {
-                    const { error: updateError } = await supabase
-                      .from('orders')
-                      .update({ customer_id: existingCustomer.id })
-                      .eq('id', order.id);
-
-                    if (updateError) throw updateError;
-
-                    await onUpdate();
-
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    Alert.alert(
-                      '✅ Pedido Vinculado',
-                      `El pedido se vinculó correctamente al cliente ${existingCustomer.name}.`,
-                      [{ text: 'OK' }]
-                    );
-                  } catch (error) {
-                    console.error('[useOrderCustomer] Error linking order:', error);
-                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                    Alert.alert(
-                      '❌ Error',
-                      'No se pudo vincular el pedido al cliente.',
-                      [{ text: 'OK' }]
-                    );
-                  }
-                },
-              },
-            ]
-          );
-          return;
+          return {
+            success: false,
+            type: 'warning' as const,
+            needsConfirmation: true,
+            existingCustomerId: existingCustomer.id,
+            existingCustomerName: existingCustomer.name,
+            message: `Ya existe un cliente con este número de teléfono: ${existingCustomer.name}\n\n¿Deseas vincular este pedido a ese cliente?`
+          };
         }
       }
 
@@ -228,30 +184,56 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
       await onUpdate();
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        '✅ Cliente Agregado',
-        `${currentCustomerName} se agregó correctamente al menú de Clientes.\n\nAhora puedes gestionar sus pedidos y pagos desde el menú de Clientes.`,
-        [{ text: 'OK' }]
-      );
+      return {
+        success: true,
+        type: 'success' as const,
+        message: `${currentCustomerName} se agregó correctamente al menú de Clientes.\n\nAhora puedes gestionar sus pedidos y pagos desde el menú de Clientes.`
+      };
     } catch (error) {
       console.error('[useOrderCustomer] Error adding customer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        `No se pudo agregar el cliente.\n\n${error instanceof Error ? error.message : 'Por favor intenta nuevamente.'}`,
-        [{ text: 'OK' }]
-      );
+      return {
+        success: false,
+        type: 'error' as const,
+        message: `No se pudo agregar el cliente.\n\n${error instanceof Error ? error.message : 'Por favor intenta nuevamente.'}`
+      };
+    }
+  };
+
+  const linkOrderToCustomer = async (customerId: string) => {
+    if (!order) return { success: false, message: 'No hay pedido' };
+
+    try {
+      const supabase = getSupabase();
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ customer_id: customerId })
+        .eq('id', order.id);
+
+      if (updateError) throw updateError;
+
+      await onUpdate();
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      return {
+        success: true,
+        type: 'success' as const,
+        message: 'El pedido se vinculó correctamente al cliente.'
+      };
+    } catch (error) {
+      console.error('[useOrderCustomer] Error linking order:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return {
+        success: false,
+        type: 'error' as const,
+        message: 'No se pudo vincular el pedido al cliente.'
+      };
     }
   };
 
   const blockCustomer = async () => {
     if (!order?.customer_phone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Atención',
-        'No se puede bloquear un cliente sin número de teléfono.',
-        [{ text: 'OK' }]
-      );
       return false;
     }
 
@@ -309,11 +291,6 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
     } catch (error) {
       console.error('[useOrderCustomer] Error blocking customer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        'No se pudo bloquear al cliente. Por favor intenta nuevamente.',
-        [{ text: 'OK' }]
-      );
       return false;
     }
   };
@@ -321,11 +298,6 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
   const unblockCustomer = async () => {
     if (!order?.customer_phone) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      Alert.alert(
-        '⚠️ Atención',
-        'No se puede desbloquear un cliente sin número de teléfono.',
-        [{ text: 'OK' }]
-      );
       return false;
     }
 
@@ -340,7 +312,6 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
         .maybeSingle();
 
       if (!customer) {
-        Alert.alert('❌ Error', 'No se encontró el cliente');
         return false;
       }
 
@@ -357,11 +328,6 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
     } catch (error) {
       console.error('[useOrderCustomer] Error unblocking customer:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        '❌ Error',
-        'No se pudo desbloquear al cliente. Por favor intenta nuevamente.',
-        [{ text: 'OK' }]
-      );
       return false;
     }
   };
@@ -385,6 +351,7 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
     updateCustomerInfo,
     selectCustomer,
     addCustomerToMenu,
+    linkOrderToCustomer,
     blockCustomer,
     unblockCustomer,
   };
