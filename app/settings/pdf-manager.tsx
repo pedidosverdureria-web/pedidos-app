@@ -54,6 +54,14 @@ const STATUS_OPTIONS: { value: OrderStatus | 'all'; label: string }[] = [
   { value: 'finalizado', label: 'Finalizado' },
 ];
 
+// Helper function to get default dates (current month)
+const getDefaultDates = () => {
+  const today = new Date();
+  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
+  return { startOfMonth, endOfMonth };
+};
+
 export default function PDFManagerScreen() {
   const { user } = useAuth();
   const { currentTheme } = useTheme();
@@ -71,8 +79,13 @@ export default function PDFManagerScreen() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  
+  // Initialize with current month as default
+  const defaultDates = getDefaultDates();
   const [filters, setFilters] = useState<FilterOptions>({
     status: 'all',
+    startDate: defaultDates.startOfMonth,
+    endDate: defaultDates.endOfMonth,
   });
 
   const styles = StyleSheet.create({
@@ -254,6 +267,19 @@ export default function PDFManagerScreen() {
     datePickerButtonTextConfirm: {
       color: '#FFFFFF',
     },
+    defaultDateInfo: {
+      backgroundColor: colors.background,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    defaultDateInfoText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      fontStyle: 'italic',
+    },
   });
 
   useEffect(() => {
@@ -301,15 +327,18 @@ export default function PDFManagerScreen() {
         `)
         .order('created_at', { ascending: false });
 
-      // Apply filters
-      if (filters.startDate) {
-        const startDateStr = filters.startDate.toISOString().split('T')[0];
-        query = query.gte('created_at', startDateStr);
-      }
-      if (filters.endDate) {
-        const endDateStr = filters.endDate.toISOString().split('T')[0] + 'T23:59:59.999Z';
-        query = query.lte('created_at', endDateStr);
-      }
+      // Use default dates if not set
+      const effectiveStartDate = filters.startDate || defaultDates.startOfMonth;
+      const effectiveEndDate = filters.endDate || defaultDates.endOfMonth;
+
+      // Apply date filters
+      const startDateStr = effectiveStartDate.toISOString().split('T')[0];
+      query = query.gte('created_at', startDateStr);
+      
+      const endDateStr = effectiveEndDate.toISOString().split('T')[0] + 'T23:59:59.999Z';
+      query = query.lte('created_at', endDateStr);
+
+      // Apply other filters
       if (filters.status && filters.status !== 'all') {
         query = query.eq('status', filters.status);
       }
@@ -320,6 +349,13 @@ export default function PDFManagerScreen() {
       const { data, error } = await query;
 
       if (error) throw error;
+      
+      console.log('[PDFManager] Fetched orders with date range:', {
+        start: startDateStr,
+        end: endDateStr,
+        count: data?.length || 0
+      });
+      
       return data || [];
     } catch (error) {
       console.error('[PDFManager] Error fetching orders:', error);
@@ -1002,22 +1038,24 @@ export default function PDFManagerScreen() {
     if (filters.status && filters.status !== 'all') {
       parts.push(`<p><strong>Estado:</strong> ${escapeHtml(getStatusLabel(filters.status))}</p>`);
     }
-    if (filters.startDate) {
-      parts.push(`<p><strong>Desde:</strong> ${escapeHtml(filters.startDate.toLocaleDateString('es-ES'))}</p>`);
-    }
-    if (filters.endDate) {
-      parts.push(`<p><strong>Hasta:</strong> ${escapeHtml(filters.endDate.toLocaleDateString('es-ES'))}</p>`);
-    }
     
-    if (parts.length === 0) {
-      return '<p><strong>Filtros:</strong> Todos los pedidos</p>';
-    }
+    // Use effective dates (default if not set)
+    const effectiveStartDate = filters.startDate || defaultDates.startOfMonth;
+    const effectiveEndDate = filters.endDate || defaultDates.endOfMonth;
+    
+    parts.push(`<p><strong>Desde:</strong> ${escapeHtml(effectiveStartDate.toLocaleDateString('es-ES'))}</p>`);
+    parts.push(`<p><strong>Hasta:</strong> ${escapeHtml(effectiveEndDate.toLocaleDateString('es-ES'))}</p>`);
     
     return parts.join('');
   };
 
   const clearFilters = () => {
-    setFilters({ status: 'all' });
+    const defaultDates = getDefaultDates();
+    setFilters({ 
+      status: 'all',
+      startDate: defaultDates.startOfMonth,
+      endDate: defaultDates.endOfMonth,
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -1109,6 +1147,12 @@ export default function PDFManagerScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Filtros</Text>
           
+          <View style={styles.defaultDateInfo}>
+            <Text style={styles.defaultDateInfoText}>
+              📅 Por defecto se usa el mes en curso ({defaultDates.startOfMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })})
+            </Text>
+          </View>
+          
           <View style={styles.card}>
             <TouchableOpacity
               style={styles.filterRow}
@@ -1158,7 +1202,7 @@ export default function PDFManagerScreen() {
                 <Text style={styles.dateButtonText}>
                   {filters.startDate 
                     ? filters.startDate.toLocaleDateString('es-ES')
-                    : 'Seleccionar fecha'}
+                    : defaultDates.startOfMonth.toLocaleDateString('es-ES')}
                 </Text>
                 <IconSymbol
                   ios_icon_name="calendar"
@@ -1181,7 +1225,7 @@ export default function PDFManagerScreen() {
                 <Text style={styles.dateButtonText}>
                   {filters.endDate 
                     ? filters.endDate.toLocaleDateString('es-ES')
-                    : 'Seleccionar fecha'}
+                    : defaultDates.endOfMonth.toLocaleDateString('es-ES')}
                 </Text>
                 <IconSymbol
                   ios_icon_name="calendar"
@@ -1309,7 +1353,7 @@ export default function PDFManagerScreen() {
                 <Text style={styles.datePickerTitle}>Fecha Inicio</Text>
               </View>
               <DateTimePicker
-                value={filters.startDate || new Date()}
+                value={filters.startDate || defaultDates.startOfMonth}
                 mode="date"
                 display="spinner"
                 onChange={handleStartDateChange}
@@ -1342,7 +1386,7 @@ export default function PDFManagerScreen() {
       {/* Android Start Date Picker */}
       {Platform.OS === 'android' && showStartDatePicker && (
         <DateTimePicker
-          value={filters.startDate || new Date()}
+          value={filters.startDate || defaultDates.startOfMonth}
           mode="date"
           display="default"
           onChange={handleStartDateChange}
@@ -1364,12 +1408,12 @@ export default function PDFManagerScreen() {
                 <Text style={styles.datePickerTitle}>Fecha Fin</Text>
               </View>
               <DateTimePicker
-                value={filters.endDate || new Date()}
+                value={filters.endDate || defaultDates.endOfMonth}
                 mode="date"
                 display="spinner"
                 onChange={handleEndDateChange}
                 maximumDate={new Date()}
-                minimumDate={filters.startDate}
+                minimumDate={filters.startDate || defaultDates.startOfMonth}
                 textColor={colors.text}
               />
               <View style={styles.datePickerButtons}>
@@ -1398,12 +1442,12 @@ export default function PDFManagerScreen() {
       {/* Android End Date Picker */}
       {Platform.OS === 'android' && showEndDatePicker && (
         <DateTimePicker
-          value={filters.endDate || new Date()}
+          value={filters.endDate || defaultDates.endOfMonth}
           mode="date"
           display="default"
           onChange={handleEndDateChange}
           maximumDate={new Date()}
-          minimumDate={filters.startDate}
+          minimumDate={filters.startDate || defaultDates.startOfMonth}
         />
       )}
 
