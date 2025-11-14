@@ -16,7 +16,7 @@ import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { useTheme } from '@/contexts/ThemeContext';
 import { getSupabase } from '@/lib/supabase';
 import { Order, Customer, OrderStatus } from '@/types';
 import { formatCLP, formatDate, getStatusLabel } from '@/utils/orderHelpers';
@@ -55,6 +55,9 @@ const STATUS_OPTIONS: { value: OrderStatus | 'all'; label: string }[] = [
 
 export default function PDFManagerScreen() {
   const { user } = useAuth();
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
+  
   const [dialog, setDialog] = useState<DialogState>({
     visible: false,
     type: 'info',
@@ -69,7 +72,7 @@ export default function PDFManagerScreen() {
     status: 'all',
   });
 
-  const themedStyles = useThemedStyles((colors) => ({
+  const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: colors.background,
@@ -190,7 +193,7 @@ export default function PDFManagerScreen() {
       color: colors.textSecondary,
       marginTop: 4,
     },
-  }));
+  });
 
   useEffect(() => {
     loadCustomers();
@@ -953,81 +956,81 @@ export default function PDFManagerScreen() {
           headerBackTitle: 'Atrás',
         }}
       />
-      <ScrollView style={themedStyles.container}>
+      <ScrollView style={styles.container}>
         {/* Filters Section */}
-        <View style={themedStyles.section}>
-          <Text style={themedStyles.sectionTitle}>Filtros</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Filtros</Text>
           
-          <View style={themedStyles.card}>
+          <View style={styles.card}>
             <TouchableOpacity
-              style={themedStyles.filterRow}
+              style={styles.filterRow}
               onPress={() => setShowCustomerModal(true)}
             >
-              <Text style={themedStyles.filterLabel}>Cliente</Text>
+              <Text style={styles.filterLabel}>Cliente</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={themedStyles.filterValue}>
+                <Text style={styles.filterValue}>
                   {filters.customerName || 'Todos'}
                 </Text>
                 <IconSymbol
                   ios_icon_name="chevron.right"
                   android_material_icon_name="chevron_right"
                   size={20}
-                  color={themedStyles.filterValue.color}
+                  color={colors.primary}
                 />
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={themedStyles.filterRow}
+              style={styles.filterRow}
               onPress={() => setShowStatusModal(true)}
             >
-              <Text style={themedStyles.filterLabel}>Estado</Text>
+              <Text style={styles.filterLabel}>Estado</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={themedStyles.filterValue}>
+                <Text style={styles.filterValue}>
                   {filters.status === 'all' ? 'Todos' : getStatusLabel(filters.status!)}
                 </Text>
                 <IconSymbol
                   ios_icon_name="chevron.right"
                   android_material_icon_name="chevron_right"
                   size={20}
-                  color={themedStyles.filterValue.color}
+                  color={colors.primary}
                 />
               </View>
             </TouchableOpacity>
 
             <View style={{ marginTop: 12 }}>
-              <Text style={[themedStyles.filterLabel, { marginBottom: 8 }]}>Fecha Inicio</Text>
+              <Text style={[styles.filterLabel, { marginBottom: 8 }]}>Fecha Inicio</Text>
               <TextInput
-                style={themedStyles.input}
+                style={styles.input}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={themedStyles.filterLabel.color + '80'}
+                placeholderTextColor={colors.textSecondary}
                 value={filters.startDate || ''}
                 onChangeText={(text) => setFilters({ ...filters, startDate: text })}
               />
             </View>
 
             <View>
-              <Text style={[themedStyles.filterLabel, { marginBottom: 8 }]}>Fecha Fin</Text>
+              <Text style={[styles.filterLabel, { marginBottom: 8 }]}>Fecha Fin</Text>
               <TextInput
-                style={themedStyles.input}
+                style={styles.input}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor={themedStyles.filterLabel.color + '80'}
+                placeholderTextColor={colors.textSecondary}
                 value={filters.endDate || ''}
                 onChangeText={(text) => setFilters({ ...filters, endDate: text })}
               />
             </View>
 
             <TouchableOpacity
-              style={[themedStyles.button, themedStyles.secondaryButton]}
+              style={[styles.button, styles.secondaryButton]}
               onPress={clearFilters}
             >
               <IconSymbol
                 ios_icon_name="xmark.circle"
                 android_material_icon_name="close"
                 size={20}
-                color={themedStyles.secondaryButtonText.color}
+                color={colors.text}
               />
-              <Text style={[themedStyles.buttonText, themedStyles.secondaryButtonText]}>
+              <Text style={[styles.buttonText, styles.secondaryButtonText]}>
                 Limpiar Filtros
               </Text>
             </TouchableOpacity>
@@ -1035,16 +1038,16 @@ export default function PDFManagerScreen() {
         </View>
 
         {/* PDF Options Section */}
-        <View style={themedStyles.section}>
-          <Text style={themedStyles.sectionTitle}>Opciones de PDF</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Opciones de PDF</Text>
 
-          <View style={themedStyles.card}>
-            <Text style={themedStyles.cardTitle}>Resumen de Pedidos</Text>
-            <Text style={themedStyles.cardDescription}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Resumen de Pedidos</Text>
+            <Text style={styles.cardDescription}>
               Lista básica de pedidos con información general (cliente, estado, total).
             </Text>
             <TouchableOpacity
-              style={themedStyles.button}
+              style={styles.button}
               onPress={generateOrdersPDF}
               disabled={loading}
             >
@@ -1058,19 +1061,19 @@ export default function PDFManagerScreen() {
                     size={20}
                     color="#FFFFFF"
                   />
-                  <Text style={themedStyles.buttonText}>Generar PDF</Text>
+                  <Text style={styles.buttonText}>Generar PDF</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
 
-          <View style={themedStyles.card}>
-            <Text style={themedStyles.cardTitle}>Detalle Completo</Text>
-            <Text style={themedStyles.cardDescription}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Detalle Completo</Text>
+            <Text style={styles.cardDescription}>
               Incluye todos los productos, cantidades, precios y notas de cada pedido.
             </Text>
             <TouchableOpacity
-              style={themedStyles.button}
+              style={styles.button}
               onPress={generateDetailedPDF}
               disabled={loading}
             >
@@ -1084,19 +1087,19 @@ export default function PDFManagerScreen() {
                     size={20}
                     color="#FFFFFF"
                   />
-                  <Text style={themedStyles.buttonText}>Generar PDF Detallado</Text>
+                  <Text style={styles.buttonText}>Generar PDF Detallado</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
 
-          <View style={themedStyles.card}>
-            <Text style={themedStyles.cardTitle}>Resumen Estadístico</Text>
-            <Text style={themedStyles.cardDescription}>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Resumen Estadístico</Text>
+            <Text style={styles.cardDescription}>
               Estadísticas generales, pedidos por estado y top clientes.
             </Text>
             <TouchableOpacity
-              style={themedStyles.button}
+              style={styles.button}
               onPress={generateSummaryPDF}
               disabled={loading}
             >
@@ -1110,7 +1113,7 @@ export default function PDFManagerScreen() {
                     size={20}
                     color="#FFFFFF"
                   />
-                  <Text style={themedStyles.buttonText}>Generar Resumen</Text>
+                  <Text style={styles.buttonText}>Generar Resumen</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -1127,16 +1130,16 @@ export default function PDFManagerScreen() {
         animationType="slide"
         onRequestClose={() => setShowCustomerModal(false)}
       >
-        <View style={themedStyles.modalOverlay}>
-          <View style={themedStyles.modalContent}>
-            <View style={themedStyles.modalHeader}>
-              <Text style={themedStyles.modalTitle}>Seleccionar Cliente</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccionar Cliente</Text>
               <TouchableOpacity onPress={() => setShowCustomerModal(false)}>
                 <IconSymbol
                   ios_icon_name="xmark"
                   android_material_icon_name="close"
                   size={24}
-                  color={themedStyles.modalTitle.color}
+                  color={colors.text}
                 />
               </TouchableOpacity>
             </View>
@@ -1145,7 +1148,7 @@ export default function PDFManagerScreen() {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={themedStyles.modalItem}
+                  style={styles.modalItem}
                   onPress={() => {
                     if (item.id === 'all') {
                       setFilters({ ...filters, customerId: undefined, customerName: undefined });
@@ -1155,9 +1158,9 @@ export default function PDFManagerScreen() {
                     }
                   }}
                 >
-                  <Text style={themedStyles.modalItemText}>{item.name}</Text>
+                  <Text style={styles.modalItemText}>{item.name}</Text>
                   {item.phone && (
-                    <Text style={themedStyles.modalItemSubtext}>{item.phone}</Text>
+                    <Text style={styles.modalItemSubtext}>{item.phone}</Text>
                   )}
                 </TouchableOpacity>
               )}
@@ -1173,16 +1176,16 @@ export default function PDFManagerScreen() {
         animationType="slide"
         onRequestClose={() => setShowStatusModal(false)}
       >
-        <View style={themedStyles.modalOverlay}>
-          <View style={themedStyles.modalContent}>
-            <View style={themedStyles.modalHeader}>
-              <Text style={themedStyles.modalTitle}>Seleccionar Estado</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccionar Estado</Text>
               <TouchableOpacity onPress={() => setShowStatusModal(false)}>
                 <IconSymbol
                   ios_icon_name="xmark"
                   android_material_icon_name="close"
                   size={24}
-                  color={themedStyles.modalTitle.color}
+                  color={colors.text}
                 />
               </TouchableOpacity>
             </View>
@@ -1191,10 +1194,10 @@ export default function PDFManagerScreen() {
               keyExtractor={(item) => item.value}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={themedStyles.modalItem}
+                  style={styles.modalItem}
                   onPress={() => selectStatus(item.value)}
                 >
-                  <Text style={themedStyles.modalItemText}>{item.label}</Text>
+                  <Text style={styles.modalItemText}>{item.label}</Text>
                 </TouchableOpacity>
               )}
             />
