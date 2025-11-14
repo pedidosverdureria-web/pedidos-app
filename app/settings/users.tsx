@@ -59,9 +59,9 @@ export default function UserManagementScreen() {
     setDialog({ visible: true, type, title, message, buttons });
   };
 
-  const closeDialog = () => {
-    setDialog({ ...dialog, visible: false });
-  };
+  const closeDialog = useCallback(() => {
+    setDialog((prev) => ({ ...prev, visible: false }));
+  }, []);
 
   useEffect(() => {
     if (user?.role !== 'admin' && user?.role !== 'desarrollador') {
@@ -81,7 +81,7 @@ export default function UserManagementScreen() {
         ]
       );
     }
-  }, [user?.role]);
+  }, [user?.role, closeDialog]);
 
   const loadAuthorizedPhones = useCallback(async () => {
     try {

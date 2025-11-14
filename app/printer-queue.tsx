@@ -277,9 +277,9 @@ export default function PrinterQueueScreen() {
     setDialog({ visible: true, type, title, message, buttons });
   };
 
-  const closeDialog = () => {
-    setDialog({ ...dialog, visible: false });
-  };
+  const closeDialog = useCallback(() => {
+    setDialog((prev) => ({ ...prev, visible: false }));
+  }, []);
 
   // Redirect if not printer role
   useEffect(() => {
@@ -295,7 +295,7 @@ export default function PrinterQueueScreen() {
         },
       ]);
     }
-  }, [user]);
+  }, [user, closeDialog]);
 
   const loadPrinterConfig = useCallback(async () => {
     try {
@@ -1282,6 +1282,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   printButton: {
     backgroundColor: colors.primary,

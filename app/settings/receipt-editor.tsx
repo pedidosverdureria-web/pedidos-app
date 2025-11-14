@@ -463,7 +463,7 @@ export default function ReceiptEditorScreen() {
           <TouchableOpacity
             style={styles.settingRow}
             onPress={() => {
-              const alignments: Array<'left' | 'center' | 'right'> = ['left', 'center', 'right'];
+              const alignments: ('left' | 'center' | 'right')[] = ['left', 'center', 'right'];
               const currentIndex = alignments.indexOf(advancedConfig.header_alignment);
               const nextIndex = (currentIndex + 1) % alignments.length;
               updateAdvancedConfig('header_alignment', alignments[nextIndex]);
@@ -576,7 +576,7 @@ export default function ReceiptEditorScreen() {
           <TouchableOpacity
             style={styles.settingRow}
             onPress={() => {
-              const alignments: Array<'left' | 'center' | 'right'> = ['left', 'center', 'right'];
+              const alignments: ('left' | 'center' | 'right')[] = ['left', 'center', 'right'];
               const currentIndex = alignments.indexOf(advancedConfig.footer_alignment);
               const nextIndex = (currentIndex + 1) % alignments.length;
               updateAdvancedConfig('footer_alignment', alignments[nextIndex]);
@@ -683,7 +683,7 @@ export default function ReceiptEditorScreen() {
           <TouchableOpacity
             style={[styles.settingRow, styles.settingRowLast]}
             onPress={() => {
-              const formats: Array<'short' | 'long' | 'time'> = ['short', 'long', 'time'];
+              const formats: ('short' | 'long' | 'time')[] = ['short', 'long', 'time'];
               const currentIndex = formats.indexOf(advancedConfig.date_format);
               const nextIndex = (currentIndex + 1) % formats.length;
               updateAdvancedConfig('date_format', formats[nextIndex]);

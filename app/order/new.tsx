@@ -604,7 +604,7 @@ export default function NewOrderScreen() {
     if (customerInputMode === 'select' && customers.length === 0) {
       loadCustomers();
     }
-  }, [customerInputMode]);
+  }, [customerInputMode, customers.length]);
 
   const loadCustomers = async () => {
     try {

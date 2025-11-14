@@ -380,7 +380,8 @@ export default function PDFManagerScreen() {
       .replace(/\n/g, ' ')
       .replace(/\r/g, '')
       .replace(/\t/g, ' ')
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+      .replace(/[\u0020-\u007E]/g, (char) => char)
+      .replace(/[^\u0020-\u007E]/g, '')
       .trim();
   };
 
