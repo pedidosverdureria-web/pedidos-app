@@ -380,7 +380,7 @@ export default function PDFManagerScreen() {
     }
   };
 
-  // FIXED: Simplified HTML escaping - only escape essential HTML characters and remove control characters using Unicode range
+  // FIXED: Simplified HTML escaping - only escape essential HTML characters and remove control characters
   const escapeHtml = (text: string | null | undefined): string => {
     if (!text) return '';
     return String(text)
@@ -389,7 +389,8 @@ export default function PDFManagerScreen() {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
-      .replace(/[\u0000-\u001F\u007F-\u009F]/gu, '') // Remove control characters using Unicode range with 'u' flag
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters (ASCII 0-31 and 127-159)
       .replace(/\n/g, ' ')
       .replace(/\r/g, ' ')
       .replace(/\t/g, ' ')
