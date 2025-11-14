@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   Platform,
+  Alert,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -284,6 +285,18 @@ export default function PDFManagerScreen() {
       color: colors.textSecondary,
       fontStyle: 'italic',
     },
+    warningCard: {
+      backgroundColor: '#FEF3C7',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      borderLeftWidth: 3,
+      borderLeftColor: '#F59E0B',
+    },
+    warningText: {
+      fontSize: 13,
+      color: '#92400E',
+    },
   });
 
   useEffect(() => {
@@ -376,6 +389,7 @@ export default function PDFManagerScreen() {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
       .replace(/\n/g, ' ')
       .replace(/\r/g, ' ')
       .replace(/\t/g, ' ')
@@ -414,12 +428,22 @@ export default function PDFManagerScreen() {
     }
   };
 
-  const generateOrdersPDF = async () => {
+  const generatePDF = async (type: 'summary' | 'detailed' | 'stats') => {
+    // Check platform compatibility
+    if (Platform.OS === 'web') {
+      showDialog(
+        'warning',
+        'No Disponible en Web',
+        'La generacion de PDF no esta disponible en la version web. Por favor usa la aplicacion movil (iOS o Android).'
+      );
+      return;
+    }
+
     try {
       setLoading(true);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      console.log('[PDFManager] Starting PDF generation...');
+      console.log('[PDFManager] Starting PDF generation, type:', type);
       const orders = await fetchOrders();
 
       if (orders.length === 0) {
@@ -429,10 +453,21 @@ export default function PDFManagerScreen() {
       }
 
       console.log('[PDFManager] Generating HTML for', orders.length, 'orders');
-      const html = generateOrdersHTML(orders);
       
-      console.log('[PDFManager] HTML length:', html.length);
-      console.log('[PDFManager] HTML preview (first 500 chars):', html.substring(0, 500));
+      let html = '';
+      switch (type) {
+        case 'summary':
+          html = generateOrdersHTML(orders);
+          break;
+        case 'detailed':
+          html = generateDetailedHTML(orders);
+          break;
+        case 'stats':
+          html = generateSummaryHTML(orders);
+          break;
+      }
+      
+      console.log('[PDFManager] HTML generated, length:', html.length);
       
       // Validate HTML before printing
       if (!html || html.length < 100) {
@@ -442,25 +477,35 @@ export default function PDFManagerScreen() {
       console.log('[PDFManager] Calling Print.printToFileAsync...');
       
       // Call with explicit options
-      const result = await Print.printToFileAsync({ 
+      const printOptions = { 
         html: html,
         base64: false,
-      });
+      };
       
-      console.log('[PDFManager] Print result type:', typeof result);
-      console.log('[PDFManager] Print result:', JSON.stringify(result, null, 2));
+      console.log('[PDFManager] Print options:', printOptions);
       
-      // Validate result
+      const result = await Print.printToFileAsync(printOptions);
+      
+      console.log('[PDFManager] Print result received');
+      console.log('[PDFManager] Result type:', typeof result);
+      console.log('[PDFManager] Result keys:', result ? Object.keys(result) : 'null/undefined');
+      console.log('[PDFManager] Full result:', JSON.stringify(result, null, 2));
+      
+      // Comprehensive validation
       if (!result) {
-        throw new Error('Print.printToFileAsync devolvio null o undefined');
+        throw new Error('Print.printToFileAsync devolvio null o undefined. Esto puede ocurrir si:\n- No hay permisos de almacenamiento\n- El HTML es invalido\n- Hay un problema con la plataforma');
       }
       
       if (typeof result !== 'object') {
         throw new Error(`Print.printToFileAsync devolvio tipo invalido: ${typeof result}`);
       }
       
+      if (!('uri' in result)) {
+        throw new Error('Print.printToFileAsync no devolvio un objeto con propiedad uri');
+      }
+      
       if (!result.uri) {
-        throw new Error('Print.printToFileAsync no devolvio un URI');
+        throw new Error('Print.printToFileAsync devolvio uri null o undefined');
       }
       
       if (typeof result.uri !== 'string') {
@@ -473,114 +518,31 @@ export default function PDFManagerScreen() {
       
       console.log('[PDFManager] PDF generated successfully at:', result.uri);
       
+      // Share the PDF
       await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showDialog('success', 'PDF Generado', `Se genero el PDF con ${orders.length} pedido(s).`);
+      
+      const typeLabel = type === 'summary' ? 'resumen' : type === 'detailed' ? 'detallado' : 'estadistico';
+      showDialog('success', 'PDF Generado', `Se genero el PDF ${typeLabel} con ${orders.length} pedido(s).`);
     } catch (error: any) {
       console.error('[PDFManager] Error generating PDF:', error);
-      console.error('[PDFManager] Error details:', {
-        message: error?.message,
-        name: error?.name,
-        stack: error?.stack,
-      });
+      console.error('[PDFManager] Error name:', error?.name);
+      console.error('[PDFManager] Error message:', error?.message);
+      console.error('[PDFManager] Error stack:', error?.stack);
       
-      const errorMessage = error?.message || 'Error desconocido';
-      showDialog('error', 'Error', `No se pudo generar el PDF:\n\n${errorMessage}\n\nRevisa los logs de la consola para mas detalles.`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateDetailedPDF = async () => {
-    try {
-      setLoading(true);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      console.log('[PDFManager] Starting detailed PDF generation...');
-      const orders = await fetchOrders();
-
-      if (orders.length === 0) {
-        showDialog('warning', 'Sin Resultados', 'No se encontraron pedidos con los filtros seleccionados.');
-        setLoading(false);
-        return;
-      }
-
-      console.log('[PDFManager] Generating detailed HTML for', orders.length, 'orders');
-      const html = generateDetailedHTML(orders);
+      let errorMessage = 'Error desconocido al generar el PDF';
       
-      console.log('[PDFManager] HTML length:', html.length);
-      
-      if (!html || html.length < 100) {
-        throw new Error('HTML generado es invalido o muy corto');
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
       
-      const result = await Print.printToFileAsync({ 
-        html,
-        base64: false,
-      });
+      // Add helpful context
+      const helpText = '\n\nSugerencias:\n- Verifica que la app tenga permisos de almacenamiento\n- Intenta con menos pedidos usando filtros\n- Revisa los logs de la consola para mas detalles';
       
-      if (!result || !result.uri || typeof result.uri !== 'string' || result.uri.length === 0) {
-        throw new Error('Print.printToFileAsync no devolvio un URI valido');
-      }
-      
-      console.log('[PDFManager] Detailed PDF generated at:', result.uri);
-      await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-      
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showDialog('success', 'PDF Generado', `Se genero el PDF detallado con ${orders.length} pedido(s).`);
-    } catch (error: any) {
-      console.error('[PDFManager] Error generating detailed PDF:', error);
-      
-      const errorMessage = error?.message || 'Error desconocido';
-      showDialog('error', 'Error', `No se pudo generar el PDF:\n\n${errorMessage}\n\nRevisa los logs de la consola para mas detalles.`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateSummaryPDF = async () => {
-    try {
-      setLoading(true);
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
-      console.log('[PDFManager] Starting summary PDF generation...');
-      const orders = await fetchOrders();
-
-      if (orders.length === 0) {
-        showDialog('warning', 'Sin Resultados', 'No se encontraron pedidos con los filtros seleccionados.');
-        setLoading(false);
-        return;
-      }
-
-      console.log('[PDFManager] Generating summary HTML for', orders.length, 'orders');
-      const html = generateSummaryHTML(orders);
-      
-      console.log('[PDFManager] HTML length:', html.length);
-      
-      if (!html || html.length < 100) {
-        throw new Error('HTML generado es invalido o muy corto');
-      }
-      
-      const result = await Print.printToFileAsync({ 
-        html,
-        base64: false,
-      });
-      
-      if (!result || !result.uri || typeof result.uri !== 'string' || result.uri.length === 0) {
-        throw new Error('Print.printToFileAsync no devolvio un URI valido');
-      }
-      
-      console.log('[PDFManager] Summary PDF generated at:', result.uri);
-      await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-      
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showDialog('success', 'PDF Generado', `Se genero el resumen con ${orders.length} pedido(s).`);
-    } catch (error: any) {
-      console.error('[PDFManager] Error generating summary PDF:', error);
-      
-      const errorMessage = error?.message || 'Error desconocido';
-      showDialog('error', 'Error', `No se pudo generar el PDF:\n\n${errorMessage}\n\nRevisa los logs de la consola para mas detalles.`);
+      showDialog('error', 'Error al Generar PDF', errorMessage + helpText);
     } finally {
       setLoading(false);
     }
@@ -1037,6 +999,16 @@ ${customerRowsHTML}
         }}
       />
       <ScrollView style={styles.container}>
+        {Platform.OS === 'web' && (
+          <View style={styles.section}>
+            <View style={styles.warningCard}>
+              <Text style={styles.warningText}>
+                ⚠️ La generacion de PDF no esta disponible en la version web. Por favor usa la aplicacion movil (iOS o Android).
+              </Text>
+            </View>
+          </View>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Filtros</Text>
           
@@ -1160,8 +1132,8 @@ ${customerRowsHTML}
             </Text>
             <TouchableOpacity
               style={styles.button}
-              onPress={generateOrdersPDF}
-              disabled={loading}
+              onPress={() => generatePDF('summary')}
+              disabled={loading || Platform.OS === 'web'}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -1186,8 +1158,8 @@ ${customerRowsHTML}
             </Text>
             <TouchableOpacity
               style={styles.button}
-              onPress={generateDetailedPDF}
-              disabled={loading}
+              onPress={() => generatePDF('detailed')}
+              disabled={loading || Platform.OS === 'web'}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -1212,8 +1184,8 @@ ${customerRowsHTML}
             </Text>
             <TouchableOpacity
               style={styles.button}
-              onPress={generateSummaryPDF}
-              disabled={loading}
+              onPress={() => generatePDF('stats')}
+              disabled={loading || Platform.OS === 'web'}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />

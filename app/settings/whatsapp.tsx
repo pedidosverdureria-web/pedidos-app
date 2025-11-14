@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   View,
@@ -57,11 +57,7 @@ export default function WhatsAppSettingsScreen() {
     setDialog({ ...dialog, visible: false });
   };
 
-  useEffect(() => {
-    loadConfig();
-  }, []);
-
-  const loadConfig = async () => {
+  const loadConfig = useCallback(async () => {
     try {
       setLoading(true);
       const supabase = getSupabase();
@@ -94,7 +90,11 @@ export default function WhatsAppSettingsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadConfig();
+  }, [loadConfig]);
 
   const handleSave = async () => {
     try {

@@ -604,9 +604,24 @@ export default function NewOrderScreen() {
     if (customerInputMode === 'select' && customers.length === 0) {
       loadCustomers();
     }
-  }, [customerInputMode, customers.length]);
+  }, [customerInputMode, customers.length, loadCustomers]);
 
-  const loadCustomers = async () => {
+  const handleSelectCustomer = (customer: Customer) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerRut(customer.rut || '');
+    setCustomerPhone(customer.phone || '');
+    setCustomerAddress(customer.address || '');
+    setShowCustomerList(false);
+    
+    // Clear any customer name errors
+    if (errors.customerName) {
+      setErrors({ ...errors, customerName: undefined });
+    }
+  };
+
+  const loadCustomers = useCallback(async () => {
     try {
       setLoadingCustomers(true);
       const supabase = getSupabase();
@@ -626,22 +641,7 @@ export default function NewOrderScreen() {
     } finally {
       setLoadingCustomers(false);
     }
-  };
-
-  const handleSelectCustomer = (customer: Customer) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedCustomerId(customer.id);
-    setCustomerName(customer.name);
-    setCustomerRut(customer.rut || '');
-    setCustomerPhone(customer.phone || '');
-    setCustomerAddress(customer.address || '');
-    setShowCustomerList(false);
-    
-    // Clear any customer name errors
-    if (errors.customerName) {
-      setErrors({ ...errors, customerName: undefined });
-    }
-  };
+  }, []);
 
   const handleModeChange = (mode: 'manual' | 'select') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

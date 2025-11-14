@@ -385,18 +385,18 @@ export default function ReceiptEditorScreen() {
   };
 
   const addCustomField = () => {
-    const newFields = [...advancedConfig.custom_fields, { label: '', value: '' }];
+    const newFields: { label: string; value: string }[] = [...advancedConfig.custom_fields, { label: '', value: '' }];
     updateAdvancedConfig('custom_fields', newFields);
   };
 
   const updateCustomField = (index: number, key: 'label' | 'value', value: string) => {
-    const newFields = [...advancedConfig.custom_fields];
+    const newFields: { label: string; value: string }[] = [...advancedConfig.custom_fields];
     newFields[index][key] = value;
     updateAdvancedConfig('custom_fields', newFields);
   };
 
   const deleteCustomField = (index: number) => {
-    const newFields = advancedConfig.custom_fields.filter((_, i) => i !== index);
+    const newFields: { label: string; value: string }[] = advancedConfig.custom_fields.filter((_, i) => i !== index);
     updateAdvancedConfig('custom_fields', newFields);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
