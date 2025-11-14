@@ -368,6 +368,7 @@ export default function PDFManagerScreen() {
       setLoading(true);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      console.log('[PDFManager] Starting PDF generation...');
       const orders = await fetchOrders();
 
       if (orders.length === 0) {
@@ -376,26 +377,40 @@ export default function PDFManagerScreen() {
         return;
       }
 
+      console.log('[PDFManager] Generating HTML for', orders.length, 'orders');
       const html = generateOrdersHTML(orders);
-      console.log('[PDFManager] Generating PDF with', orders.length, 'orders');
+      
+      // Validate HTML length
+      if (!html || html.length < 100) {
+        throw new Error('HTML generado es inválido o muy corto');
+      }
+      
+      console.log('[PDFManager] HTML generated, length:', html.length);
+      console.log('[PDFManager] Calling Print.printToFileAsync...');
       
       const result = await Print.printToFileAsync({ 
         html,
         base64: false 
       });
       
+      console.log('[PDFManager] Print result:', result);
+      
       if (!result || !result.uri) {
-        throw new Error('No se pudo generar el archivo PDF');
+        throw new Error('Print.printToFileAsync no devolvió un URI válido');
       }
       
-      console.log('[PDFManager] PDF generated at:', result.uri);
+      console.log('[PDFManager] PDF generated successfully at:', result.uri);
       await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showDialog('success', 'PDF Generado', `Se generó el PDF con ${orders.length} pedido(s).`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[PDFManager] Error generating PDF:', error);
-      showDialog('error', 'Error', `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      console.error('[PDFManager] Error stack:', error?.stack);
+      console.error('[PDFManager] Error message:', error?.message);
+      
+      const errorMessage = error?.message || 'Error desconocido';
+      showDialog('error', 'Error', `No se pudo generar el PDF:\n\n${errorMessage}\n\nRevisa los logs de la consola para más detalles.`);
     } finally {
       setLoading(false);
     }
@@ -406,6 +421,7 @@ export default function PDFManagerScreen() {
       setLoading(true);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      console.log('[PDFManager] Starting detailed PDF generation...');
       const orders = await fetchOrders();
 
       if (orders.length === 0) {
@@ -414,26 +430,40 @@ export default function PDFManagerScreen() {
         return;
       }
 
+      console.log('[PDFManager] Generating detailed HTML for', orders.length, 'orders');
       const html = generateDetailedHTML(orders);
-      console.log('[PDFManager] Generating detailed PDF with', orders.length, 'orders');
+      
+      // Validate HTML length
+      if (!html || html.length < 100) {
+        throw new Error('HTML generado es inválido o muy corto');
+      }
+      
+      console.log('[PDFManager] Detailed HTML generated, length:', html.length);
+      console.log('[PDFManager] Calling Print.printToFileAsync...');
       
       const result = await Print.printToFileAsync({ 
         html,
         base64: false 
       });
       
+      console.log('[PDFManager] Print result:', result);
+      
       if (!result || !result.uri) {
-        throw new Error('No se pudo generar el archivo PDF');
+        throw new Error('Print.printToFileAsync no devolvió un URI válido');
       }
       
-      console.log('[PDFManager] Detailed PDF generated at:', result.uri);
+      console.log('[PDFManager] Detailed PDF generated successfully at:', result.uri);
       await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showDialog('success', 'PDF Generado', `Se generó el PDF detallado con ${orders.length} pedido(s).`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[PDFManager] Error generating detailed PDF:', error);
-      showDialog('error', 'Error', `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      console.error('[PDFManager] Error stack:', error?.stack);
+      console.error('[PDFManager] Error message:', error?.message);
+      
+      const errorMessage = error?.message || 'Error desconocido';
+      showDialog('error', 'Error', `No se pudo generar el PDF:\n\n${errorMessage}\n\nRevisa los logs de la consola para más detalles.`);
     } finally {
       setLoading(false);
     }
@@ -444,6 +474,7 @@ export default function PDFManagerScreen() {
       setLoading(true);
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      console.log('[PDFManager] Starting summary PDF generation...');
       const orders = await fetchOrders();
 
       if (orders.length === 0) {
@@ -452,581 +483,701 @@ export default function PDFManagerScreen() {
         return;
       }
 
+      console.log('[PDFManager] Generating summary HTML for', orders.length, 'orders');
       const html = generateSummaryHTML(orders);
-      console.log('[PDFManager] Generating summary PDF with', orders.length, 'orders');
+      
+      // Validate HTML length
+      if (!html || html.length < 100) {
+        throw new Error('HTML generado es inválido o muy corto');
+      }
+      
+      console.log('[PDFManager] Summary HTML generated, length:', html.length);
+      console.log('[PDFManager] Calling Print.printToFileAsync...');
       
       const result = await Print.printToFileAsync({ 
         html,
         base64: false 
       });
       
+      console.log('[PDFManager] Print result:', result);
+      
       if (!result || !result.uri) {
-        throw new Error('No se pudo generar el archivo PDF');
+        throw new Error('Print.printToFileAsync no devolvió un URI válido');
       }
       
-      console.log('[PDFManager] Summary PDF generated at:', result.uri);
+      console.log('[PDFManager] Summary PDF generated successfully at:', result.uri);
       await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showDialog('success', 'PDF Generado', `Se generó el resumen con ${orders.length} pedido(s).`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[PDFManager] Error generating summary PDF:', error);
-      showDialog('error', 'Error', `No se pudo generar el PDF: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      console.error('[PDFManager] Error stack:', error?.stack);
+      console.error('[PDFManager] Error message:', error?.message);
+      
+      const errorMessage = error?.message || 'Error desconocido';
+      showDialog('error', 'Error', `No se pudo generar el PDF:\n\n${errorMessage}\n\nRevisa los logs de la consola para más detalles.`);
     } finally {
       setLoading(false);
     }
   };
 
-  const escapeHtml = (text: string): string => {
+  const escapeHtml = (text: string | null | undefined): string => {
     if (!text) return '';
-    return text
+    const str = String(text);
+    return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+      .replace(/'/g, '&#039;')
+      .replace(/\n/g, ' ')
+      .replace(/\r/g, '');
+  };
+
+  const safeFormatCLP = (amount: number | null | undefined): string => {
+    try {
+      return formatCLP(Number(amount || 0));
+    } catch (error) {
+      console.error('[PDFManager] Error formatting CLP:', error);
+      return '$0';
+    }
+  };
+
+  const safeFormatDate = (dateString: string | null | undefined): string => {
+    try {
+      if (!dateString) return 'Sin fecha';
+      return formatDate(dateString);
+    } catch (error) {
+      console.error('[PDFManager] Error formatting date:', error);
+      return 'Sin fecha';
+    }
+  };
+
+  const safeGetStatusLabel = (status: string | null | undefined): string => {
+    try {
+      if (!status) return 'Sin estado';
+      return getStatusLabel(status as OrderStatus);
+    } catch (error) {
+      console.error('[PDFManager] Error getting status label:', error);
+      return 'Sin estado';
+    }
   };
 
   const generateOrdersHTML = (orders: Order[]): string => {
-    const filterInfo = getFilterInfo();
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-              padding: 20px;
-              color: #333;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #6B9F3E;
-              padding-bottom: 20px;
-            }
-            h1 {
-              color: #6B9F3E;
-              margin: 10px 0;
-              font-size: 24px;
-            }
-            .subtitle {
-              color: #666;
-              font-size: 14px;
-            }
-            .filter-info {
-              background-color: #f5f5f5;
-              padding: 15px;
-              border-radius: 8px;
-              margin-bottom: 20px;
-            }
-            .filter-info p {
-              margin: 5px 0;
-              font-size: 12px;
-              color: #666;
-            }
-            .order {
-              border: 1px solid #ddd;
-              border-radius: 8px;
-              padding: 15px;
-              margin-bottom: 15px;
-              page-break-inside: avoid;
-            }
-            .order-header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 10px;
-              border-bottom: 1px solid #eee;
-              padding-bottom: 10px;
-            }
-            .order-number {
-              font-weight: bold;
-              font-size: 16px;
-              color: #6B9F3E;
-            }
-            .status {
-              padding: 4px 12px;
-              border-radius: 12px;
-              font-size: 12px;
-              font-weight: 600;
-            }
-            .status-pending { background-color: #FEF3C7; color: #92400E; }
-            .status-preparing { background-color: #DBEAFE; color: #1E40AF; }
-            .status-ready { background-color: #D1FAE5; color: #065F46; }
-            .status-delivered { background-color: #E5E7EB; color: #374151; }
-            .status-cancelled { background-color: #FEE2E2; color: #991B1B; }
-            .order-info {
-              margin: 10px 0;
-            }
-            .order-info p {
-              margin: 5px 0;
-              font-size: 13px;
-            }
-            .label {
-              font-weight: 600;
-              color: #666;
-            }
-            .total {
-              text-align: right;
-              font-size: 16px;
-              font-weight: bold;
-              color: #6B9F3E;
-              margin-top: 10px;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 30px;
-              padding-top: 20px;
-              border-top: 1px solid #ddd;
-              color: #999;
-              font-size: 12px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Respaldo de Pedidos</h1>
-            <p class="subtitle">Generado el ${escapeHtml(formatDate(new Date().toISOString()))}</p>
-          </div>
-          
-          <div class="filter-info">
-            ${filterInfo}
-          </div>
-
-          ${orders.map(order => `
-            <div class="order">
-              <div class="order-header">
-                <span class="order-number">#${escapeHtml(order.order_number || '')}</span>
-                <span class="status status-${order.status}">${escapeHtml(getStatusLabel(order.status))}</span>
-              </div>
-              <div class="order-info">
-                <p><span class="label">Cliente:</span> ${escapeHtml(order.customer_name || 'Sin nombre')}</p>
-                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${escapeHtml(order.customer_phone)}</p>` : ''}
-                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${escapeHtml(order.customer_address)}</p>` : ''}
-                <p><span class="label">Fecha:</span> ${escapeHtml(formatDate(order.created_at))}</p>
-                <p><span class="label">Origen:</span> ${order.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}</p>
-              </div>
-              <div class="total">Total: ${escapeHtml(formatCLP(order.total_amount || 0))}</div>
+    try {
+      const filterInfo = getFilterInfo();
+      
+      const ordersHTML = orders.map(order => {
+        const orderNumber = escapeHtml(order.order_number || 'Sin número');
+        const status = order.status || 'pending';
+        const statusLabel = safeGetStatusLabel(status);
+        const customerName = escapeHtml(order.customer_name || 'Sin nombre');
+        const customerPhone = order.customer_phone ? escapeHtml(order.customer_phone) : null;
+        const customerAddress = order.customer_address ? escapeHtml(order.customer_address) : null;
+        const createdAt = safeFormatDate(order.created_at);
+        const source = order.source === 'whatsapp' ? 'WhatsApp' : 'Manual';
+        const totalAmount = safeFormatCLP(order.total_amount);
+        
+        return `
+          <div class="order">
+            <div class="order-header">
+              <span class="order-number">#${orderNumber}</span>
+              <span class="status status-${status}">${statusLabel}</span>
             </div>
-          `).join('')}
-
-          <div class="footer">
-            <p>Total de pedidos: ${orders.length}</p>
-            <p>Monto total: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)))}</p>
-            <p>Order Manager - Aplicación de uso privado</p>
+            <div class="order-info">
+              <p><span class="label">Cliente:</span> ${customerName}</p>
+              ${customerPhone ? `<p><span class="label">Telefono:</span> ${customerPhone}</p>` : ''}
+              ${customerAddress ? `<p><span class="label">Direccion:</span> ${customerAddress}</p>` : ''}
+              <p><span class="label">Fecha:</span> ${createdAt}</p>
+              <p><span class="label">Origen:</span> ${source}</p>
+            </div>
+            <div class="total">Total: ${totalAmount}</div>
           </div>
-        </body>
-      </html>
-    `;
+        `;
+      }).join('');
+      
+      const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: Arial, Helvetica, sans-serif;
+                padding: 20px;
+                color: #333;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #6B9F3E;
+                padding-bottom: 20px;
+              }
+              h1 {
+                color: #6B9F3E;
+                margin: 10px 0;
+                font-size: 24px;
+              }
+              .subtitle {
+                color: #666;
+                font-size: 14px;
+              }
+              .filter-info {
+                background-color: #f5f5f5;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+              }
+              .filter-info p {
+                margin: 5px 0;
+                font-size: 12px;
+                color: #666;
+              }
+              .order {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 15px;
+                page-break-inside: avoid;
+              }
+              .order-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 10px;
+              }
+              .order-number {
+                font-weight: bold;
+                font-size: 16px;
+                color: #6B9F3E;
+              }
+              .status {
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+              }
+              .status-pending { background-color: #FEF3C7; color: #92400E; }
+              .status-preparing { background-color: #DBEAFE; color: #1E40AF; }
+              .status-ready { background-color: #D1FAE5; color: #065F46; }
+              .status-delivered { background-color: #E5E7EB; color: #374151; }
+              .status-cancelled { background-color: #FEE2E2; color: #991B1B; }
+              .status-pending_payment { background-color: #FEF3C7; color: #92400E; }
+              .status-abonado { background-color: #DBEAFE; color: #1E40AF; }
+              .status-pagado { background-color: #D1FAE5; color: #065F46; }
+              .status-finalizado { background-color: #E5E7EB; color: #374151; }
+              .order-info {
+                margin: 10px 0;
+              }
+              .order-info p {
+                margin: 5px 0;
+                font-size: 13px;
+              }
+              .label {
+                font-weight: 600;
+                color: #666;
+              }
+              .total {
+                text-align: right;
+                font-size: 16px;
+                font-weight: bold;
+                color: #6B9F3E;
+                margin-top: 10px;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                color: #999;
+                font-size: 12px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Respaldo de Pedidos</h1>
+              <p class="subtitle">Generado el ${safeFormatDate(new Date().toISOString())}</p>
+            </div>
+            
+            <div class="filter-info">
+              ${filterInfo}
+            </div>
+
+            ${ordersHTML}
+
+            <div class="footer">
+              <p>Total de pedidos: ${orders.length}</p>
+              <p>Monto total: ${safeFormatCLP(totalAmount)}</p>
+              <p>Order Manager - Aplicacion de uso privado</p>
+            </div>
+          </body>
+        </html>
+      `;
+    } catch (error) {
+      console.error('[PDFManager] Error generating orders HTML:', error);
+      throw new Error(`Error al generar HTML: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
   };
 
   const generateDetailedHTML = (orders: Order[]): string => {
-    const filterInfo = getFilterInfo();
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-              padding: 20px;
-              color: #333;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #6B9F3E;
-              padding-bottom: 20px;
-            }
-            h1 {
-              color: #6B9F3E;
-              margin: 10px 0;
-              font-size: 24px;
-            }
-            .subtitle {
-              color: #666;
-              font-size: 14px;
-            }
-            .filter-info {
-              background-color: #f5f5f5;
-              padding: 15px;
-              border-radius: 8px;
-              margin-bottom: 20px;
-            }
-            .filter-info p {
-              margin: 5px 0;
-              font-size: 12px;
-              color: #666;
-            }
-            .order {
-              border: 1px solid #ddd;
-              border-radius: 8px;
-              padding: 15px;
-              margin-bottom: 20px;
-              page-break-inside: avoid;
-            }
-            .order-header {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 15px;
-              border-bottom: 2px solid #6B9F3E;
-              padding-bottom: 10px;
-            }
-            .order-number {
-              font-weight: bold;
-              font-size: 18px;
-              color: #6B9F3E;
-            }
-            .status {
-              padding: 4px 12px;
-              border-radius: 12px;
-              font-size: 12px;
-              font-weight: 600;
-            }
-            .status-pending { background-color: #FEF3C7; color: #92400E; }
-            .status-preparing { background-color: #DBEAFE; color: #1E40AF; }
-            .status-ready { background-color: #D1FAE5; color: #065F46; }
-            .status-delivered { background-color: #E5E7EB; color: #374151; }
-            .status-cancelled { background-color: #FEE2E2; color: #991B1B; }
-            .order-info {
-              margin: 15px 0;
-            }
-            .order-info p {
-              margin: 5px 0;
-              font-size: 13px;
-            }
-            .label {
-              font-weight: 600;
-              color: #666;
-            }
-            .items-section {
-              margin: 15px 0;
-            }
-            .items-title {
-              font-weight: 600;
-              font-size: 14px;
-              margin-bottom: 10px;
-              color: #333;
-            }
-            .item {
-              background-color: #f9f9f9;
-              padding: 10px;
-              border-radius: 6px;
-              margin-bottom: 8px;
-            }
-            .item-name {
-              font-weight: 600;
-              color: #333;
-            }
-            .item-details {
-              font-size: 12px;
-              color: #666;
-              margin-top: 4px;
-            }
-            .totals {
-              background-color: #f5f5f5;
-              padding: 15px;
-              border-radius: 8px;
-              margin-top: 15px;
-            }
-            .totals p {
-              margin: 5px 0;
-              font-size: 14px;
-            }
-            .total-amount {
-              font-size: 18px;
-              font-weight: bold;
-              color: #6B9F3E;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 30px;
-              padding-top: 20px;
-              border-top: 1px solid #ddd;
-              color: #999;
-              font-size: 12px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Detalle de Pedidos</h1>
-            <p class="subtitle">Generado el ${escapeHtml(formatDate(new Date().toISOString()))}</p>
-          </div>
-          
-          <div class="filter-info">
-            ${filterInfo}
-          </div>
-
-          ${orders.map(order => `
-            <div class="order">
-              <div class="order-header">
-                <span class="order-number">#${escapeHtml(order.order_number || '')}</span>
-                <span class="status status-${order.status}">${escapeHtml(getStatusLabel(order.status))}</span>
-              </div>
+    try {
+      const filterInfo = getFilterInfo();
+      
+      const ordersHTML = orders.map(order => {
+        const orderNumber = escapeHtml(order.order_number || 'Sin número');
+        const status = order.status || 'pending';
+        const statusLabel = safeGetStatusLabel(status);
+        const customerName = escapeHtml(order.customer_name || 'Sin nombre');
+        const customerPhone = order.customer_phone ? escapeHtml(order.customer_phone) : null;
+        const customerAddress = order.customer_address ? escapeHtml(order.customer_address) : null;
+        const createdAt = safeFormatDate(order.created_at);
+        const source = order.source === 'whatsapp' ? 'WhatsApp' : 'Manual';
+        const notes = order.notes ? escapeHtml(order.notes) : null;
+        const totalAmount = safeFormatCLP(order.total_amount);
+        const paidAmount = safeFormatCLP(order.paid_amount);
+        const pendingAmount = safeFormatCLP(Number(order.total_amount || 0) - Number(order.paid_amount || 0));
+        
+        const itemsHTML = order.items && order.items.length > 0 ? `
+          <div class="items-section">
+            <div class="items-title">Productos:</div>
+            ${order.items.map(item => {
+              const productName = escapeHtml(item.product_name || 'Sin nombre');
+              const quantity = item.quantity || 0;
+              const unitPrice = safeFormatCLP(item.unit_price);
+              const itemNotes = item.notes ? escapeHtml(item.notes) : null;
               
-              <div class="order-info">
-                <p><span class="label">Cliente:</span> ${escapeHtml(order.customer_name || 'Sin nombre')}</p>
-                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${escapeHtml(order.customer_phone)}</p>` : ''}
-                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${escapeHtml(order.customer_address)}</p>` : ''}
-                <p><span class="label">Fecha:</span> ${escapeHtml(formatDate(order.created_at))}</p>
-                <p><span class="label">Origen:</span> ${order.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}</p>
-                ${order.notes ? `<p><span class="label">Notas:</span> ${escapeHtml(order.notes)}</p>` : ''}
-              </div>
-
-              ${order.items && order.items.length > 0 ? `
-                <div class="items-section">
-                  <div class="items-title">Productos:</div>
-                  ${order.items.map(item => `
-                    <div class="item">
-                      <div class="item-name">${escapeHtml(item.product_name || 'Sin nombre')}</div>
-                      <div class="item-details">
-                        Cantidad: ${item.quantity} | Precio: ${escapeHtml(formatCLP(Number(item.unit_price || 0)))}
-                        ${item.notes ? ` | ${escapeHtml(item.notes)}` : ''}
-                      </div>
-                    </div>
-                  `).join('')}
+              return `
+                <div class="item">
+                  <div class="item-name">${productName}</div>
+                  <div class="item-details">
+                    Cantidad: ${quantity} | Precio: ${unitPrice}
+                    ${itemNotes ? ` | ${itemNotes}` : ''}
+                  </div>
                 </div>
-              ` : ''}
-
-              <div class="totals">
-                <p><span class="label">Total:</span> <span class="total-amount">${escapeHtml(formatCLP(order.total_amount || 0))}</span></p>
-                <p><span class="label">Pagado:</span> ${escapeHtml(formatCLP(order.paid_amount || 0))}</p>
-                <p><span class="label">Pendiente:</span> ${escapeHtml(formatCLP(Number(order.total_amount || 0) - Number(order.paid_amount || 0)))}</p>
-              </div>
-            </div>
-          `).join('')}
-
-          <div class="footer">
-            <p>Total de pedidos: ${orders.length}</p>
-            <p>Monto total: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)))}</p>
-            <p>Monto pagado: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0)))}</p>
-            <p>Monto pendiente: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0)))}</p>
-            <p>Order Manager - Aplicación de uso privado</p>
+              `;
+            }).join('')}
           </div>
-        </body>
-      </html>
-    `;
+        ` : '';
+        
+        return `
+          <div class="order">
+            <div class="order-header">
+              <span class="order-number">#${orderNumber}</span>
+              <span class="status status-${status}">${statusLabel}</span>
+            </div>
+            
+            <div class="order-info">
+              <p><span class="label">Cliente:</span> ${customerName}</p>
+              ${customerPhone ? `<p><span class="label">Telefono:</span> ${customerPhone}</p>` : ''}
+              ${customerAddress ? `<p><span class="label">Direccion:</span> ${customerAddress}</p>` : ''}
+              <p><span class="label">Fecha:</span> ${createdAt}</p>
+              <p><span class="label">Origen:</span> ${source}</p>
+              ${notes ? `<p><span class="label">Notas:</span> ${notes}</p>` : ''}
+            </div>
+
+            ${itemsHTML}
+
+            <div class="totals">
+              <p><span class="label">Total:</span> <span class="total-amount">${totalAmount}</span></p>
+              <p><span class="label">Pagado:</span> ${paidAmount}</p>
+              <p><span class="label">Pendiente:</span> ${pendingAmount}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const totalPaid = orders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0);
+      const totalPending = totalAmount - totalPaid;
+      
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: Arial, Helvetica, sans-serif;
+                padding: 20px;
+                color: #333;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #6B9F3E;
+                padding-bottom: 20px;
+              }
+              h1 {
+                color: #6B9F3E;
+                margin: 10px 0;
+                font-size: 24px;
+              }
+              .subtitle {
+                color: #666;
+                font-size: 14px;
+              }
+              .filter-info {
+                background-color: #f5f5f5;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+              }
+              .filter-info p {
+                margin: 5px 0;
+                font-size: 12px;
+                color: #666;
+              }
+              .order {
+                border: 1px solid #ddd;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 20px;
+                page-break-inside: avoid;
+              }
+              .order-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 15px;
+                border-bottom: 2px solid #6B9F3E;
+                padding-bottom: 10px;
+              }
+              .order-number {
+                font-weight: bold;
+                font-size: 18px;
+                color: #6B9F3E;
+              }
+              .status {
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+              }
+              .status-pending { background-color: #FEF3C7; color: #92400E; }
+              .status-preparing { background-color: #DBEAFE; color: #1E40AF; }
+              .status-ready { background-color: #D1FAE5; color: #065F46; }
+              .status-delivered { background-color: #E5E7EB; color: #374151; }
+              .status-cancelled { background-color: #FEE2E2; color: #991B1B; }
+              .status-pending_payment { background-color: #FEF3C7; color: #92400E; }
+              .status-abonado { background-color: #DBEAFE; color: #1E40AF; }
+              .status-pagado { background-color: #D1FAE5; color: #065F46; }
+              .status-finalizado { background-color: #E5E7EB; color: #374151; }
+              .order-info {
+                margin: 15px 0;
+              }
+              .order-info p {
+                margin: 5px 0;
+                font-size: 13px;
+              }
+              .label {
+                font-weight: 600;
+                color: #666;
+              }
+              .items-section {
+                margin: 15px 0;
+              }
+              .items-title {
+                font-weight: 600;
+                font-size: 14px;
+                margin-bottom: 10px;
+                color: #333;
+              }
+              .item {
+                background-color: #f9f9f9;
+                padding: 10px;
+                border-radius: 6px;
+                margin-bottom: 8px;
+              }
+              .item-name {
+                font-weight: 600;
+                color: #333;
+              }
+              .item-details {
+                font-size: 12px;
+                color: #666;
+                margin-top: 4px;
+              }
+              .totals {
+                background-color: #f5f5f5;
+                padding: 15px;
+                border-radius: 8px;
+                margin-top: 15px;
+              }
+              .totals p {
+                margin: 5px 0;
+                font-size: 14px;
+              }
+              .total-amount {
+                font-size: 18px;
+                font-weight: bold;
+                color: #6B9F3E;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                color: #999;
+                font-size: 12px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Detalle de Pedidos</h1>
+              <p class="subtitle">Generado el ${safeFormatDate(new Date().toISOString())}</p>
+            </div>
+            
+            <div class="filter-info">
+              ${filterInfo}
+            </div>
+
+            ${ordersHTML}
+
+            <div class="footer">
+              <p>Total de pedidos: ${orders.length}</p>
+              <p>Monto total: ${safeFormatCLP(totalAmount)}</p>
+              <p>Monto pagado: ${safeFormatCLP(totalPaid)}</p>
+              <p>Monto pendiente: ${safeFormatCLP(totalPending)}</p>
+              <p>Order Manager - Aplicacion de uso privado</p>
+            </div>
+          </body>
+        </html>
+      `;
+    } catch (error) {
+      console.error('[PDFManager] Error generating detailed HTML:', error);
+      throw new Error(`Error al generar HTML detallado: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
   };
 
   const generateSummaryHTML = (orders: Order[]): string => {
-    const filterInfo = getFilterInfo();
-    
-    // Calculate statistics
-    const totalOrders = orders.length;
-    const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
-    const totalPaid = orders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0);
-    const totalPending = totalAmount - totalPaid;
-    
-    // Group by status
-    const byStatus: Record<string, number> = {};
-    orders.forEach(order => {
-      byStatus[order.status] = (byStatus[order.status] || 0) + 1;
-    });
-    
-    // Group by customer
-    const byCustomer: Record<string, { count: number; total: number }> = {};
-    orders.forEach(order => {
-      const customerName = order.customer_name || 'Sin nombre';
-      if (!byCustomer[customerName]) {
-        byCustomer[customerName] = { count: 0, total: 0 };
-      }
-      byCustomer[customerName].count++;
-      byCustomer[customerName].total += Number(order.total_amount || 0);
-    });
-    
-    const topCustomers = Object.entries(byCustomer)
-      .sort((a, b) => b[1].total - a[1].total)
-      .slice(0, 10);
-    
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-              padding: 20px;
-              color: #333;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #6B9F3E;
-              padding-bottom: 20px;
-            }
-            h1 {
-              color: #6B9F3E;
-              margin: 10px 0;
-              font-size: 24px;
-            }
-            .subtitle {
-              color: #666;
-              font-size: 14px;
-            }
-            .filter-info {
-              background-color: #f5f5f5;
-              padding: 15px;
-              border-radius: 8px;
-              margin-bottom: 20px;
-            }
-            .filter-info p {
-              margin: 5px 0;
-              font-size: 12px;
-              color: #666;
-            }
-            .stats-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 15px;
-              margin-bottom: 30px;
-            }
-            .stat-card {
-              background-color: #f9f9f9;
-              padding: 20px;
-              border-radius: 8px;
-              border-left: 4px solid #6B9F3E;
-            }
-            .stat-label {
-              font-size: 12px;
-              color: #666;
-              text-transform: uppercase;
-              margin-bottom: 8px;
-            }
-            .stat-value {
-              font-size: 24px;
-              font-weight: bold;
-              color: #333;
-            }
-            .section {
-              margin-bottom: 30px;
-            }
-            .section-title {
-              font-size: 18px;
-              font-weight: 600;
-              color: #6B9F3E;
-              margin-bottom: 15px;
-              border-bottom: 1px solid #ddd;
-              padding-bottom: 8px;
-            }
-            .table {
-              width: 100%;
-              border-collapse: collapse;
-            }
-            .table th {
-              background-color: #f5f5f5;
-              padding: 10px;
-              text-align: left;
-              font-size: 12px;
-              font-weight: 600;
-              color: #666;
-              border-bottom: 2px solid #ddd;
-            }
-            .table td {
-              padding: 10px;
-              border-bottom: 1px solid #eee;
-              font-size: 13px;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 30px;
-              padding-top: 20px;
-              border-top: 1px solid #ddd;
-              color: #999;
-              font-size: 12px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Resumen de Pedidos</h1>
-            <p class="subtitle">Generado el ${escapeHtml(formatDate(new Date().toISOString()))}</p>
-          </div>
-          
-          <div class="filter-info">
-            ${filterInfo}
-          </div>
+    try {
+      const filterInfo = getFilterInfo();
+      
+      // Calculate statistics
+      const totalOrders = orders.length;
+      const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+      const totalPaid = orders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0);
+      const totalPending = totalAmount - totalPaid;
+      
+      // Group by status
+      const byStatus: Record<string, number> = {};
+      orders.forEach(order => {
+        const status = order.status || 'pending';
+        byStatus[status] = (byStatus[status] || 0) + 1;
+      });
+      
+      const statusRowsHTML = Object.entries(byStatus).map(([status, count]) => `
+        <tr>
+          <td>${safeGetStatusLabel(status)}</td>
+          <td>${count}</td>
+        </tr>
+      `).join('');
+      
+      // Group by customer
+      const byCustomer: Record<string, { count: number; total: number }> = {};
+      orders.forEach(order => {
+        const customerName = order.customer_name || 'Sin nombre';
+        if (!byCustomer[customerName]) {
+          byCustomer[customerName] = { count: 0, total: 0 };
+        }
+        byCustomer[customerName].count++;
+        byCustomer[customerName].total += Number(order.total_amount || 0);
+      });
+      
+      const topCustomers = Object.entries(byCustomer)
+        .sort((a, b) => b[1].total - a[1].total)
+        .slice(0, 10);
+      
+      const customerRowsHTML = topCustomers.map(([name, data]) => `
+        <tr>
+          <td>${escapeHtml(name)}</td>
+          <td>${data.count}</td>
+          <td>${safeFormatCLP(data.total)}</td>
+        </tr>
+      `).join('');
+      
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: Arial, Helvetica, sans-serif;
+                padding: 20px;
+                color: #333;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #6B9F3E;
+                padding-bottom: 20px;
+              }
+              h1 {
+                color: #6B9F3E;
+                margin: 10px 0;
+                font-size: 24px;
+              }
+              .subtitle {
+                color: #666;
+                font-size: 14px;
+              }
+              .filter-info {
+                background-color: #f5f5f5;
+                padding: 15px;
+                border-radius: 8px;
+                margin-bottom: 20px;
+              }
+              .filter-info p {
+                margin: 5px 0;
+                font-size: 12px;
+                color: #666;
+              }
+              .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+                margin-bottom: 30px;
+              }
+              .stat-card {
+                background-color: #f9f9f9;
+                padding: 20px;
+                border-radius: 8px;
+                border-left: 4px solid #6B9F3E;
+              }
+              .stat-label {
+                font-size: 12px;
+                color: #666;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+              }
+              .stat-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #333;
+              }
+              .section {
+                margin-bottom: 30px;
+              }
+              .section-title {
+                font-size: 18px;
+                font-weight: 600;
+                color: #6B9F3E;
+                margin-bottom: 15px;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 8px;
+              }
+              .table {
+                width: 100%;
+                border-collapse: collapse;
+              }
+              .table th {
+                background-color: #f5f5f5;
+                padding: 10px;
+                text-align: left;
+                font-size: 12px;
+                font-weight: 600;
+                color: #666;
+                border-bottom: 2px solid #ddd;
+              }
+              .table td {
+                padding: 10px;
+                border-bottom: 1px solid #eee;
+                font-size: 13px;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #ddd;
+                color: #999;
+                font-size: 12px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>Resumen de Pedidos</h1>
+              <p class="subtitle">Generado el ${safeFormatDate(new Date().toISOString())}</p>
+            </div>
+            
+            <div class="filter-info">
+              ${filterInfo}
+            </div>
 
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div class="stat-label">Total Pedidos</div>
-              <div class="stat-value">${totalOrders}</div>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-label">Total Pedidos</div>
+                <div class="stat-value">${totalOrders}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Monto Total</div>
+                <div class="stat-value">${safeFormatCLP(totalAmount)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Monto Pagado</div>
+                <div class="stat-value">${safeFormatCLP(totalPaid)}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Monto Pendiente</div>
+                <div class="stat-value">${safeFormatCLP(totalPending)}</div>
+              </div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">Monto Total</div>
-              <div class="stat-value">${escapeHtml(formatCLP(totalAmount))}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Monto Pagado</div>
-              <div class="stat-value">${escapeHtml(formatCLP(totalPaid))}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Monto Pendiente</div>
-              <div class="stat-value">${escapeHtml(formatCLP(totalPending))}</div>
-            </div>
-          </div>
 
-          <div class="section">
-            <div class="section-title">Pedidos por Estado</div>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Estado</th>
-                  <th>Cantidad</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${Object.entries(byStatus).map(([status, count]) => `
+            <div class="section">
+              <div class="section-title">Pedidos por Estado</div>
+              <table class="table">
+                <thead>
                   <tr>
-                    <td>${escapeHtml(getStatusLabel(status as OrderStatus))}</td>
-                    <td>${count}</td>
+                    <th>Estado</th>
+                    <th>Cantidad</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  ${statusRowsHTML}
+                </tbody>
+              </table>
+            </div>
 
-          <div class="section">
-            <div class="section-title">Top 10 Clientes</div>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Cliente</th>
-                  <th>Pedidos</th>
-                  <th>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${topCustomers.map(([name, data]) => `
+            <div class="section">
+              <div class="section-title">Top 10 Clientes</div>
+              <table class="table">
+                <thead>
                   <tr>
-                    <td>${escapeHtml(name)}</td>
-                    <td>${data.count}</td>
-                    <td>${escapeHtml(formatCLP(data.total))}</td>
+                    <th>Cliente</th>
+                    <th>Pedidos</th>
+                    <th>Total</th>
                   </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  ${customerRowsHTML}
+                </tbody>
+              </table>
+            </div>
 
-          <div class="footer">
-            <p>Order Manager - Aplicación de uso privado</p>
-          </div>
-        </body>
-      </html>
-    `;
+            <div class="footer">
+              <p>Order Manager - Aplicacion de uso privado</p>
+            </div>
+          </body>
+        </html>
+      `;
+    } catch (error) {
+      console.error('[PDFManager] Error generating summary HTML:', error);
+      throw new Error(`Error al generar HTML de resumen: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
   };
 
   const getFilterInfo = (): string => {
@@ -1036,15 +1187,15 @@ export default function PDFManagerScreen() {
       parts.push(`<p><strong>Cliente:</strong> ${escapeHtml(filters.customerName)}</p>`);
     }
     if (filters.status && filters.status !== 'all') {
-      parts.push(`<p><strong>Estado:</strong> ${escapeHtml(getStatusLabel(filters.status))}</p>`);
+      parts.push(`<p><strong>Estado:</strong> ${safeGetStatusLabel(filters.status)}</p>`);
     }
     
     // Use effective dates (default if not set)
     const effectiveStartDate = filters.startDate || defaultDates.startOfMonth;
     const effectiveEndDate = filters.endDate || defaultDates.endOfMonth;
     
-    parts.push(`<p><strong>Desde:</strong> ${escapeHtml(effectiveStartDate.toLocaleDateString('es-ES'))}</p>`);
-    parts.push(`<p><strong>Hasta:</strong> ${escapeHtml(effectiveEndDate.toLocaleDateString('es-ES'))}</p>`);
+    parts.push(`<p><strong>Desde:</strong> ${effectiveStartDate.toLocaleDateString('es-ES')}</p>`);
+    parts.push(`<p><strong>Hasta:</strong> ${effectiveEndDate.toLocaleDateString('es-ES')}</p>`);
     
     return parts.join('');
   };
