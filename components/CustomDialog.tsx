@@ -213,13 +213,7 @@ export function CustomDialog({
             {/* Icon */}
             <View style={styles.dialogIconContainer}>
               <IconSymbol
-                ios_icon_name={getIconName()}
-                android_material_icon_name={
-                  type === 'success' ? 'check_circle' :
-                  type === 'error' ? 'error' :
-                  type === 'warning' ? 'warning' :
-                  'info'
-                }
+                name={getIconName()}
                 size={64}
                 color={getIconColor()}
               />
@@ -255,8 +249,7 @@ export function CustomDialog({
                     <>
                       {button.icon && (
                         <IconSymbol
-                          ios_icon_name={button.icon}
-                          android_material_icon_name={button.icon}
+                          name={button.icon as any}
                           size={20}
                           color={button.style === 'default' || button.style === 'cancel' ? colors.text : '#FFFFFF'}
                         />
