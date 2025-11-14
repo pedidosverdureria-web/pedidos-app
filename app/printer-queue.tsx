@@ -295,7 +295,7 @@ export default function PrinterQueueScreen() {
         },
       ]);
     }
-  }, [user]);
+  }, [user, closeDialog]);
 
   const loadPrinterConfig = useCallback(async () => {
     try {

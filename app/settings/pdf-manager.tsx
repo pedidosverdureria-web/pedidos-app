@@ -312,9 +312,9 @@ export default function PDFManagerScreen() {
     setDialog({ visible: true, type, title, message, buttons });
   };
 
-  const closeDialog = () => {
-    setDialog({ ...dialog, visible: false });
-  };
+  const closeDialog = useCallback(() => {
+    setDialog((prev) => ({ ...prev, visible: false }));
+  }, []);
 
   const loadCustomers = async () => {
     try {
@@ -389,7 +389,7 @@ export default function PDFManagerScreen() {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;')
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .replace(/[\u0000-\u001F\u007F-\u009F]/gu, '') // Remove control characters using Unicode range with 'u' flag
       .replace(/\n/g, ' ')
       .replace(/\r/g, ' ')
       .replace(/\t/g, ' ')

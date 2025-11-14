@@ -81,7 +81,7 @@ export default function UserManagementScreen() {
         ]
       );
     }
-  }, [user?.role]);
+  }, [user?.role, closeDialog]);
 
   const loadAuthorizedPhones = useCallback(async () => {
     try {
