@@ -380,7 +380,7 @@ export default function PDFManagerScreen() {
     }
   };
 
-  // Simplified HTML escaping - only escape essential HTML characters
+  // FIXED: Simplified HTML escaping - only escape essential HTML characters and remove control characters using Unicode range
   const escapeHtml = (text: string | null | undefined): string => {
     if (!text) return '';
     return String(text)

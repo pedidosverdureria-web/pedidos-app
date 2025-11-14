@@ -102,13 +102,13 @@ export default function OrderDetailScreen() {
     loadPrinterConfig();
   }, [loadPrinterConfig]);
 
-  // FIXED: Load customers when switching to select mode
+  // FIXED: Added customerHook to dependencies
   useEffect(() => {
     if (customerHook.editingCustomer && customerHook.customerInputMode === 'select') {
       console.log('[OrderDetail] Loading customers for select mode...');
       customerHook.loadCustomers();
     }
-  }, [customerHook.editingCustomer, customerHook.customerInputMode]);
+  }, [customerHook.editingCustomer, customerHook.customerInputMode, customerHook]);
 
   useEffect(() => {
     if (order) {

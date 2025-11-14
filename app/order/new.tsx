@@ -622,12 +622,12 @@ export default function NewOrderScreen() {
     }
   }, []);
 
-  // Load customers when switching to select mode - only if customers array is empty
+  // FIXED: Added customers.length to dependencies
   useEffect(() => {
     if (customerInputMode === 'select' && customers.length === 0) {
       loadCustomers();
     }
-  }, [customerInputMode, loadCustomers]);
+  }, [customerInputMode, loadCustomers, customers.length]);
 
   const handleSelectCustomer = (customer: Customer) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
