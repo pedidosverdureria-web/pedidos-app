@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -82,7 +82,7 @@ export default function OrderDetailScreen() {
   const productsHook = useOrderProducts(order, loadOrder);
   const queriesHook = useOrderQueries(order, loadOrder, printReceipt, printerConfig, isConnected);
 
-  const loadPrinterConfig = async () => {
+  const loadPrinterConfig = useCallback(async () => {
     try {
       console.log('[OrderDetail] Loading printer config...');
       const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
@@ -96,17 +96,17 @@ export default function OrderDetailScreen() {
     } catch (error) {
       console.error('[OrderDetail] Error loading printer config:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadPrinterConfig();
-  }, []);
+  }, [loadPrinterConfig]);
 
   useEffect(() => {
     if (customerHook.editingCustomer && customerHook.customerInputMode === 'select') {
       customerHook.loadCustomers();
     }
-  }, [customerHook.editingCustomer, customerHook.customerInputMode]);
+  }, [customerHook.editingCustomer, customerHook.customerInputMode, customerHook]);
 
   useEffect(() => {
     if (order) {
@@ -114,7 +114,7 @@ export default function OrderDetailScreen() {
       customerHook.setCustomerPhone(order.customer_phone || '');
       customerHook.setCustomerAddress(order.customer_address || '');
     }
-  }, [order]);
+  }, [order, customerHook]);
 
   useEffect(() => {
     if (whatsappInput.trim()) {

@@ -41,7 +41,6 @@ interface OrderResultDialog {
 
 export default function NewOrderScreen() {
   const { user, isAuthenticated } = useAuth();
-  const { themeVersion } = useTheme();
   const { colors, commonStyles } = useThemedStyles();
   
   // Customer input mode: 'manual' or 'select'
@@ -73,7 +72,6 @@ export default function NewOrderScreen() {
   });
 
   // Create dynamic styles based on theme using useMemo for optimization
-  // Include themeVersion in dependencies to force re-creation when theme changes
   const styles = useMemo(() => StyleSheet.create({
     container: {
       flex: 1,
@@ -588,7 +586,7 @@ export default function NewOrderScreen() {
       color: colors.primary,
       textAlign: 'center',
     },
-  }), [colors, themeVersion]);
+  }), [colors]);
 
   // Memoize header options to ensure they update with theme
   const headerOptions = useMemo(() => ({
@@ -599,7 +597,7 @@ export default function NewOrderScreen() {
     },
     headerTintColor: '#FFFFFF',
     headerShadowVisible: true,
-  }), [colors.primary, themeVersion]);
+  }), [colors.primary]);
 
   // Load customers when switching to select mode
   useEffect(() => {
