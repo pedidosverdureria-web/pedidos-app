@@ -367,7 +367,7 @@ export default function PDFManagerScreen() {
     }
   };
 
-  // Enhanced HTML escaping - more aggressive
+  // Simplified HTML escaping - only escape essential HTML characters
   const escapeHtml = (text: string | null | undefined): string => {
     if (!text) return '';
     return String(text)
@@ -375,13 +375,11 @@ export default function PDFManagerScreen() {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#x27;')
-      .replace(/\//g, '&#x2F;')
+      .replace(/'/g, '&#39;')
       .replace(/\n/g, ' ')
-      .replace(/\r/g, '')
+      .replace(/\r/g, ' ')
       .replace(/\t/g, ' ')
-      .replace(/[\u0020-\u007E]/g, (char) => char)
-      .replace(/[^\u0020-\u007E]/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
   };
 
@@ -434,26 +432,46 @@ export default function PDFManagerScreen() {
       const html = generateOrdersHTML(orders);
       
       console.log('[PDFManager] HTML length:', html.length);
-      console.log('[PDFManager] HTML preview:', html.substring(0, 300));
+      console.log('[PDFManager] HTML preview (first 500 chars):', html.substring(0, 500));
+      
+      // Validate HTML before printing
+      if (!html || html.length < 100) {
+        throw new Error('HTML generado es invalido o muy corto');
+      }
       
       console.log('[PDFManager] Calling Print.printToFileAsync...');
       
-      // Call with minimal options
+      // Call with explicit options
       const result = await Print.printToFileAsync({ 
         html: html,
+        base64: false,
       });
       
+      console.log('[PDFManager] Print result type:', typeof result);
       console.log('[PDFManager] Print result:', JSON.stringify(result, null, 2));
       
-      if (!result || typeof result !== 'object') {
-        throw new Error('Print.printToFileAsync devolvio un resultado invalido');
+      // Validate result
+      if (!result) {
+        throw new Error('Print.printToFileAsync devolvio null o undefined');
       }
       
-      if (!result.uri || typeof result.uri !== 'string' || result.uri.length === 0) {
-        throw new Error('Print.printToFileAsync no devolvio un URI valido');
+      if (typeof result !== 'object') {
+        throw new Error(`Print.printToFileAsync devolvio tipo invalido: ${typeof result}`);
       }
       
-      console.log('[PDFManager] PDF generated at:', result.uri);
+      if (!result.uri) {
+        throw new Error('Print.printToFileAsync no devolvio un URI');
+      }
+      
+      if (typeof result.uri !== 'string') {
+        throw new Error(`URI tiene tipo invalido: ${typeof result.uri}`);
+      }
+      
+      if (result.uri.length === 0) {
+        throw new Error('URI esta vacio');
+      }
+      
+      console.log('[PDFManager] PDF generated successfully at:', result.uri);
       
       await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
@@ -493,9 +511,16 @@ export default function PDFManagerScreen() {
       
       console.log('[PDFManager] HTML length:', html.length);
       
-      const result = await Print.printToFileAsync({ html });
+      if (!html || html.length < 100) {
+        throw new Error('HTML generado es invalido o muy corto');
+      }
       
-      if (!result || !result.uri) {
+      const result = await Print.printToFileAsync({ 
+        html,
+        base64: false,
+      });
+      
+      if (!result || !result.uri || typeof result.uri !== 'string' || result.uri.length === 0) {
         throw new Error('Print.printToFileAsync no devolvio un URI valido');
       }
       
@@ -533,9 +558,16 @@ export default function PDFManagerScreen() {
       
       console.log('[PDFManager] HTML length:', html.length);
       
-      const result = await Print.printToFileAsync({ html });
+      if (!html || html.length < 100) {
+        throw new Error('HTML generado es invalido o muy corto');
+      }
       
-      if (!result || !result.uri) {
+      const result = await Print.printToFileAsync({ 
+        html,
+        base64: false,
+      });
+      
+      if (!result || !result.uri || typeof result.uri !== 'string' || result.uri.length === 0) {
         throw new Error('Print.printToFileAsync no devolvio un URI valido');
       }
       
