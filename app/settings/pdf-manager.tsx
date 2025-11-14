@@ -201,6 +201,59 @@ export default function PDFManagerScreen() {
       color: colors.textSecondary,
       marginTop: 4,
     },
+    datePickerModal: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    datePickerContainer: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      width: '90%',
+      maxWidth: 400,
+    },
+    datePickerHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    datePickerTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    datePickerButtons: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+      marginTop: 16,
+    },
+    datePickerButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+    },
+    datePickerButtonCancel: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    datePickerButtonConfirm: {
+      backgroundColor: colors.primary,
+    },
+    datePickerButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    datePickerButtonTextCancel: {
+      color: colors.text,
+    },
+    datePickerButtonTextConfirm: {
+      color: '#FFFFFF',
+    },
   });
 
   useEffect(() => {
@@ -988,31 +1041,59 @@ export default function PDFManagerScreen() {
   };
 
   const handleStartDateChange = (event: any, selectedDate?: Date) => {
-    // On Android, always close the picker after selection
-    if (Platform.OS === 'android') {
+    console.log('[PDFManager] Start date change event:', event.type, selectedDate);
+    
+    if (event.type === 'dismissed') {
       setShowStartDatePicker(false);
+      return;
     }
     
-    if (event.type === 'set' && selectedDate) {
+    if (selectedDate) {
       setFilters({ ...filters, startDate: selectedDate });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (event.type === 'dismissed') {
-      setShowStartDatePicker(false);
+      
+      // On Android, close immediately after selection
+      if (Platform.OS === 'android') {
+        setShowStartDatePicker(false);
+      }
     }
   };
 
   const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    // On Android, always close the picker after selection
-    if (Platform.OS === 'android') {
+    console.log('[PDFManager] End date change event:', event.type, selectedDate);
+    
+    if (event.type === 'dismissed') {
       setShowEndDatePicker(false);
+      return;
     }
     
-    if (event.type === 'set' && selectedDate) {
+    if (selectedDate) {
       setFilters({ ...filters, endDate: selectedDate });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (event.type === 'dismissed') {
-      setShowEndDatePicker(false);
+      
+      // On Android, close immediately after selection
+      if (Platform.OS === 'android') {
+        setShowEndDatePicker(false);
+      }
     }
+  };
+
+  const confirmStartDate = () => {
+    setShowStartDatePicker(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const confirmEndDate = () => {
+    setShowEndDatePicker(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const cancelStartDate = () => {
+    setShowStartDatePicker(false);
+  };
+
+  const cancelEndDate = () => {
+    setShowEndDatePicker(false);
   };
 
   return (
@@ -1069,7 +1150,10 @@ export default function PDFManagerScreen() {
               <Text style={[styles.filterLabel, { marginBottom: 8 }]}>Fecha Inicio</Text>
               <TouchableOpacity
                 style={styles.dateButton}
-                onPress={() => setShowStartDatePicker(true)}
+                onPress={() => {
+                  console.log('[PDFManager] Opening start date picker');
+                  setShowStartDatePicker(true);
+                }}
               >
                 <Text style={styles.dateButtonText}>
                   {filters.startDate 
@@ -1089,7 +1173,10 @@ export default function PDFManagerScreen() {
               <Text style={[styles.filterLabel, { marginBottom: 8 }]}>Fecha Fin</Text>
               <TouchableOpacity
                 style={styles.dateButton}
-                onPress={() => setShowEndDatePicker(true)}
+                onPress={() => {
+                  console.log('[PDFManager] Opening end date picker');
+                  setShowEndDatePicker(true);
+                }}
               >
                 <Text style={styles.dateButtonText}>
                   {filters.endDate 
@@ -1208,22 +1295,112 @@ export default function PDFManagerScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Date Pickers - Render conditionally */}
-      {showStartDatePicker && (
+      {/* Start Date Picker Modal - iOS uses Modal, Android uses native picker */}
+      {Platform.OS === 'ios' && showStartDatePicker && (
+        <Modal
+          visible={showStartDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={cancelStartDate}
+        >
+          <View style={styles.datePickerModal}>
+            <View style={styles.datePickerContainer}>
+              <View style={styles.datePickerHeader}>
+                <Text style={styles.datePickerTitle}>Fecha Inicio</Text>
+              </View>
+              <DateTimePicker
+                value={filters.startDate || new Date()}
+                mode="date"
+                display="spinner"
+                onChange={handleStartDateChange}
+                maximumDate={new Date()}
+                textColor={colors.text}
+              />
+              <View style={styles.datePickerButtons}>
+                <TouchableOpacity
+                  style={[styles.datePickerButton, styles.datePickerButtonCancel]}
+                  onPress={cancelStartDate}
+                >
+                  <Text style={[styles.datePickerButtonText, styles.datePickerButtonTextCancel]}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.datePickerButton, styles.datePickerButtonConfirm]}
+                  onPress={confirmStartDate}
+                >
+                  <Text style={[styles.datePickerButtonText, styles.datePickerButtonTextConfirm]}>
+                    Confirmar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Android Start Date Picker */}
+      {Platform.OS === 'android' && showStartDatePicker && (
         <DateTimePicker
           value={filters.startDate || new Date()}
           mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="default"
           onChange={handleStartDateChange}
           maximumDate={new Date()}
         />
       )}
 
-      {showEndDatePicker && (
+      {/* End Date Picker Modal - iOS uses Modal, Android uses native picker */}
+      {Platform.OS === 'ios' && showEndDatePicker && (
+        <Modal
+          visible={showEndDatePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={cancelEndDate}
+        >
+          <View style={styles.datePickerModal}>
+            <View style={styles.datePickerContainer}>
+              <View style={styles.datePickerHeader}>
+                <Text style={styles.datePickerTitle}>Fecha Fin</Text>
+              </View>
+              <DateTimePicker
+                value={filters.endDate || new Date()}
+                mode="date"
+                display="spinner"
+                onChange={handleEndDateChange}
+                maximumDate={new Date()}
+                minimumDate={filters.startDate}
+                textColor={colors.text}
+              />
+              <View style={styles.datePickerButtons}>
+                <TouchableOpacity
+                  style={[styles.datePickerButton, styles.datePickerButtonCancel]}
+                  onPress={cancelEndDate}
+                >
+                  <Text style={[styles.datePickerButtonText, styles.datePickerButtonTextCancel]}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.datePickerButton, styles.datePickerButtonConfirm]}
+                  onPress={confirmEndDate}
+                >
+                  <Text style={[styles.datePickerButtonText, styles.datePickerButtonTextConfirm]}>
+                    Confirmar
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Android End Date Picker */}
+      {Platform.OS === 'android' && showEndDatePicker && (
         <DateTimePicker
           value={filters.endDate || new Date()}
           mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          display="default"
           onChange={handleEndDateChange}
           maximumDate={new Date()}
           minimumDate={filters.startDate}
