@@ -290,13 +290,17 @@ export default function PDFManagerScreen() {
       const html = generateOrdersHTML(orders);
       console.log('[PDFManager] Generating PDF with', orders.length, 'orders');
       
-      const { uri } = await Print.printToFileAsync({ 
+      const result = await Print.printToFileAsync({ 
         html,
         base64: false 
       });
       
-      console.log('[PDFManager] PDF generated at:', uri);
-      await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      if (!result || !result.uri) {
+        throw new Error('No se pudo generar el archivo PDF');
+      }
+      
+      console.log('[PDFManager] PDF generated at:', result.uri);
+      await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showDialog('success', 'PDF Generado', `Se generó el PDF con ${orders.length} pedido(s).`);
@@ -324,13 +328,17 @@ export default function PDFManagerScreen() {
       const html = generateDetailedHTML(orders);
       console.log('[PDFManager] Generating detailed PDF with', orders.length, 'orders');
       
-      const { uri } = await Print.printToFileAsync({ 
+      const result = await Print.printToFileAsync({ 
         html,
         base64: false 
       });
       
-      console.log('[PDFManager] Detailed PDF generated at:', uri);
-      await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      if (!result || !result.uri) {
+        throw new Error('No se pudo generar el archivo PDF');
+      }
+      
+      console.log('[PDFManager] Detailed PDF generated at:', result.uri);
+      await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showDialog('success', 'PDF Generado', `Se generó el PDF detallado con ${orders.length} pedido(s).`);
@@ -358,13 +366,17 @@ export default function PDFManagerScreen() {
       const html = generateSummaryHTML(orders);
       console.log('[PDFManager] Generating summary PDF with', orders.length, 'orders');
       
-      const { uri } = await Print.printToFileAsync({ 
+      const result = await Print.printToFileAsync({ 
         html,
         base64: false 
       });
       
-      console.log('[PDFManager] Summary PDF generated at:', uri);
-      await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      if (!result || !result.uri) {
+        throw new Error('No se pudo generar el archivo PDF');
+      }
+      
+      console.log('[PDFManager] Summary PDF generated at:', result.uri);
+      await shareAsync(result.uri, { UTI: '.pdf', mimeType: 'application/pdf' });
       
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showDialog('success', 'PDF Generado', `Se generó el resumen con ${orders.length} pedido(s).`);
@@ -374,6 +386,16 @@ export default function PDFManagerScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const escapeHtml = (text: string): string => {
+    if (!text) return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   };
 
   const generateOrdersHTML = (orders: Order[]): string => {
@@ -480,7 +502,7 @@ export default function PDFManagerScreen() {
         <body>
           <div class="header">
             <h1>Respaldo de Pedidos</h1>
-            <p class="subtitle">Generado el ${formatDate(new Date().toISOString())}</p>
+            <p class="subtitle">Generado el ${escapeHtml(formatDate(new Date().toISOString()))}</p>
           </div>
           
           <div class="filter-info">
@@ -490,23 +512,23 @@ export default function PDFManagerScreen() {
           ${orders.map(order => `
             <div class="order">
               <div class="order-header">
-                <span class="order-number">#${order.order_number}</span>
-                <span class="status status-${order.status}">${getStatusLabel(order.status)}</span>
+                <span class="order-number">#${escapeHtml(order.order_number || '')}</span>
+                <span class="status status-${order.status}">${escapeHtml(getStatusLabel(order.status))}</span>
               </div>
               <div class="order-info">
-                <p><span class="label">Cliente:</span> ${order.customer_name || 'Sin nombre'}</p>
-                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${order.customer_phone}</p>` : ''}
-                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${order.customer_address}</p>` : ''}
-                <p><span class="label">Fecha:</span> ${formatDate(order.created_at)}</p>
+                <p><span class="label">Cliente:</span> ${escapeHtml(order.customer_name || 'Sin nombre')}</p>
+                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${escapeHtml(order.customer_phone)}</p>` : ''}
+                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${escapeHtml(order.customer_address)}</p>` : ''}
+                <p><span class="label">Fecha:</span> ${escapeHtml(formatDate(order.created_at))}</p>
                 <p><span class="label">Origen:</span> ${order.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}</p>
               </div>
-              <div class="total">Total: ${formatCLP(order.total_amount)}</div>
+              <div class="total">Total: ${escapeHtml(formatCLP(order.total_amount || 0))}</div>
             </div>
           `).join('')}
 
           <div class="footer">
             <p>Total de pedidos: ${orders.length}</p>
-            <p>Monto total: ${formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0))}</p>
+            <p>Monto total: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)))}</p>
             <p>Order Manager - Aplicación de uso privado</p>
           </div>
         </body>
@@ -650,7 +672,7 @@ export default function PDFManagerScreen() {
         <body>
           <div class="header">
             <h1>Detalle de Pedidos</h1>
-            <p class="subtitle">Generado el ${formatDate(new Date().toISOString())}</p>
+            <p class="subtitle">Generado el ${escapeHtml(formatDate(new Date().toISOString()))}</p>
           </div>
           
           <div class="filter-info">
@@ -660,17 +682,17 @@ export default function PDFManagerScreen() {
           ${orders.map(order => `
             <div class="order">
               <div class="order-header">
-                <span class="order-number">#${order.order_number}</span>
-                <span class="status status-${order.status}">${getStatusLabel(order.status)}</span>
+                <span class="order-number">#${escapeHtml(order.order_number || '')}</span>
+                <span class="status status-${order.status}">${escapeHtml(getStatusLabel(order.status))}</span>
               </div>
               
               <div class="order-info">
-                <p><span class="label">Cliente:</span> ${order.customer_name || 'Sin nombre'}</p>
-                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${order.customer_phone}</p>` : ''}
-                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${order.customer_address}</p>` : ''}
-                <p><span class="label">Fecha:</span> ${formatDate(order.created_at)}</p>
+                <p><span class="label">Cliente:</span> ${escapeHtml(order.customer_name || 'Sin nombre')}</p>
+                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${escapeHtml(order.customer_phone)}</p>` : ''}
+                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${escapeHtml(order.customer_address)}</p>` : ''}
+                <p><span class="label">Fecha:</span> ${escapeHtml(formatDate(order.created_at))}</p>
                 <p><span class="label">Origen:</span> ${order.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}</p>
-                ${order.notes ? `<p><span class="label">Notas:</span> ${order.notes}</p>` : ''}
+                ${order.notes ? `<p><span class="label">Notas:</span> ${escapeHtml(order.notes)}</p>` : ''}
               </div>
 
               ${order.items && order.items.length > 0 ? `
@@ -678,10 +700,10 @@ export default function PDFManagerScreen() {
                   <div class="items-title">Productos:</div>
                   ${order.items.map(item => `
                     <div class="item">
-                      <div class="item-name">${item.product_name || 'Sin nombre'}</div>
+                      <div class="item-name">${escapeHtml(item.product_name || 'Sin nombre')}</div>
                       <div class="item-details">
-                        Cantidad: ${item.quantity} | Precio: ${formatCLP(Number(item.unit_price || 0))}
-                        ${item.notes ? ` | ${item.notes}` : ''}
+                        Cantidad: ${item.quantity} | Precio: ${escapeHtml(formatCLP(Number(item.unit_price || 0)))}
+                        ${item.notes ? ` | ${escapeHtml(item.notes)}` : ''}
                       </div>
                     </div>
                   `).join('')}
@@ -689,18 +711,18 @@ export default function PDFManagerScreen() {
               ` : ''}
 
               <div class="totals">
-                <p><span class="label">Total:</span> <span class="total-amount">${formatCLP(order.total_amount || 0)}</span></p>
-                <p><span class="label">Pagado:</span> ${formatCLP(order.paid_amount || 0)}</p>
-                <p><span class="label">Pendiente:</span> ${formatCLP(Number(order.total_amount || 0) - Number(order.paid_amount || 0))}</p>
+                <p><span class="label">Total:</span> <span class="total-amount">${escapeHtml(formatCLP(order.total_amount || 0))}</span></p>
+                <p><span class="label">Pagado:</span> ${escapeHtml(formatCLP(order.paid_amount || 0))}</p>
+                <p><span class="label">Pendiente:</span> ${escapeHtml(formatCLP(Number(order.total_amount || 0) - Number(order.paid_amount || 0)))}</p>
               </div>
             </div>
           `).join('')}
 
           <div class="footer">
             <p>Total de pedidos: ${orders.length}</p>
-            <p>Monto total: ${formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0))}</p>
-            <p>Monto pagado: ${formatCLP(orders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0))}</p>
-            <p>Monto pendiente: ${formatCLP(orders.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0))}</p>
+            <p>Monto total: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)))}</p>
+            <p>Monto pagado: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + Number(o.paid_amount || 0), 0)))}</p>
+            <p>Monto pendiente: ${escapeHtml(formatCLP(orders.reduce((sum, o) => sum + (Number(o.total_amount || 0) - Number(o.paid_amount || 0)), 0)))}</p>
             <p>Order Manager - Aplicación de uso privado</p>
           </div>
         </body>
@@ -842,7 +864,7 @@ export default function PDFManagerScreen() {
         <body>
           <div class="header">
             <h1>Resumen de Pedidos</h1>
-            <p class="subtitle">Generado el ${formatDate(new Date().toISOString())}</p>
+            <p class="subtitle">Generado el ${escapeHtml(formatDate(new Date().toISOString()))}</p>
           </div>
           
           <div class="filter-info">
@@ -856,15 +878,15 @@ export default function PDFManagerScreen() {
             </div>
             <div class="stat-card">
               <div class="stat-label">Monto Total</div>
-              <div class="stat-value">${formatCLP(totalAmount)}</div>
+              <div class="stat-value">${escapeHtml(formatCLP(totalAmount))}</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Monto Pagado</div>
-              <div class="stat-value">${formatCLP(totalPaid)}</div>
+              <div class="stat-value">${escapeHtml(formatCLP(totalPaid))}</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Monto Pendiente</div>
-              <div class="stat-value">${formatCLP(totalPending)}</div>
+              <div class="stat-value">${escapeHtml(formatCLP(totalPending))}</div>
             </div>
           </div>
 
@@ -880,7 +902,7 @@ export default function PDFManagerScreen() {
               <tbody>
                 ${Object.entries(byStatus).map(([status, count]) => `
                   <tr>
-                    <td>${getStatusLabel(status as OrderStatus)}</td>
+                    <td>${escapeHtml(getStatusLabel(status as OrderStatus))}</td>
                     <td>${count}</td>
                   </tr>
                 `).join('')}
@@ -901,9 +923,9 @@ export default function PDFManagerScreen() {
               <tbody>
                 ${topCustomers.map(([name, data]) => `
                   <tr>
-                    <td>${name}</td>
+                    <td>${escapeHtml(name)}</td>
                     <td>${data.count}</td>
-                    <td>${formatCLP(data.total)}</td>
+                    <td>${escapeHtml(formatCLP(data.total))}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -922,16 +944,16 @@ export default function PDFManagerScreen() {
     const parts: string[] = [];
     
     if (filters.customerName) {
-      parts.push(`<p><strong>Cliente:</strong> ${filters.customerName}</p>`);
+      parts.push(`<p><strong>Cliente:</strong> ${escapeHtml(filters.customerName)}</p>`);
     }
     if (filters.status && filters.status !== 'all') {
-      parts.push(`<p><strong>Estado:</strong> ${getStatusLabel(filters.status)}</p>`);
+      parts.push(`<p><strong>Estado:</strong> ${escapeHtml(getStatusLabel(filters.status))}</p>`);
     }
     if (filters.startDate) {
-      parts.push(`<p><strong>Desde:</strong> ${filters.startDate.toLocaleDateString('es-ES')}</p>`);
+      parts.push(`<p><strong>Desde:</strong> ${escapeHtml(filters.startDate.toLocaleDateString('es-ES'))}</p>`);
     }
     if (filters.endDate) {
-      parts.push(`<p><strong>Hasta:</strong> ${filters.endDate.toLocaleDateString('es-ES')}</p>`);
+      parts.push(`<p><strong>Hasta:</strong> ${escapeHtml(filters.endDate.toLocaleDateString('es-ES'))}</p>`);
     }
     
     if (parts.length === 0) {
@@ -966,18 +988,30 @@ export default function PDFManagerScreen() {
   };
 
   const handleStartDateChange = (event: any, selectedDate?: Date) => {
-    setShowStartDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
+    // On Android, always close the picker after selection
+    if (Platform.OS === 'android') {
+      setShowStartDatePicker(false);
+    }
+    
+    if (event.type === 'set' && selectedDate) {
       setFilters({ ...filters, startDate: selectedDate });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (event.type === 'dismissed') {
+      setShowStartDatePicker(false);
     }
   };
 
   const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    setShowEndDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
+    // On Android, always close the picker after selection
+    if (Platform.OS === 'android') {
+      setShowEndDatePicker(false);
+    }
+    
+    if (event.type === 'set' && selectedDate) {
       setFilters({ ...filters, endDate: selectedDate });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (event.type === 'dismissed') {
+      setShowEndDatePicker(false);
     }
   };
 
@@ -1049,15 +1083,6 @@ export default function PDFManagerScreen() {
                   color={colors.primary}
                 />
               </TouchableOpacity>
-              {showStartDatePicker && (
-                <DateTimePicker
-                  value={filters.startDate || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={handleStartDateChange}
-                  maximumDate={new Date()}
-                />
-              )}
             </View>
 
             <View>
@@ -1078,20 +1103,10 @@ export default function PDFManagerScreen() {
                   color={colors.primary}
                 />
               </TouchableOpacity>
-              {showEndDatePicker && (
-                <DateTimePicker
-                  value={filters.endDate || new Date()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={handleEndDateChange}
-                  maximumDate={new Date()}
-                  minimumDate={filters.startDate}
-                />
-              )}
             </View>
 
             <TouchableOpacity
-              style={[styles.button, styles.secondaryButton]}
+              style={[styles.button, styles.secondaryButton, { marginTop: 12 }]}
               onPress={clearFilters}
             >
               <IconSymbol
@@ -1192,6 +1207,28 @@ export default function PDFManagerScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Date Pickers - Render conditionally */}
+      {showStartDatePicker && (
+        <DateTimePicker
+          value={filters.startDate || new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleStartDateChange}
+          maximumDate={new Date()}
+        />
+      )}
+
+      {showEndDatePicker && (
+        <DateTimePicker
+          value={filters.endDate || new Date()}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleEndDateChange}
+          maximumDate={new Date()}
+          minimumDate={filters.startDate}
+        />
+      )}
 
       {/* Customer Selection Modal */}
       <Modal
