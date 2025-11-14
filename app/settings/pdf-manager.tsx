@@ -1,0 +1,1215 @@
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  TextInput,
+  Modal,
+  FlatList,
+  Platform,
+} from 'react-native';
+import { Stack, router } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
+import { CustomDialog, DialogButton } from '@/components/CustomDialog';
+import { useAuth } from '@/contexts/AuthContext';
+import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { getSupabase } from '@/lib/supabase';
+import { Order, Customer, OrderStatus } from '@/types';
+import { formatCLP, formatDate, getStatusLabel } from '@/utils/orderHelpers';
+import * as Print from 'expo-print';
+import { shareAsync } from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
+
+interface DialogState {
+  visible: boolean;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  message: string;
+  buttons?: DialogButton[];
+}
+
+interface FilterOptions {
+  startDate?: string;
+  endDate?: string;
+  status?: OrderStatus | 'all';
+  customerId?: string;
+  customerName?: string;
+}
+
+const STATUS_OPTIONS: { value: OrderStatus | 'all'; label: string }[] = [
+  { value: 'all', label: 'Todos los Estados' },
+  { value: 'pending', label: 'Pendiente' },
+  { value: 'preparing', label: 'Preparando' },
+  { value: 'ready', label: 'Listo' },
+  { value: 'delivered', label: 'Entregado' },
+  { value: 'cancelled', label: 'Cancelado' },
+  { value: 'pending_payment', label: 'Pendiente de Pago' },
+  { value: 'abonado', label: 'Abonado' },
+  { value: 'pagado', label: 'Pagado' },
+  { value: 'finalizado', label: 'Finalizado' },
+];
+
+export default function PDFManagerScreen() {
+  const { user } = useAuth();
+  const [dialog, setDialog] = useState<DialogState>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    status: 'all',
+  });
+
+  const themedStyles = useThemedStyles((colors) => ({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    section: {
+      marginHorizontal: 16,
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 12,
+      marginLeft: 4,
+    },
+    card: {
+      backgroundColor: colors.card,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    cardDescription: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 12,
+    },
+    filterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    filterLabel: {
+      fontSize: 14,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    filterValue: {
+      fontSize: 14,
+      color: colors.primary,
+      fontWeight: '500',
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 14,
+      color: colors.text,
+      marginBottom: 8,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      padding: 14,
+      borderRadius: 8,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    buttonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    secondaryButtonText: {
+      color: colors.text,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.card,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '80%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    modalItem: {
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalItemText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    modalItemSubtext: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+  }));
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  const showDialog = (
+    type: 'success' | 'error' | 'warning' | 'info',
+    title: string,
+    message: string,
+    buttons?: DialogButton[]
+  ) => {
+    setDialog({ visible: true, type, title, message, buttons });
+  };
+
+  const closeDialog = () => {
+    setDialog({ ...dialog, visible: false });
+  };
+
+  const loadCustomers = async () => {
+    try {
+      const supabase = getSupabase();
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (error) {
+      console.error('[PDFManager] Error loading customers:', error);
+    }
+  };
+
+  const fetchOrders = async (): Promise<Order[]> => {
+    try {
+      const supabase = getSupabase();
+      let query = supabase
+        .from('orders')
+        .select(`
+          *,
+          items:order_items(*),
+          queries:order_queries(*),
+          order_payments(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (filters.startDate) {
+        query = query.gte('created_at', filters.startDate);
+      }
+      if (filters.endDate) {
+        query = query.lte('created_at', filters.endDate);
+      }
+      if (filters.status && filters.status !== 'all') {
+        query = query.eq('status', filters.status);
+      }
+      if (filters.customerId) {
+        query = query.eq('customer_id', filters.customerId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('[PDFManager] Error fetching orders:', error);
+      throw error;
+    }
+  };
+
+  const generateOrdersPDF = async () => {
+    try {
+      setLoading(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const orders = await fetchOrders();
+
+      if (orders.length === 0) {
+        showDialog('warning', 'Sin Resultados', 'No se encontraron pedidos con los filtros seleccionados.');
+        setLoading(false);
+        return;
+      }
+
+      const html = generateOrdersHTML(orders);
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showDialog('success', 'PDF Generado', `Se generó el PDF con ${orders.length} pedido(s).`);
+    } catch (error) {
+      console.error('[PDFManager] Error generating PDF:', error);
+      showDialog('error', 'Error', 'No se pudo generar el PDF. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateDetailedPDF = async () => {
+    try {
+      setLoading(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const orders = await fetchOrders();
+
+      if (orders.length === 0) {
+        showDialog('warning', 'Sin Resultados', 'No se encontraron pedidos con los filtros seleccionados.');
+        setLoading(false);
+        return;
+      }
+
+      const html = generateDetailedHTML(orders);
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showDialog('success', 'PDF Generado', `Se generó el PDF detallado con ${orders.length} pedido(s).`);
+    } catch (error) {
+      console.error('[PDFManager] Error generating detailed PDF:', error);
+      showDialog('error', 'Error', 'No se pudo generar el PDF. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSummaryPDF = async () => {
+    try {
+      setLoading(true);
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      const orders = await fetchOrders();
+
+      if (orders.length === 0) {
+        showDialog('warning', 'Sin Resultados', 'No se encontraron pedidos con los filtros seleccionados.');
+        setLoading(false);
+        return;
+      }
+
+      const html = generateSummaryHTML(orders);
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      await shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      showDialog('success', 'PDF Generado', `Se generó el resumen con ${orders.length} pedido(s).`);
+    } catch (error) {
+      console.error('[PDFManager] Error generating summary PDF:', error);
+      showDialog('error', 'Error', 'No se pudo generar el PDF. Intenta nuevamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateOrdersHTML = (orders: Order[]): string => {
+    const filterInfo = getFilterInfo();
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              padding: 20px;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #6B9F3E;
+              padding-bottom: 20px;
+            }
+            .logo {
+              width: 80px;
+              height: 80px;
+              margin: 0 auto 15px;
+            }
+            h1 {
+              color: #6B9F3E;
+              margin: 10px 0;
+              font-size: 24px;
+            }
+            .subtitle {
+              color: #666;
+              font-size: 14px;
+            }
+            .filter-info {
+              background-color: #f5f5f5;
+              padding: 15px;
+              border-radius: 8px;
+              margin-bottom: 20px;
+            }
+            .filter-info p {
+              margin: 5px 0;
+              font-size: 12px;
+              color: #666;
+            }
+            .order {
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              padding: 15px;
+              margin-bottom: 15px;
+              page-break-inside: avoid;
+            }
+            .order-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 10px;
+              border-bottom: 1px solid #eee;
+              padding-bottom: 10px;
+            }
+            .order-number {
+              font-weight: bold;
+              font-size: 16px;
+              color: #6B9F3E;
+            }
+            .status {
+              padding: 4px 12px;
+              border-radius: 12px;
+              font-size: 12px;
+              font-weight: 600;
+            }
+            .status-pending { background-color: #FEF3C7; color: #92400E; }
+            .status-preparing { background-color: #DBEAFE; color: #1E40AF; }
+            .status-ready { background-color: #D1FAE5; color: #065F46; }
+            .status-delivered { background-color: #E5E7EB; color: #374151; }
+            .status-cancelled { background-color: #FEE2E2; color: #991B1B; }
+            .order-info {
+              margin: 10px 0;
+            }
+            .order-info p {
+              margin: 5px 0;
+              font-size: 13px;
+            }
+            .label {
+              font-weight: 600;
+              color: #666;
+            }
+            .total {
+              text-align: right;
+              font-size: 16px;
+              font-weight: bold;
+              color: #6B9F3E;
+              margin-top: 10px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              color: #999;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" class="logo" alt="Logo" />
+            <h1>Respaldo de Pedidos</h1>
+            <p class="subtitle">Generado el ${formatDate(new Date().toISOString())}</p>
+          </div>
+          
+          <div class="filter-info">
+            ${filterInfo}
+          </div>
+
+          ${orders.map(order => `
+            <div class="order">
+              <div class="order-header">
+                <span class="order-number">#${order.order_number}</span>
+                <span class="status status-${order.status}">${getStatusLabel(order.status)}</span>
+              </div>
+              <div class="order-info">
+                <p><span class="label">Cliente:</span> ${order.customer_name}</p>
+                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${order.customer_phone}</p>` : ''}
+                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${order.customer_address}</p>` : ''}
+                <p><span class="label">Fecha:</span> ${formatDate(order.created_at)}</p>
+                <p><span class="label">Origen:</span> ${order.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}</p>
+              </div>
+              <div class="total">Total: ${formatCLP(order.total_amount)}</div>
+            </div>
+          `).join('')}
+
+          <div class="footer">
+            <p>Total de pedidos: ${orders.length}</p>
+            <p>Monto total: ${formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount), 0))}</p>
+            <p>Order Manager - Aplicación de uso privado</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const generateDetailedHTML = (orders: Order[]): string => {
+    const filterInfo = getFilterInfo();
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              padding: 20px;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #6B9F3E;
+              padding-bottom: 20px;
+            }
+            .logo {
+              width: 80px;
+              height: 80px;
+              margin: 0 auto 15px;
+            }
+            h1 {
+              color: #6B9F3E;
+              margin: 10px 0;
+              font-size: 24px;
+            }
+            .subtitle {
+              color: #666;
+              font-size: 14px;
+            }
+            .filter-info {
+              background-color: #f5f5f5;
+              padding: 15px;
+              border-radius: 8px;
+              margin-bottom: 20px;
+            }
+            .filter-info p {
+              margin: 5px 0;
+              font-size: 12px;
+              color: #666;
+            }
+            .order {
+              border: 1px solid #ddd;
+              border-radius: 8px;
+              padding: 15px;
+              margin-bottom: 20px;
+              page-break-inside: avoid;
+            }
+            .order-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 15px;
+              border-bottom: 2px solid #6B9F3E;
+              padding-bottom: 10px;
+            }
+            .order-number {
+              font-weight: bold;
+              font-size: 18px;
+              color: #6B9F3E;
+            }
+            .status {
+              padding: 4px 12px;
+              border-radius: 12px;
+              font-size: 12px;
+              font-weight: 600;
+            }
+            .status-pending { background-color: #FEF3C7; color: #92400E; }
+            .status-preparing { background-color: #DBEAFE; color: #1E40AF; }
+            .status-ready { background-color: #D1FAE5; color: #065F46; }
+            .status-delivered { background-color: #E5E7EB; color: #374151; }
+            .status-cancelled { background-color: #FEE2E2; color: #991B1B; }
+            .order-info {
+              margin: 15px 0;
+            }
+            .order-info p {
+              margin: 5px 0;
+              font-size: 13px;
+            }
+            .label {
+              font-weight: 600;
+              color: #666;
+            }
+            .items-section {
+              margin: 15px 0;
+            }
+            .items-title {
+              font-weight: 600;
+              font-size: 14px;
+              margin-bottom: 10px;
+              color: #333;
+            }
+            .item {
+              background-color: #f9f9f9;
+              padding: 10px;
+              border-radius: 6px;
+              margin-bottom: 8px;
+            }
+            .item-name {
+              font-weight: 600;
+              color: #333;
+            }
+            .item-details {
+              font-size: 12px;
+              color: #666;
+              margin-top: 4px;
+            }
+            .totals {
+              background-color: #f5f5f5;
+              padding: 15px;
+              border-radius: 8px;
+              margin-top: 15px;
+            }
+            .totals p {
+              margin: 5px 0;
+              font-size: 14px;
+            }
+            .total-amount {
+              font-size: 18px;
+              font-weight: bold;
+              color: #6B9F3E;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              color: #999;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" class="logo" alt="Logo" />
+            <h1>Detalle de Pedidos</h1>
+            <p class="subtitle">Generado el ${formatDate(new Date().toISOString())}</p>
+          </div>
+          
+          <div class="filter-info">
+            ${filterInfo}
+          </div>
+
+          ${orders.map(order => `
+            <div class="order">
+              <div class="order-header">
+                <span class="order-number">#${order.order_number}</span>
+                <span class="status status-${order.status}">${getStatusLabel(order.status)}</span>
+              </div>
+              
+              <div class="order-info">
+                <p><span class="label">Cliente:</span> ${order.customer_name}</p>
+                ${order.customer_phone ? `<p><span class="label">Teléfono:</span> ${order.customer_phone}</p>` : ''}
+                ${order.customer_address ? `<p><span class="label">Dirección:</span> ${order.customer_address}</p>` : ''}
+                <p><span class="label">Fecha:</span> ${formatDate(order.created_at)}</p>
+                <p><span class="label">Origen:</span> ${order.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}</p>
+                ${order.notes ? `<p><span class="label">Notas:</span> ${order.notes}</p>` : ''}
+              </div>
+
+              ${order.items && order.items.length > 0 ? `
+                <div class="items-section">
+                  <div class="items-title">Productos:</div>
+                  ${order.items.map(item => `
+                    <div class="item">
+                      <div class="item-name">${item.product_name}</div>
+                      <div class="item-details">
+                        Cantidad: ${item.quantity} | Precio: ${formatCLP(Number(item.unit_price))}
+                        ${item.notes ? ` | ${item.notes}` : ''}
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+
+              <div class="totals">
+                <p><span class="label">Total:</span> <span class="total-amount">${formatCLP(order.total_amount)}</span></p>
+                <p><span class="label">Pagado:</span> ${formatCLP(order.paid_amount)}</p>
+                <p><span class="label">Pendiente:</span> ${formatCLP(Number(order.total_amount) - Number(order.paid_amount))}</p>
+              </div>
+            </div>
+          `).join('')}
+
+          <div class="footer">
+            <p>Total de pedidos: ${orders.length}</p>
+            <p>Monto total: ${formatCLP(orders.reduce((sum, o) => sum + Number(o.total_amount), 0))}</p>
+            <p>Monto pagado: ${formatCLP(orders.reduce((sum, o) => sum + Number(o.paid_amount), 0))}</p>
+            <p>Monto pendiente: ${formatCLP(orders.reduce((sum, o) => sum + (Number(o.total_amount) - Number(o.paid_amount)), 0))}</p>
+            <p>Order Manager - Aplicación de uso privado</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const generateSummaryHTML = (orders: Order[]): string => {
+    const filterInfo = getFilterInfo();
+    
+    // Calculate statistics
+    const totalOrders = orders.length;
+    const totalAmount = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
+    const totalPaid = orders.reduce((sum, o) => sum + Number(o.paid_amount), 0);
+    const totalPending = totalAmount - totalPaid;
+    
+    // Group by status
+    const byStatus: Record<string, number> = {};
+    orders.forEach(order => {
+      byStatus[order.status] = (byStatus[order.status] || 0) + 1;
+    });
+    
+    // Group by customer
+    const byCustomer: Record<string, { count: number; total: number }> = {};
+    orders.forEach(order => {
+      if (!byCustomer[order.customer_name]) {
+        byCustomer[order.customer_name] = { count: 0, total: 0 };
+      }
+      byCustomer[order.customer_name].count++;
+      byCustomer[order.customer_name].total += Number(order.total_amount);
+    });
+    
+    const topCustomers = Object.entries(byCustomer)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 10);
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              padding: 20px;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #6B9F3E;
+              padding-bottom: 20px;
+            }
+            .logo {
+              width: 80px;
+              height: 80px;
+              margin: 0 auto 15px;
+            }
+            h1 {
+              color: #6B9F3E;
+              margin: 10px 0;
+              font-size: 24px;
+            }
+            .subtitle {
+              color: #666;
+              font-size: 14px;
+            }
+            .filter-info {
+              background-color: #f5f5f5;
+              padding: 15px;
+              border-radius: 8px;
+              margin-bottom: 20px;
+            }
+            .filter-info p {
+              margin: 5px 0;
+              font-size: 12px;
+              color: #666;
+            }
+            .stats-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 15px;
+              margin-bottom: 30px;
+            }
+            .stat-card {
+              background-color: #f9f9f9;
+              padding: 20px;
+              border-radius: 8px;
+              border-left: 4px solid #6B9F3E;
+            }
+            .stat-label {
+              font-size: 12px;
+              color: #666;
+              text-transform: uppercase;
+              margin-bottom: 8px;
+            }
+            .stat-value {
+              font-size: 24px;
+              font-weight: bold;
+              color: #333;
+            }
+            .section {
+              margin-bottom: 30px;
+            }
+            .section-title {
+              font-size: 18px;
+              font-weight: 600;
+              color: #6B9F3E;
+              margin-bottom: 15px;
+              border-bottom: 1px solid #ddd;
+              padding-bottom: 8px;
+            }
+            .table {
+              width: 100%;
+              border-collapse: collapse;
+            }
+            .table th {
+              background-color: #f5f5f5;
+              padding: 10px;
+              text-align: left;
+              font-size: 12px;
+              font-weight: 600;
+              color: #666;
+              border-bottom: 2px solid #ddd;
+            }
+            .table td {
+              padding: 10px;
+              border-bottom: 1px solid #eee;
+              font-size: 13px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 30px;
+              padding-top: 20px;
+              border-top: 1px solid #ddd;
+              color: #999;
+              font-size: 12px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" class="logo" alt="Logo" />
+            <h1>Resumen de Pedidos</h1>
+            <p class="subtitle">Generado el ${formatDate(new Date().toISOString())}</p>
+          </div>
+          
+          <div class="filter-info">
+            ${filterInfo}
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Total Pedidos</div>
+              <div class="stat-value">${totalOrders}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Monto Total</div>
+              <div class="stat-value">${formatCLP(totalAmount)}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Monto Pagado</div>
+              <div class="stat-value">${formatCLP(totalPaid)}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Monto Pendiente</div>
+              <div class="stat-value">${formatCLP(totalPending)}</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Pedidos por Estado</div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Estado</th>
+                  <th>Cantidad</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Object.entries(byStatus).map(([status, count]) => `
+                  <tr>
+                    <td>${getStatusLabel(status as OrderStatus)}</td>
+                    <td>${count}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Top 10 Clientes</div>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Pedidos</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topCustomers.map(([name, data]) => `
+                  <tr>
+                    <td>${name}</td>
+                    <td>${data.count}</td>
+                    <td>${formatCLP(data.total)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="footer">
+            <p>Order Manager - Aplicación de uso privado</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const getFilterInfo = (): string => {
+    const parts: string[] = [];
+    
+    if (filters.customerName) {
+      parts.push(`<p><strong>Cliente:</strong> ${filters.customerName}</p>`);
+    }
+    if (filters.status && filters.status !== 'all') {
+      parts.push(`<p><strong>Estado:</strong> ${getStatusLabel(filters.status)}</p>`);
+    }
+    if (filters.startDate) {
+      parts.push(`<p><strong>Desde:</strong> ${formatDate(filters.startDate)}</p>`);
+    }
+    if (filters.endDate) {
+      parts.push(`<p><strong>Hasta:</strong> ${formatDate(filters.endDate)}</p>`);
+    }
+    
+    if (parts.length === 0) {
+      return '<p><strong>Filtros:</strong> Todos los pedidos</p>';
+    }
+    
+    return parts.join('');
+  };
+
+  const clearFilters = () => {
+    setFilters({ status: 'all' });
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const selectCustomer = (customer: Customer) => {
+    setFilters({
+      ...filters,
+      customerId: customer.id,
+      customerName: customer.name,
+    });
+    setShowCustomerModal(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const selectStatus = (status: OrderStatus | 'all') => {
+    setFilters({
+      ...filters,
+      status,
+    });
+    setShowStatusModal(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          title: 'Gestor PDF Pedidos',
+          headerBackTitle: 'Atrás',
+        }}
+      />
+      <ScrollView style={themedStyles.container}>
+        {/* Filters Section */}
+        <View style={themedStyles.section}>
+          <Text style={themedStyles.sectionTitle}>Filtros</Text>
+          
+          <View style={themedStyles.card}>
+            <TouchableOpacity
+              style={themedStyles.filterRow}
+              onPress={() => setShowCustomerModal(true)}
+            >
+              <Text style={themedStyles.filterLabel}>Cliente</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={themedStyles.filterValue}>
+                  {filters.customerName || 'Todos'}
+                </Text>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron_right"
+                  size={20}
+                  color={themedStyles.filterValue.color}
+                />
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={themedStyles.filterRow}
+              onPress={() => setShowStatusModal(true)}
+            >
+              <Text style={themedStyles.filterLabel}>Estado</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={themedStyles.filterValue}>
+                  {filters.status === 'all' ? 'Todos' : getStatusLabel(filters.status!)}
+                </Text>
+                <IconSymbol
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron_right"
+                  size={20}
+                  color={themedStyles.filterValue.color}
+                />
+              </View>
+            </TouchableOpacity>
+
+            <View style={{ marginTop: 12 }}>
+              <Text style={[themedStyles.filterLabel, { marginBottom: 8 }]}>Fecha Inicio</Text>
+              <TextInput
+                style={themedStyles.input}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={themedStyles.filterLabel.color + '80'}
+                value={filters.startDate || ''}
+                onChangeText={(text) => setFilters({ ...filters, startDate: text })}
+              />
+            </View>
+
+            <View>
+              <Text style={[themedStyles.filterLabel, { marginBottom: 8 }]}>Fecha Fin</Text>
+              <TextInput
+                style={themedStyles.input}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={themedStyles.filterLabel.color + '80'}
+                value={filters.endDate || ''}
+                onChangeText={(text) => setFilters({ ...filters, endDate: text })}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[themedStyles.button, themedStyles.secondaryButton]}
+              onPress={clearFilters}
+            >
+              <IconSymbol
+                ios_icon_name="xmark.circle"
+                android_material_icon_name="close"
+                size={20}
+                color={themedStyles.secondaryButtonText.color}
+              />
+              <Text style={[themedStyles.buttonText, themedStyles.secondaryButtonText]}>
+                Limpiar Filtros
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* PDF Options Section */}
+        <View style={themedStyles.section}>
+          <Text style={themedStyles.sectionTitle}>Opciones de PDF</Text>
+
+          <View style={themedStyles.card}>
+            <Text style={themedStyles.cardTitle}>Resumen de Pedidos</Text>
+            <Text style={themedStyles.cardDescription}>
+              Lista básica de pedidos con información general (cliente, estado, total).
+            </Text>
+            <TouchableOpacity
+              style={themedStyles.button}
+              onPress={generateOrdersPDF}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <IconSymbol
+                    ios_icon_name="doc.text"
+                    android_material_icon_name="description"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={themedStyles.buttonText}>Generar PDF</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={themedStyles.card}>
+            <Text style={themedStyles.cardTitle}>Detalle Completo</Text>
+            <Text style={themedStyles.cardDescription}>
+              Incluye todos los productos, cantidades, precios y notas de cada pedido.
+            </Text>
+            <TouchableOpacity
+              style={themedStyles.button}
+              onPress={generateDetailedPDF}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <IconSymbol
+                    ios_icon_name="doc.text.fill"
+                    android_material_icon_name="article"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={themedStyles.buttonText}>Generar PDF Detallado</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={themedStyles.card}>
+            <Text style={themedStyles.cardTitle}>Resumen Estadístico</Text>
+            <Text style={themedStyles.cardDescription}>
+              Estadísticas generales, pedidos por estado y top clientes.
+            </Text>
+            <TouchableOpacity
+              style={themedStyles.button}
+              onPress={generateSummaryPDF}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <IconSymbol
+                    ios_icon_name="chart.bar.doc.horizontal"
+                    android_material_icon_name="bar_chart"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                  <Text style={themedStyles.buttonText}>Generar Resumen</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Customer Selection Modal */}
+      <Modal
+        visible={showCustomerModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCustomerModal(false)}
+      >
+        <View style={themedStyles.modalOverlay}>
+          <View style={themedStyles.modalContent}>
+            <View style={themedStyles.modalHeader}>
+              <Text style={themedStyles.modalTitle}>Seleccionar Cliente</Text>
+              <TouchableOpacity onPress={() => setShowCustomerModal(false)}>
+                <IconSymbol
+                  ios_icon_name="xmark"
+                  android_material_icon_name="close"
+                  size={24}
+                  color={themedStyles.modalTitle.color}
+                />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={[{ id: 'all', name: 'Todos los clientes' } as Customer, ...customers]}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={themedStyles.modalItem}
+                  onPress={() => {
+                    if (item.id === 'all') {
+                      setFilters({ ...filters, customerId: undefined, customerName: undefined });
+                      setShowCustomerModal(false);
+                    } else {
+                      selectCustomer(item);
+                    }
+                  }}
+                >
+                  <Text style={themedStyles.modalItemText}>{item.name}</Text>
+                  {item.phone && (
+                    <Text style={themedStyles.modalItemSubtext}>{item.phone}</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Status Selection Modal */}
+      <Modal
+        visible={showStatusModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowStatusModal(false)}
+      >
+        <View style={themedStyles.modalOverlay}>
+          <View style={themedStyles.modalContent}>
+            <View style={themedStyles.modalHeader}>
+              <Text style={themedStyles.modalTitle}>Seleccionar Estado</Text>
+              <TouchableOpacity onPress={() => setShowStatusModal(false)}>
+                <IconSymbol
+                  ios_icon_name="xmark"
+                  android_material_icon_name="close"
+                  size={24}
+                  color={themedStyles.modalTitle.color}
+                />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={STATUS_OPTIONS}
+              keyExtractor={(item) => item.value}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={themedStyles.modalItem}
+                  onPress={() => selectStatus(item.value)}
+                >
+                  <Text style={themedStyles.modalItemText}>{item.label}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
+    </>
+  );
+}

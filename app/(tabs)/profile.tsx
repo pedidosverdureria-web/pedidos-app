@@ -217,6 +217,17 @@ export default function ProfileScreen() {
                 </View>
                 <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push('/settings/pdf-manager')}
+              >
+                <View style={styles.menuItemLeft}>
+                  <IconSymbol name="doc.text.fill" size={24} color="#EF4444" />
+                  <Text style={styles.menuItemText}>Gestor PDF Pedidos</Text>
+                </View>
+                <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
             </>
           )}
         </View>
