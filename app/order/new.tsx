@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   View,
@@ -599,28 +599,7 @@ export default function NewOrderScreen() {
     headerShadowVisible: true,
   }), [colors.primary]);
 
-  // Load customers when switching to select mode
-  useEffect(() => {
-    if (customerInputMode === 'select' && customers.length === 0) {
-      loadCustomers();
-    }
-  }, [customerInputMode, customers.length, loadCustomers]);
-
-  const handleSelectCustomer = (customer: Customer) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedCustomerId(customer.id);
-    setCustomerName(customer.name);
-    setCustomerRut(customer.rut || '');
-    setCustomerPhone(customer.phone || '');
-    setCustomerAddress(customer.address || '');
-    setShowCustomerList(false);
-    
-    // Clear any customer name errors
-    if (errors.customerName) {
-      setErrors({ ...errors, customerName: undefined });
-    }
-  };
-
+  // Define loadCustomers with useCallback
   const loadCustomers = useCallback(async () => {
     try {
       setLoadingCustomers(true);
@@ -642,6 +621,28 @@ export default function NewOrderScreen() {
       setLoadingCustomers(false);
     }
   }, []);
+
+  // Load customers when switching to select mode - only if customers array is empty
+  useEffect(() => {
+    if (customerInputMode === 'select' && customers.length === 0) {
+      loadCustomers();
+    }
+  }, [customerInputMode, loadCustomers]);
+
+  const handleSelectCustomer = (customer: Customer) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedCustomerId(customer.id);
+    setCustomerName(customer.name);
+    setCustomerRut(customer.rut || '');
+    setCustomerPhone(customer.phone || '');
+    setCustomerAddress(customer.address || '');
+    setShowCustomerList(false);
+    
+    // Clear any customer name errors
+    if (errors.customerName) {
+      setErrors({ ...errors, customerName: undefined });
+    }
+  };
 
   const handleModeChange = (mode: 'manual' | 'select') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
