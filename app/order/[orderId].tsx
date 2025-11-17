@@ -1094,8 +1094,8 @@ export default function OrderDetailScreen() {
             <>
               <TouchableOpacity style={styles.addButton} onPress={openAddProductModal}>
                 <IconSymbol 
-                  ios_icon_name="plus.circle.fill"
-                  android_material_icon_name="add_circle"
+                  ios_icon_name="cart.badge.plus"
+                  android_material_icon_name="add_shopping_cart"
                   size={20} 
                   color="#fff" 
                 />
