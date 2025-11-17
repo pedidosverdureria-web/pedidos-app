@@ -183,7 +183,7 @@ export default function SettingsScreen() {
           <Text style={styles.sectionTitle}>Integraciones</Text>
           <View style={styles.card}>
             <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemLast]}
+              style={styles.menuItem}
               onPress={() => handleNavigation('/settings/whatsapp')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#25D366' }]}>
@@ -193,6 +193,27 @@ export default function SettingsScreen() {
                 <Text style={styles.menuTitle}>WhatsApp</Text>
                 <Text style={styles.menuDescription}>
                   Configurar integración con WhatsApp
+                </Text>
+              </View>
+              <IconSymbol
+                name="chevron.right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => handleNavigation('/settings/units')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#F59E0B' }]}>
+                <IconSymbol name="ruler.fill" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Unidades de Medida</Text>
+                <Text style={styles.menuDescription}>
+                  Gestionar unidades y sus definiciones
                 </Text>
               </View>
               <IconSymbol
