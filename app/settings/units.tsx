@@ -510,6 +510,8 @@ export default function UnitsManagementScreen() {
           options={{
             title: 'Unidades de Medida',
             headerBackTitle: 'Atrás',
+            headerStyle: { backgroundColor: currentTheme.colors.card },
+            headerTintColor: currentTheme.colors.text,
           }}
         />
         <View style={styles.loadingContainer}>
@@ -525,6 +527,8 @@ export default function UnitsManagementScreen() {
         options={{
           title: 'Unidades de Medida',
           headerBackTitle: 'Atrás',
+          headerStyle: { backgroundColor: currentTheme.colors.card },
+          headerTintColor: currentTheme.colors.text,
         }}
       />
       <ScrollView style={styles.content}>
