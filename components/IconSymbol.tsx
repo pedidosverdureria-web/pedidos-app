@@ -214,13 +214,14 @@ export function IconSymbol({
   let iconName: string | undefined;
   
   if (android_material_icon_name) {
-    iconName = android_material_icon_name;
+    // Normalize icon name: replace underscores with hyphens for Material Icons
+    iconName = android_material_icon_name.replace(/_/g, '-');
   } else if (name && MAPPING[name]) {
     iconName = MAPPING[name];
   }
   
   if (!iconName) {
-    console.warn(`IconSymbol: No valid icon name provided. name=${name}, android_material_icon_name=${android_material_icon_name}`);
+    console.warn(`[IconSymbol] No valid icon name provided. name=${name}, android_material_icon_name=${android_material_icon_name}`);
     // Return a fallback icon instead of null
     iconName = "help";
   }

@@ -764,7 +764,7 @@ export default function OrderDetailScreen() {
                 <View style={styles.customerExistsBanner}>
                   <IconSymbol 
                     ios_icon_name="checkmark.circle.fill"
-                    android_material_icon_name="check_circle"
+                    android_material_icon_name="check-circle"
                     size={20} 
                     color="#10B981" 
                   />
@@ -837,7 +837,7 @@ export default function OrderDetailScreen() {
                 >
                   <IconSymbol 
                     ios_icon_name="person.2.fill"
-                    android_material_icon_name="people"
+                    android_material_icon_name="group"
                     size={18} 
                     color={customerHook.customerInputMode === 'select' ? '#fff' : colors.text} 
                   />
@@ -898,7 +898,7 @@ export default function OrderDetailScreen() {
                         <View style={styles.noCustomersContainer}>
                           <IconSymbol 
                             ios_icon_name="person.crop.circle"
-                            android_material_icon_name="account_circle"
+                            android_material_icon_name="account-circle"
                             size={48} 
                             color={colors.textSecondary} 
                           />
@@ -926,7 +926,7 @@ export default function OrderDetailScreen() {
                             </View>
                             <IconSymbol 
                               ios_icon_name="chevron.right"
-                              android_material_icon_name="chevron_right"
+                              android_material_icon_name="chevron-right"
                               size={20} 
                               color={colors.textSecondary} 
                             />
@@ -958,7 +958,7 @@ export default function OrderDetailScreen() {
               >
                 <IconSymbol 
                   ios_icon_name="checkmark.circle"
-                  android_material_icon_name="check_circle"
+                  android_material_icon_name="check-circle"
                   size={20} 
                   color="#fff" 
                 />
@@ -1083,7 +1083,7 @@ export default function OrderDetailScreen() {
               >
                 <IconSymbol 
                   ios_icon_name="checkmark.circle"
-                  android_material_icon_name="check_circle"
+                  android_material_icon_name="check-circle"
                   size={20} 
                   color="#fff" 
                 />
@@ -1107,7 +1107,7 @@ export default function OrderDetailScreen() {
               <TouchableOpacity style={styles.addButton} onPress={openAddProductModal}>
                 <IconSymbol 
                   ios_icon_name="cart.fill"
-                  android_material_icon_name="shopping_cart"
+                  android_material_icon_name="shopping-cart"
                   size={20} 
                   color="#fff" 
                 />
@@ -1118,7 +1118,7 @@ export default function OrderDetailScreen() {
                 <TouchableOpacity style={styles.bulkPriceButton} onPress={productsHook.openPriceModal}>
                   <IconSymbol 
                     ios_icon_name="dollarsign.circle"
-                    android_material_icon_name="monetization_on"
+                    android_material_icon_name="monetization-on"
                     size={20} 
                     color="#fff" 
                   />
@@ -1219,7 +1219,7 @@ export default function OrderDetailScreen() {
                           ]}>
                             <IconSymbol 
                               ios_icon_name={isIncoming ? 'arrow.down' : 'arrow.up'}
-                              android_material_icon_name={isIncoming ? 'arrow_downward' : 'arrow_upward'}
+                              android_material_icon_name={isIncoming ? 'arrow-downward' : 'arrow-upward'}
                               size={14} 
                               color={isIncoming ? '#1E40AF' : '#065F46'} 
                             />
@@ -1289,7 +1289,7 @@ export default function OrderDetailScreen() {
               <View style={styles.paymentTypeContainer}>
                 <IconSymbol 
                   ios_icon_name={isFullPayment ? 'checkmark.circle.fill' : 'creditcard.fill'}
-                  android_material_icon_name={isFullPayment ? 'check_circle' : 'credit_card'}
+                  android_material_icon_name={isFullPayment ? 'check-circle' : 'credit-card'}
                   size={24} 
                   color="#10B981" 
                 />
@@ -1384,7 +1384,7 @@ export default function OrderDetailScreen() {
             >
               <IconSymbol 
                 ios_icon_name="checkmark.circle"
-                android_material_icon_name="check_circle"
+                android_material_icon_name="check-circle"
                 size={22} 
                 color="#fff" 
               />
@@ -1429,7 +1429,7 @@ export default function OrderDetailScreen() {
             <View style={styles.recurringDialogHeader}>
               <IconSymbol 
                 ios_icon_name="person.crop.circle.badge.plus"
-                android_material_icon_name="person_add"
+                android_material_icon_name="person-add"
                 size={48} 
                 color={colors.primary} 
               />
@@ -1444,7 +1444,7 @@ export default function OrderDetailScreen() {
               <View style={styles.recurringDialogInfoItem}>
                 <IconSymbol 
                   ios_icon_name="checkmark.circle.fill"
-                  android_material_icon_name="check_circle"
+                  android_material_icon_name="check-circle"
                   size={20} 
                   color="#10B981" 
                 />
@@ -1455,7 +1455,7 @@ export default function OrderDetailScreen() {
               <View style={styles.recurringDialogInfoItem}>
                 <IconSymbol 
                   ios_icon_name="checkmark.circle.fill"
-                  android_material_icon_name="check_circle"
+                  android_material_icon_name="check-circle"
                   size={20} 
                   color="#10B981" 
                 />
@@ -1466,7 +1466,7 @@ export default function OrderDetailScreen() {
               <View style={styles.recurringDialogInfoItem}>
                 <IconSymbol 
                   ios_icon_name="checkmark.circle.fill"
-                  android_material_icon_name="check_circle"
+                  android_material_icon_name="check-circle"
                   size={20} 
                   color="#10B981" 
                 />
@@ -1495,7 +1495,7 @@ export default function OrderDetailScreen() {
               >
                 <IconSymbol 
                   ios_icon_name="checkmark.circle.fill"
-                  android_material_icon_name="check_circle"
+                  android_material_icon_name="check-circle"
                   size={20} 
                   color="#fff" 
                 />
@@ -1622,7 +1622,7 @@ export default function OrderDetailScreen() {
                 <View style={styles.parsedEditItem}>
                   <IconSymbol 
                     ios_icon_name="checkmark.circle.fill"
-                    android_material_icon_name="check_circle"
+                    android_material_icon_name="check-circle"
                     size={20} 
                     color="#10B981" 
                   />
