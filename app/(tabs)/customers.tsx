@@ -109,7 +109,6 @@ function generateDebtReceipt(customer: Customer, config?: PrinterConfig): string
   
   receipt += 'RESUMEN VALES PENDIENTES:\n\n';
   
-  // Filter only pending_payment orders
   const pendingOrders = customer.orders?.filter(order => order.status === 'pending_payment') || [];
   
   if (pendingOrders.length > 0) {
@@ -218,64 +217,66 @@ export default function CustomersScreen() {
       marginVertical: 8,
       padding: 16,
       borderRadius: 12,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.primary,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    customerCardBlocked: {
-      borderLeftColor: '#6B7280',
-      opacity: 0.7,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     customerHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
       marginBottom: 12,
     },
-    customerNameContainer: {
+    customerHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
       flex: 1,
-      marginRight: 8,
+    },
+    statusDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    customerInfo: {
+      flex: 1,
     },
     customerName: {
       fontSize: 18,
       fontWeight: 'bold',
       color: colors.text,
-      marginBottom: 4,
+      marginBottom: 2,
     },
     customerRut: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: colors.text,
+      fontSize: 14,
+      color: colors.textSecondary,
     },
     blockedBadge: {
-      backgroundColor: '#FEE2E2',
-      paddingHorizontal: 10,
-      paddingVertical: 4,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
       borderRadius: 12,
+      backgroundColor: '#FEE2E2',
     },
     blockedBadgeText: {
       fontSize: 12,
       fontWeight: '600',
       color: '#DC2626',
     },
-    customerInfo: {
+    customerDetails: {
+      gap: 8,
+      marginBottom: 12,
+    },
+    customerDetailRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 6,
+      gap: 8,
     },
-    customerInfoText: {
-      fontSize: 14,
-      color: colors.text,
-      marginLeft: 8,
+    customerDetailText: {
+      fontSize: 13,
+      color: colors.textSecondary,
     },
     customerStats: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginTop: 12,
       paddingTop: 12,
       borderTopWidth: 1,
       borderTopColor: colors.border,
@@ -778,7 +779,6 @@ export default function CustomersScreen() {
       const receiptText = generateDebtReceipt(selectedCustomer, printerConfig || undefined);
       
       if (isConnected) {
-        // If printer is connected, print directly
         await print(receiptText);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setDialog({
@@ -788,7 +788,6 @@ export default function CustomersScreen() {
           message: 'El recibo de deuda se imprimió correctamente',
         });
       } else {
-        // If no printer is connected, add to print queue
         console.log('[CustomersScreen] No printer connected, adding debt receipt to print queue');
         
         const result = await addToPrintQueue('customer_debt', selectedCustomer.id, {
@@ -915,8 +914,6 @@ export default function CustomersScreen() {
       
       console.log('[CustomersScreen] Deleting customer only (disassociating from orders):', selectedCustomer.id);
       
-      // Step 1: Disassociate customer from all orders by setting customer_id to NULL
-      // The customer data (name, phone, address) remains in the order records
       if (orderCount > 0) {
         const orderIds = selectedCustomer.orders!.map(o => o.id);
         
@@ -931,7 +928,6 @@ export default function CustomersScreen() {
         console.log('[CustomersScreen] Successfully disassociated customer from', orderCount, 'orders');
       }
       
-      // Step 2: Delete the customer record
       console.log('[CustomersScreen] Deleting customer record:', selectedCustomer.id);
       const { error: deleteError } = await supabase
         .from('customers')
@@ -942,7 +938,6 @@ export default function CustomersScreen() {
 
       console.log('[CustomersScreen] Customer deleted successfully');
       
-      // Update local state
       setCustomers(prev => prev.filter(c => c.id !== selectedCustomer.id));
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -1148,18 +1143,22 @@ export default function CustomersScreen() {
   const renderCustomerCard = ({ item }: { item: Customer }) => {
     const stats = calculateCustomerStats(item);
     const isBlocked = item.blocked;
+    const statusColor = isBlocked ? '#6B7280' : colors.primary;
 
     return (
       <TouchableOpacity
-        style={[styles.customerCard, isBlocked && styles.customerCardBlocked]}
+        style={styles.customerCard}
         onPress={() => openCustomerDetail(item)}
       >
         <View style={styles.customerHeader}>
-          <View style={styles.customerNameContainer}>
-            <Text style={styles.customerName}>{item.name}</Text>
-            {item.rut && (
-              <Text style={styles.customerRut}>RUT: {item.rut}</Text>
-            )}
+          <View style={styles.customerHeaderLeft}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <View style={styles.customerInfo}>
+              <Text style={styles.customerName}>{item.name}</Text>
+              {item.rut && (
+                <Text style={styles.customerRut}>RUT: {item.rut}</Text>
+              )}
+            </View>
           </View>
           {isBlocked && (
             <View style={styles.blockedBadge}>
@@ -1168,19 +1167,21 @@ export default function CustomersScreen() {
           )}
         </View>
 
-        {item.phone && (
-          <View style={styles.customerInfo}>
-            <IconSymbol ios_icon_name="phone.fill" android_material_icon_name="phone" size={14} color={colors.textSecondary} />
-            <Text style={styles.customerInfoText}>{item.phone}</Text>
-          </View>
-        )}
-        
-        {item.address && (
-          <View style={styles.customerInfo}>
-            <IconSymbol ios_icon_name="location.fill" android_material_icon_name="location_on" size={14} color={colors.textSecondary} />
-            <Text style={styles.customerInfoText}>{item.address}</Text>
-          </View>
-        )}
+        <View style={styles.customerDetails}>
+          {item.phone && (
+            <View style={styles.customerDetailRow}>
+              <IconSymbol ios_icon_name="phone.fill" android_material_icon_name="phone" size={14} color={colors.textSecondary} />
+              <Text style={styles.customerDetailText}>{item.phone}</Text>
+            </View>
+          )}
+          
+          {item.address && (
+            <View style={styles.customerDetailRow}>
+              <IconSymbol ios_icon_name="location.fill" android_material_icon_name="location_on" size={14} color={colors.textSecondary} />
+              <Text style={styles.customerDetailText}>{item.address}</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.customerStats}>
           <View style={styles.statItem}>
@@ -1251,7 +1252,6 @@ export default function CustomersScreen() {
         />
       )}
 
-      {/* Custom Dialog */}
       <CustomDialog
         visible={dialog.visible}
         type={dialog.type}

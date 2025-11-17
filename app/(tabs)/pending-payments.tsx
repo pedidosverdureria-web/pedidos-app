@@ -273,41 +273,34 @@ export default function PendingPaymentsScreen() {
       marginVertical: 8,
       padding: 16,
       borderRadius: 12,
-      borderLeftWidth: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    },
-    customerCardWithDebt: {
-      borderLeftColor: '#EF4444',
-    },
-    customerCardPaid: {
-      borderLeftColor: '#10B981',
-    },
-    customerCardBlocked: {
-      borderLeftColor: '#6B7280',
-      opacity: 0.7,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     customerHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: 8,
+      alignItems: 'center',
+      marginBottom: 12,
     },
-    customerNameContainer: {
+    customerHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
       flex: 1,
-      marginRight: 8,
+    },
+    statusDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    customerInfo: {
+      flex: 1,
     },
     customerName: {
       fontSize: 18,
       fontWeight: 'bold',
       color: colors.text,
-      marginBottom: 4,
-    },
-    customerNameBlocked: {
-      color: colors.textSecondary,
+      marginBottom: 2,
     },
     customerRut: {
       fontSize: 14,
@@ -315,7 +308,7 @@ export default function PendingPaymentsScreen() {
     },
     debtBadge: {
       paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingVertical: 6,
       borderRadius: 12,
     },
     debtBadgeWithDebt: {
@@ -340,10 +333,18 @@ export default function PendingPaymentsScreen() {
     debtTextBlocked: {
       color: '#6B7280',
     },
-    customerInfo: {
-      fontSize: 14,
+    customerDetails: {
+      gap: 8,
+      marginBottom: 12,
+    },
+    customerDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    customerDetailText: {
+      fontSize: 13,
       color: colors.textSecondary,
-      marginBottom: 4,
     },
     blockedBanner: {
       backgroundColor: '#FEE2E2',
@@ -361,25 +362,18 @@ export default function PendingPaymentsScreen() {
       flex: 1,
     },
     alDiaBadge: {
-      position: 'absolute',
-      top: 8,
-      left: 8,
+      alignSelf: 'flex-start',
       backgroundColor: '#10B981',
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.2,
-      shadowRadius: 2,
-      elevation: 2,
     },
     alDiaBadgeText: {
-      fontSize: 11,
-      fontWeight: 'bold',
+      fontSize: 12,
+      fontWeight: '600',
       color: '#fff',
     },
     customerStats: {
@@ -1362,81 +1356,92 @@ export default function PendingPaymentsScreen() {
     const pendingOrdersCount = item.orders?.length || 0;
     const isBlocked = item.blocked;
 
+    const statusColor = isBlocked 
+      ? '#6B7280' 
+      : hasDebt 
+        ? '#EF4444' 
+        : '#10B981';
+
     return (
       <TouchableOpacity
-        style={[
-          styles.customerCard,
-          isBlocked 
-            ? styles.customerCardBlocked 
-            : hasDebt 
-              ? styles.customerCardWithDebt 
-              : styles.customerCardPaid,
-        ]}
+        style={styles.customerCard}
         onPress={() => {
           console.log('[PendingPaymentsScreen] Customer card pressed:', item.name);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           openCustomerDetail(item);
         }}
       >
-        {isPaidInFull && !isBlocked && (
-          <View style={styles.alDiaBadge}>
-            <IconSymbol name="checkmark.circle.fill" size={14} color="#fff" />
-            <Text style={styles.alDiaBadgeText}>Al Día</Text>
-          </View>
-        )}
-
         <View style={styles.customerHeader}>
-          <View style={styles.customerNameContainer}>
-            <Text style={[styles.customerName, isBlocked && styles.customerNameBlocked]}>
-              {item.name}
-            </Text>
-            {item.rut && (
-              <Text style={styles.customerRut}>RUT: {item.rut}</Text>
-            )}
+          <View style={styles.customerHeaderLeft}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <View style={styles.customerInfo}>
+              <Text style={styles.customerName}>{item.name}</Text>
+              {item.rut && (
+                <Text style={styles.customerRut}>RUT: {item.rut}</Text>
+              )}
+            </View>
           </View>
-          <View
-            style={[
-              styles.debtBadge,
-              isBlocked 
-                ? styles.debtBadgeBlocked 
-                : hasDebt 
-                  ? styles.debtBadgeWithDebt 
-                  : styles.debtBadgePaid,
-            ]}
-          >
-            <Text
+          {isPaidInFull && !isBlocked ? (
+            <View style={styles.alDiaBadge}>
+              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={14} color="#fff" />
+              <Text style={styles.alDiaBadgeText}>Al Día</Text>
+            </View>
+          ) : (
+            <View
               style={[
-                styles.debtText,
+                styles.debtBadge,
                 isBlocked 
-                  ? styles.debtTextBlocked 
+                  ? styles.debtBadgeBlocked 
                   : hasDebt 
-                    ? styles.debtTextWithDebt 
-                    : styles.debtTextPaid,
+                    ? styles.debtBadgeWithDebt 
+                    : styles.debtBadgePaid,
               ]}
             >
-              {isBlocked ? 'Bloqueado' : hasDebt ? 'Con Deuda' : 'Al Día'}
-            </Text>
-          </View>
+              <Text
+                style={[
+                  styles.debtText,
+                  isBlocked 
+                    ? styles.debtTextBlocked 
+                    : hasDebt 
+                      ? styles.debtTextWithDebt 
+                      : styles.debtTextPaid,
+                ]}
+              >
+                {isBlocked ? 'Bloqueado' : hasDebt ? 'Con Deuda' : 'Al Día'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {isBlocked && (
           <View style={styles.blockedBanner}>
-            <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#DC2626" />
+            <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={16} color="#DC2626" />
             <Text style={styles.blockedBannerText}>
               Este cliente está bloqueado y no puede enviar pedidos
             </Text>
           </View>
         )}
 
-        {item.phone && (
-          <Text style={styles.customerInfo}>📞 {item.phone}</Text>
-        )}
-        {item.address && (
-          <Text style={styles.customerInfo}>📍 {item.address}</Text>
-        )}
-        <Text style={styles.customerInfo}>
-          📦 {pendingOrdersCount} {pendingOrdersCount === 1 ? 'pedido pendiente' : 'pedidos pendientes'}
-        </Text>
+        <View style={styles.customerDetails}>
+          {item.phone && (
+            <View style={styles.customerDetailRow}>
+              <IconSymbol ios_icon_name="phone.fill" android_material_icon_name="phone" size={14} color={colors.textSecondary} />
+              <Text style={styles.customerDetailText}>{item.phone}</Text>
+            </View>
+          )}
+          {item.address && (
+            <View style={styles.customerDetailRow}>
+              <IconSymbol ios_icon_name="location.fill" android_material_icon_name="location_on" size={14} color={colors.textSecondary} />
+              <Text style={styles.customerDetailText}>{item.address}</Text>
+            </View>
+          )}
+          <View style={styles.customerDetailRow}>
+            <IconSymbol ios_icon_name="bag.fill" android_material_icon_name="shopping_bag" size={14} color={colors.textSecondary} />
+            <Text style={styles.customerDetailText}>
+              {pendingOrdersCount} {pendingOrdersCount === 1 ? 'pedido pendiente' : 'pedidos pendientes'}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.customerStats}>
           <View style={styles.statItem}>
@@ -1481,7 +1486,7 @@ export default function PendingPaymentsScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Vales Pendientes</Text>
         <View style={styles.searchContainer}>
-          <IconSymbol name="magnifyingglass" size={20} color="#fff" style={styles.searchIcon} />
+          <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color="#fff" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar clientes..."
@@ -1494,7 +1499,7 @@ export default function PendingPaymentsScreen() {
 
       {filteredCustomers.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="doc.text" size={64} color={colors.textSecondary} />
+          <IconSymbol ios_icon_name="doc.text" android_material_icon_name="description" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>
             {searchQuery
               ? 'No se encontraron clientes'
@@ -1633,7 +1638,7 @@ export default function PendingPaymentsScreen() {
                   openPaymentModal('account');
                 }}
               >
-                <IconSymbol name="plus.circle.fill" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={20} color="#fff" />
                 <Text style={styles.addPaymentButtonText}>Registrar Abono a Cuenta</Text>
               </TouchableOpacity>
             )}
@@ -1643,7 +1648,7 @@ export default function PendingPaymentsScreen() {
                 style={styles.printButton}
                 onPress={handlePrintPendingOrders}
               >
-                <IconSymbol name="printer.fill" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="printer.fill" android_material_icon_name="print" size={20} color="#fff" />
                 <Text style={styles.printButtonText}>Imprimir Estado de Cuenta</Text>
               </TouchableOpacity>
             )}
@@ -1653,7 +1658,7 @@ export default function PendingPaymentsScreen() {
                 style={styles.printButton}
                 onPress={handleSendPendingOrdersToPrinter}
               >
-                <IconSymbol name="printer.fill" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="printer.fill" android_material_icon_name="print" size={20} color="#fff" />
                 <Text style={styles.printButtonText}>Enviar a Cola de Impresión</Text>
               </TouchableOpacity>
             )}
@@ -1663,7 +1668,7 @@ export default function PendingPaymentsScreen() {
                 style={styles.finalizeButton}
                 onPress={handleFinalizeCustomer}
               >
-                <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
                 <Text style={styles.finalizeButtonText}>Finalizar</Text>
               </TouchableOpacity>
             )}
@@ -1673,7 +1678,7 @@ export default function PendingPaymentsScreen() {
                 style={styles.unblockButton}
                 onPress={handleUnblockCustomer}
               >
-                <IconSymbol name="checkmark.circle.fill" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color="#fff" />
                 <Text style={styles.blockButtonText}>Desbloquear Cliente</Text>
               </TouchableOpacity>
             ) : (
@@ -1681,7 +1686,7 @@ export default function PendingPaymentsScreen() {
                 style={styles.blockButton}
                 onPress={handleBlockCustomer}
               >
-                <IconSymbol name="xmark.circle.fill" size={20} color="#fff" />
+                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={20} color="#fff" />
                 <Text style={styles.blockButtonText}>Bloquear Cliente</Text>
               </TouchableOpacity>
             )}
