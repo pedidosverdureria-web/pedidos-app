@@ -31,7 +31,7 @@ export default function DeveloperManualScreen() {
         {/* Project Structure */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="folder.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="folder.fill" android_material_icon_name="folder" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>1. Estructura del Proyecto</Text>
           </View>
 
@@ -69,7 +69,7 @@ export default function DeveloperManualScreen() {
         {/* Tech Stack */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="cpu.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="cpu.fill" android_material_icon_name="memory" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>2. Stack Tecnológico</Text>
           </View>
 
@@ -110,7 +110,7 @@ export default function DeveloperManualScreen() {
         {/* Development Setup */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="hammer.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="hammer.fill" android_material_icon_name="build" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>3. Configuración de Desarrollo</Text>
           </View>
 
@@ -156,7 +156,7 @@ export default function DeveloperManualScreen() {
         {/* Database */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="cylinder.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="cylinder.fill" android_material_icon_name="storage" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>4. Base de Datos</Text>
           </View>
 
@@ -196,12 +196,12 @@ export default function DeveloperManualScreen() {
             </Text>
             <Text style={styles.code}>
               -- Política de SELECT para orders{'\n'}
-              CREATE POLICY "Users can view all orders"{'\n'}
+              CREATE POLICY &quot;Users can view all orders&quot;{'\n'}
               ON orders FOR SELECT{'\n'}
               USING (auth.uid() IS NOT NULL);{'\n'}
               {'\n'}
               -- Política de INSERT{'\n'}
-              CREATE POLICY "Users can create orders"{'\n'}
+              CREATE POLICY &quot;Users can create orders&quot;{'\n'}
               ON orders FOR INSERT{'\n'}
               WITH CHECK (auth.uid() IS NOT NULL);
             </Text>
@@ -214,13 +214,13 @@ export default function DeveloperManualScreen() {
             </Text>
             <Text style={styles.code}>
               // Ejemplo de uso{'\n'}
-              await apply_migration({'{'}
-              {'\n'}  project_id: 'lgiqpypnhnkylzyhhtze',{'\n'}
-              {'\n'}  name: 'add_customer_blocked_field',{'\n'}
-              {'\n'}  query: `{'\n'}
-              {'\n'}    ALTER TABLE customers{'\n'}
-              {'\n'}    ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE;{'\n'}
-              {'\n'}  `{'\n'}
+              await apply_migration({'\n'}
+              {'  '}project_id: &apos;lgiqpypnhnkylzyhhtze&apos;,{'\n'}
+              {'  '}name: &apos;add_customer_blocked_field&apos;,{'\n'}
+              {'  '}query: `{'\n'}
+              {'    '}ALTER TABLE customers{'\n'}
+              {'    '}ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE;{'\n'}
+              {'  '}`{'\n'}
               {'}'});
             </Text>
           </View>
@@ -229,7 +229,7 @@ export default function DeveloperManualScreen() {
         {/* API Integration */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="network" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="network" android_material_icon_name="cloud" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>5. Integración con APIs</Text>
           </View>
 
@@ -237,14 +237,14 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>Supabase Client</Text>
             <Text style={styles.code}>
               // lib/supabase.ts{'\n'}
-              import {'{'} createClient {'}'} from '@supabase/supabase-js';{'\n'}
+              import {'{'}createClient{'}'} from &apos;@supabase/supabase-js&apos;;{'\n'}
               {'\n'}
-              const supabaseUrl = 'YOUR_URL';{'\n'}
-              const supabaseAnonKey = 'YOUR_KEY';{'\n'}
+              const supabaseUrl = &apos;YOUR_URL&apos;;{'\n'}
+              const supabaseAnonKey = &apos;YOUR_KEY&apos;;{'\n'}
               {'\n'}
               export const supabase = createClient({'\n'}
-              {'\n'}  supabaseUrl,{'\n'}
-              {'\n'}  supabaseAnonKey{'\n'}
+              {'  '}supabaseUrl,{'\n'}
+              {'  '}supabaseAnonKey{'\n'}
               );
             </Text>
           </View>
@@ -253,27 +253,27 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>Operaciones CRUD</Text>
             <Text style={styles.code}>
               // SELECT{'\n'}
-              const {'{'} data, error {'}'} = await supabase{'\n'}
-              {'\n'}  .from('orders'){'\n'}
-              {'\n'}  .select('*'){'\n'}
-              {'\n'}  .eq('status', 'pending');{'\n'}
+              const {'{'}data, error{'}'} = await supabase{'\n'}
+              {'  '}.from(&apos;orders&apos;){'\n'}
+              {'  '}.select(&apos;*&apos;){'\n'}
+              {'  '}.eq(&apos;status&apos;, &apos;pending&apos;);{'\n'}
               {'\n'}
               // INSERT{'\n'}
-              const {'{'} data, error {'}'} = await supabase{'\n'}
-              {'\n'}  .from('orders'){'\n'}
-              {'\n'}  .insert([{'{'} customer_name: 'Juan' {'}'}]);{'\n'}
+              const {'{'}data, error{'}'} = await supabase{'\n'}
+              {'  '}.from(&apos;orders&apos;){'\n'}
+              {'  '}.insert([{'{'}customer_name: &apos;Juan&apos;{'}'}]);{'\n'}
               {'\n'}
               // UPDATE{'\n'}
-              const {'{'} data, error {'}'} = await supabase{'\n'}
-              {'\n'}  .from('orders'){'\n'}
-              {'\n'}  .update({'{'} status: 'completed' {'}'}){'\n'}
-              {'\n'}  .eq('id', orderId);{'\n'}
+              const {'{'}data, error{'}'} = await supabase{'\n'}
+              {'  '}.from(&apos;orders&apos;){'\n'}
+              {'  '}.update({'{'}status: &apos;completed&apos;{'}'}){'\n'}
+              {'  '}.eq(&apos;id&apos;, orderId);{'\n'}
               {'\n'}
               // DELETE{'\n'}
-              const {'{'} data, error {'}'} = await supabase{'\n'}
-              {'\n'}  .from('orders'){'\n'}
-              {'\n'}  .delete(){'\n'}
-              {'\n'}  .eq('id', orderId);
+              const {'{'}data, error{'}'} = await supabase{'\n'}
+              {'  '}.from(&apos;orders&apos;){'\n'}
+              {'  '}.delete(){'\n'}
+              {'  '}.eq(&apos;id&apos;, orderId);
             </Text>
           </View>
 
@@ -281,15 +281,17 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>Realtime Subscriptions</Text>
             <Text style={styles.code}>
               const subscription = supabase{'\n'}
-              {'\n'}  .channel('orders'){'\n'}
-              {'\n'}  .on({'\n'}
-              {'\n'}    'postgres_changes',{'\n'}
-              {'\n'}    {'{'} event: 'INSERT', schema: 'public', table: 'orders' {'}'},
-              {'\n'}    (payload) => {'{'}
-              {'\n'}      console.log('New order:', payload);{'\n'}
-              {'\n'}    {'}'}{'\n'}
-              {'\n'}  ){'\n'}
-              {'\n'}  .subscribe();
+              {'  '}.channel(&apos;orders&apos;){'\n'}
+              {'  '}.on({'\n'}
+              {'    '}&apos;postgres_changes&apos;,{'\n'}
+              {'    '}{'{'}event: &apos;INSERT&apos;, schema: &apos;public&apos;, table: &apos;orders&apos;{'}'},
+              {'\n'}
+              {'    '}(payload) =&gt; {'{'}
+              {'\n'}
+              {'      '}console.log(&apos;New order:&apos;, payload);{'\n'}
+              {'    '}{'}'}{'\n'}
+              {'  '}){'\n'}
+              {'  '}.subscribe();
             </Text>
           </View>
         </View>
@@ -297,7 +299,7 @@ export default function DeveloperManualScreen() {
         {/* Edge Functions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="bolt.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="bolt.fill" android_material_icon_name="flash-on" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>6. Edge Functions</Text>
           </View>
 
@@ -305,18 +307,21 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>Estructura de Edge Function</Text>
             <Text style={styles.code}>
               // supabase/functions/whatsapp-webhook/index.ts{'\n'}
-              import {'{'} serve {'}'} from 'https://deno.land/std@0.168.0/http/server.ts';{'\n'}
+              import {'{'}serve{'}'} from &apos;https://deno.land/std@0.168.0/http/server.ts&apos;;{'\n'}
               {'\n'}
-              serve(async (req) => {'{'}
-              {'\n'}  // Manejar GET para verificación{'\n'}
-              {'\n'}  if (req.method === 'GET') {'{'}
-              {'\n'}    // Lógica de verificación{'\n'}
-              {'\n'}  {'}'}{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  // Manejar POST para mensajes{'\n'}
-              {'\n'}  if (req.method === 'POST') {'{'}
-              {'\n'}    // Lógica de procesamiento{'\n'}
-              {'\n'}  {'}'}{'\n'}
+              serve(async (req) =&gt; {'{'}
+              {'\n'}
+              {'  '}// Manejar GET para verificación{'\n'}
+              {'  '}if (req.method === &apos;GET&apos;) {'{'}
+              {'\n'}
+              {'    '}// Lógica de verificación{'\n'}
+              {'  '}{'}'}{'\n'}
+              {'\n'}
+              {'  '}// Manejar POST para mensajes{'\n'}
+              {'  '}if (req.method === &apos;POST&apos;) {'{'}
+              {'\n'}
+              {'    '}// Lógica de procesamiento{'\n'}
+              {'  '}{'}'}{'\n'}
               {'}'});
             </Text>
           </View>
@@ -345,7 +350,7 @@ export default function DeveloperManualScreen() {
               supabase secrets set WHATSAPP_TOKEN=your_token{'\n'}
               {'\n'}
               # Usar en la función{'\n'}
-              const token = Deno.env.get('WHATSAPP_TOKEN');
+              const token = Deno.env.get(&apos;WHATSAPP_TOKEN&apos;);
             </Text>
           </View>
         </View>
@@ -353,7 +358,7 @@ export default function DeveloperManualScreen() {
         {/* Custom Hooks */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="link.circle.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="link.circle.fill" android_material_icon_name="link" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>7. Custom Hooks</Text>
           </View>
 
@@ -362,14 +367,16 @@ export default function DeveloperManualScreen() {
             <Text style={styles.code}>
               // hooks/useOrders.ts{'\n'}
               export function useOrders() {'{'}
-              {'\n'}  const [orders, setOrders] = useState([]);{'\n'}
-              {'\n'}  const [loading, setLoading] = useState(true);{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  const loadOrders = async () => {'{'}
-              {'\n'}    // Lógica de carga{'\n'}
-              {'\n'}  {'}'};{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  return {'{'} orders, loading, loadOrders {'}'};{'\n'}
+              {'\n'}
+              {'  '}const [orders, setOrders] = useState([]);{'\n'}
+              {'  '}const [loading, setLoading] = useState(true);{'\n'}
+              {'\n'}
+              {'  '}const loadOrders = async () =&gt; {'{'}
+              {'\n'}
+              {'    '}// Lógica de carga{'\n'}
+              {'  '}{'}'};{'\n'}
+              {'\n'}
+              {'  '}return {'{'}orders, loading, loadOrders{'}'};{'\n'}
               {'}'}
             </Text>
           </View>
@@ -379,11 +386,13 @@ export default function DeveloperManualScreen() {
             <Text style={styles.code}>
               // contexts/AuthContext.tsx{'\n'}
               export function useAuth() {'{'}
-              {'\n'}  const context = useContext(AuthContext);{'\n'}
-              {'\n'}  if (!context) {'{'}
-              {'\n'}    throw new Error('useAuth must be used within AuthProvider');{'\n'}
-              {'\n'}  {'}'}{'\n'}
-              {'\n'}  return context;{'\n'}
+              {'\n'}
+              {'  '}const context = useContext(AuthContext);{'\n'}
+              {'  '}if (!context) {'{'}
+              {'\n'}
+              {'    '}throw new Error(&apos;useAuth must be used within AuthProvider&apos;);{'\n'}
+              {'  '}{'}'}{'\n'}
+              {'  '}return context;{'\n'}
               {'}'}
             </Text>
           </View>
@@ -393,18 +402,21 @@ export default function DeveloperManualScreen() {
             <Text style={styles.code}>
               // hooks/usePrinter.ts{'\n'}
               export function usePrinter() {'{'}
-              {'\n'}  const [isConnected, setIsConnected] = useState(false);{'\n'}
-              {'\n'}  const [devices, setDevices] = useState([]);{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  const scanDevices = async () => {'{'}
-              {'\n'}    // Lógica de escaneo BLE{'\n'}
-              {'\n'}  {'}'};{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  const printReceipt = async (text: string) => {'{'}
-              {'\n'}    // Lógica de impresión{'\n'}
-              {'\n'}  {'}'};{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  return {'{'} isConnected, devices, scanDevices, printReceipt {'}'};{'\n'}
+              {'\n'}
+              {'  '}const [isConnected, setIsConnected] = useState(false);{'\n'}
+              {'  '}const [devices, setDevices] = useState([]);{'\n'}
+              {'\n'}
+              {'  '}const scanDevices = async () =&gt; {'{'}
+              {'\n'}
+              {'    '}// Lógica de escaneo BLE{'\n'}
+              {'  '}{'}'};{'\n'}
+              {'\n'}
+              {'  '}const printReceipt = async (text: string) =&gt; {'{'}
+              {'\n'}
+              {'    '}// Lógica de impresión{'\n'}
+              {'  '}{'}'};{'\n'}
+              {'\n'}
+              {'  '}return {'{'}isConnected, devices, scanDevices, printReceipt{'}'};{'\n'}
               {'}'}
             </Text>
           </View>
@@ -413,7 +425,7 @@ export default function DeveloperManualScreen() {
         {/* Components */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="square.stack.3d.up.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="square.stack.3d.up.fill" android_material_icon_name="layers" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>8. Componentes Reutilizables</Text>
           </View>
 
@@ -421,14 +433,14 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>CustomDialog</Text>
             <Text style={styles.code}>
               // components/CustomDialog.tsx{'\n'}
-              <CustomDialog{'\n'}
-              {'\n'}  visible={'{'}dialog.visible{'}'}{'\n'}
-              {'\n'}  type={'{'}dialog.type{'}'}{'\n'}
-              {'\n'}  title={'{'}dialog.title{'}'}{'\n'}
-              {'\n'}  message={'{'}dialog.message{'}'}{'\n'}
-              {'\n'}  buttons={'{'}dialog.buttons{'}'}{'\n'}
-              {'\n'}  onClose={'{'}closeDialog{'}'}{'\n'}
-              />
+              &lt;CustomDialog{'\n'}
+              {'  '}visible={'{'}dialog.visible{'}'}{'\n'}
+              {'  '}type={'{'}dialog.type{'}'}{'\n'}
+              {'  '}title={'{'}dialog.title{'}'}{'\n'}
+              {'  '}message={'{'}dialog.message{'}'}{'\n'}
+              {'  '}buttons={'{'}dialog.buttons{'}'}{'\n'}
+              {'  '}onClose={'{'}closeDialog{'}'}{'\n'}
+              /&gt;
             </Text>
           </View>
 
@@ -436,12 +448,12 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>IconSymbol</Text>
             <Text style={styles.code}>
               // components/IconSymbol.tsx{'\n'}
-              <IconSymbol{'\n'}
-              {'\n'}  ios_icon_name="cart.fill"{'\n'}
-              {'\n'}  android_material_icon_name="shopping_cart"{'\n'}
-              {'\n'}  size={'{'}24{'}'}{'\n'}
-              {'\n'}  color={'{'}colors.primary{'}'}{'\n'}
-              />
+              &lt;IconSymbol{'\n'}
+              {'  '}ios_icon_name=&quot;cart.fill&quot;{'\n'}
+              {'  '}android_material_icon_name=&quot;shopping_cart&quot;{'\n'}
+              {'  '}size={'{'}24{'}'}{'\n'}
+              {'  '}color={'{'}colors.primary{'}'}{'\n'}
+              /&gt;
             </Text>
           </View>
 
@@ -458,7 +470,7 @@ export default function DeveloperManualScreen() {
         {/* State Management */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="arrow.triangle.branch" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="arrow.triangle.branch" android_material_icon_name="account-tree" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>9. Gestión de Estado</Text>
           </View>
 
@@ -466,19 +478,22 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>Context API</Text>
             <Text style={styles.code}>
               // contexts/AuthContext.tsx{'\n'}
-              const AuthContext = createContext<AuthContextType | undefined>(undefined);{'\n'}
+              const AuthContext = createContext&lt;AuthContextType | undefined&gt;(undefined);{'\n'}
               {'\n'}
-              export function AuthProvider({'{'} children {'}'}): JSX.Element {'{'}
-              {'\n'}  const [user, setUser] = useState<User | null>(null);{'\n'}
-              {'\n'}  const [loading, setLoading] = useState(true);{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  // Lógica de autenticación{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  return ({'\n'}
-              {'\n'}    <AuthContext.Provider value={'{'}{'{'} user, loading, signIn, signOut {'}'}{'}'}>
-              {'\n'}      {'{'}children{'}'}
-              {'\n'}    </AuthContext.Provider>{'\n'}
-              {'\n'}  );{'\n'}
+              export function AuthProvider({'{'}children{'}'}): JSX.Element {'{'}
+              {'\n'}
+              {'  '}const [user, setUser] = useState&lt;User | null&gt;(null);{'\n'}
+              {'  '}const [loading, setLoading] = useState(true);{'\n'}
+              {'\n'}
+              {'  '}// Lógica de autenticación{'\n'}
+              {'\n'}
+              {'  '}return ({'\n'}
+              {'    '}&lt;AuthContext.Provider value={'{'}{'{'} user, loading, signIn, signOut {'}'}{'}'}&gt;
+              {'\n'}
+              {'      '}{'{'}children{'}'}
+              {'\n'}
+              {'    '}&lt;/AuthContext.Provider&gt;{'\n'}
+              {'  '});{'\n'}
               {'}'}
             </Text>
           </View>
@@ -487,17 +502,17 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>Local Storage</Text>
             <Text style={styles.code}>
               // Usar AsyncStorage{'\n'}
-              import AsyncStorage from '@react-native-async-storage/async-storage';{'\n'}
+              import AsyncStorage from &apos;@react-native-async-storage/async-storage&apos;;{'\n'}
               {'\n'}
               // Guardar{'\n'}
-              await AsyncStorage.setItem('key', JSON.stringify(data));{'\n'}
+              await AsyncStorage.setItem(&apos;key&apos;, JSON.stringify(data));{'\n'}
               {'\n'}
               // Leer{'\n'}
-              const data = await AsyncStorage.getItem('key');{'\n'}
+              const data = await AsyncStorage.getItem(&apos;key&apos;);{'\n'}
               const parsed = JSON.parse(data);{'\n'}
               {'\n'}
               // Eliminar{'\n'}
-              await AsyncStorage.removeItem('key');
+              await AsyncStorage.removeItem(&apos;key&apos;);
             </Text>
           </View>
         </View>
@@ -505,7 +520,7 @@ export default function DeveloperManualScreen() {
         {/* Testing */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="checkmark.seal.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="checkmark.seal.fill" android_material_icon_name="verified" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>10. Testing y Debugging</Text>
           </View>
 
@@ -523,17 +538,19 @@ export default function DeveloperManualScreen() {
             <Text style={styles.cardTitle}>Error Handling</Text>
             <Text style={styles.code}>
               try {'{'}
-              {'\n'}  const {'{'} data, error {'}'} = await supabase{'\n'}
-              {'\n'}    .from('orders'){'\n'}
-              {'\n'}    .select('*');{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  if (error) throw error;{'\n'}
-              {'\n'}  {'\n'}
-              {'\n'}  return data;{'\n'}
+              {'\n'}
+              {'  '}const {'{'}data, error{'}'} = await supabase{'\n'}
+              {'    '}.from(&apos;orders&apos;){'\n'}
+              {'    '}.select(&apos;*&apos;);{'\n'}
+              {'\n'}
+              {'  '}if (error) throw error;{'\n'}
+              {'\n'}
+              {'  '}return data;{'\n'}
               {'}'} catch (error) {'{'}
-              {'\n'}  console.error('[Component] Error:', error);{'\n'}
-              {'\n'}  // Mostrar error al usuario{'\n'}
-              {'\n'}  showDialog('error', 'Error', error.message);{'\n'}
+              {'\n'}
+              {'  '}console.error(&apos;[Component] Error:&apos;, error);{'\n'}
+              {'  '}// Mostrar error al usuario{'\n'}
+              {'  '}showDialog(&apos;error&apos;, &apos;Error&apos;, error.message);{'\n'}
               {'}'}
             </Text>
           </View>
@@ -553,7 +570,7 @@ export default function DeveloperManualScreen() {
         {/* Best Practices */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="star.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="star.fill" android_material_icon_name="star" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>11. Mejores Prácticas</Text>
           </View>
 
@@ -588,7 +605,7 @@ export default function DeveloperManualScreen() {
         {/* Deployment */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="arrow.up.doc.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="arrow.up.doc.fill" android_material_icon_name="cloud-upload" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>12. Despliegue</Text>
           </View>
 
@@ -620,18 +637,23 @@ export default function DeveloperManualScreen() {
             <Text style={styles.code}>
               // eas.json{'\n'}
               {'{'}
-              {'\n'}  "build": {'{'}
-              {'\n'}    "development": {'{'}
-              {'\n'}      "developmentClient": true,{'\n'}
-              {'\n'}      "distribution": "internal"{'\n'}
-              {'\n'}    {'}'},
-              {'\n'}    "preview": {'{'}
-              {'\n'}      "distribution": "internal"{'\n'}
-              {'\n'}    {'}'},
-              {'\n'}    "production": {'{'}
-              {'\n'}      "autoIncrement": true{'\n'}
-              {'\n'}    {'}'}{'\n'}
-              {'\n'}  {'}'}{'\n'}
+              {'\n'}
+              {'  '}&quot;build&quot;: {'{'}
+              {'\n'}
+              {'    '}&quot;development&quot;: {'{'}
+              {'\n'}
+              {'      '}&quot;developmentClient&quot;: true,{'\n'}
+              {'      '}&quot;distribution&quot;: &quot;internal&quot;{'\n'}
+              {'    '}{'}'},{'\n'}
+              {'    '}&quot;preview&quot;: {'{'}
+              {'\n'}
+              {'      '}&quot;distribution&quot;: &quot;internal&quot;{'\n'}
+              {'    '}{'}'},{'\n'}
+              {'    '}&quot;production&quot;: {'{'}
+              {'\n'}
+              {'      '}&quot;autoIncrement&quot;: true{'\n'}
+              {'    '}{'}'}{'\n'}
+              {'  '}{'}'}{'\n'}
               {'}'}
             </Text>
           </View>
@@ -651,7 +673,7 @@ export default function DeveloperManualScreen() {
         {/* Resources */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <IconSymbol name="book.fill" size={24} color={colors.primary} />
+            <IconSymbol ios_icon_name="book.fill" android_material_icon_name="book" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>13. Recursos</Text>
           </View>
 
