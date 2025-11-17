@@ -590,13 +590,13 @@ export default function PDFManagerScreen() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; }
-.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #6B9F3E; padding-bottom: 20px; }
-h1 { color: #6B9F3E; margin: 10px 0; }
+.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid ${colors.primary}; padding-bottom: 20px; }
+h1 { color: ${colors.primary}; margin: 10px 0; }
 .filter-info { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 .filter-info p { margin: 5px 0; font-size: 12px; }
 .order { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
 .order-header { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-.order-number { font-weight: bold; font-size: 16px; color: #6B9F3E; }
+.order-number { font-weight: bold; font-size: 16px; color: ${colors.primary}; }
 .status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
 .status-pending { background: #FEF3C7; color: #92400E; }
 .status-preparing { background: #DBEAFE; color: #1E40AF; }
@@ -608,7 +608,7 @@ h1 { color: #6B9F3E; margin: 10px 0; }
 .status-pagado { background: #D1FAE5; color: #065F46; }
 .status-finalizado { background: #E5E7EB; color: #374151; }
 .order-info p { margin: 5px 0; font-size: 13px; }
-.total { text-align: right; font-size: 16px; font-weight: bold; color: #6B9F3E; margin-top: 10px; }
+.total { text-align: right; font-size: 16px; font-weight: bold; color: ${colors.primary}; margin-top: 10px; }
 .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; }
 </style>
 </head>
@@ -704,13 +704,13 @@ ${ordersHTML}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; }
-.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #6B9F3E; padding-bottom: 20px; }
-h1 { color: #6B9F3E; margin: 10px 0; }
+.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid ${colors.primary}; padding-bottom: 20px; }
+h1 { color: ${colors.primary}; margin: 10px 0; }
 .filter-info { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 .filter-info p { margin: 5px 0; font-size: 12px; }
 .order { border: 1px solid #ddd; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-.order-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #6B9F3E; padding-bottom: 10px; }
-.order-number { font-weight: bold; font-size: 18px; color: #6B9F3E; }
+.order-header { display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid ${colors.primary}; padding-bottom: 10px; }
+.order-number { font-weight: bold; font-size: 18px; color: ${colors.primary}; }
 .status { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
 .status-pending { background: #FEF3C7; color: #92400E; }
 .status-preparing { background: #DBEAFE; color: #1E40AF; }
@@ -729,7 +729,7 @@ h1 { color: #6B9F3E; margin: 10px 0; }
 .item-details { font-size: 12px; margin-top: 4px; }
 .totals { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-top: 15px; }
 .totals p { margin: 5px 0; font-size: 14px; }
-.total-amount { font-size: 18px; font-weight: bold; color: #6B9F3E; }
+.total-amount { font-size: 18px; font-weight: bold; color: ${colors.primary}; }
 .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 12px; }
 </style>
 </head>
@@ -803,16 +803,16 @@ ${ordersHTML}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body { font-family: Arial, sans-serif; padding: 20px; }
-.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #6B9F3E; padding-bottom: 20px; }
-h1 { color: #6B9F3E; margin: 10px 0; }
+.header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid ${colors.primary}; padding-bottom: 20px; }
+h1 { color: ${colors.primary}; margin: 10px 0; }
 .filter-info { background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
 .filter-info p { margin: 5px 0; font-size: 12px; }
 .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 30px; }
-.stat-card { background: #f9f9f9; padding: 20px; border-radius: 8px; border-left: 4px solid #6B9F3E; }
+.stat-card { background: #f9f9f9; padding: 20px; border-radius: 8px; border-left: 4px solid ${colors.primary}; }
 .stat-label { font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
 .stat-value { font-size: 24px; font-weight: bold; }
 .section { margin-bottom: 30px; }
-.section-title { font-size: 18px; font-weight: 600; color: #6B9F3E; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+.section-title { font-size: 18px; font-weight: 600; color: ${colors.primary}; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
 table { width: 100%; border-collapse: collapse; }
 th { background: #f5f5f5; padding: 10px; text-align: left; font-size: 12px; font-weight: 600; border-bottom: 2px solid #ddd; }
 td { padding: 10px; border-bottom: 1px solid #eee; font-size: 13px; }
@@ -992,14 +992,17 @@ ${customerRowsHTML}
   };
 
   return (
-    <>
+    <View style={styles.container}>
       <Stack.Screen
         options={{
           title: 'Gestor PDF Pedidos',
+          headerShown: true,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#fff',
           headerBackTitle: 'Atras',
         }}
       />
-      <ScrollView style={styles.container}>
+      <ScrollView>
         {Platform.OS === 'web' && (
           <View style={styles.section}>
             <View style={styles.warningCard}>
@@ -1205,7 +1208,7 @@ ${customerRowsHTML}
           </View>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       {Platform.OS === 'ios' && showStartDatePicker && (
@@ -1404,6 +1407,6 @@ ${customerRowsHTML}
         buttons={dialog.buttons}
         onClose={closeDialog}
       />
-    </>
+    </View>
   );
 }

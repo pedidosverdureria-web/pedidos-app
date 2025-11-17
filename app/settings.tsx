@@ -84,6 +84,9 @@ export default function SettingsScreen() {
       <Stack.Screen
         options={{
           title: 'Configuración',
+          headerShown: true,
+          headerStyle: { backgroundColor: currentTheme.colors.primary },
+          headerTintColor: '#fff',
           headerBackTitle: 'Atrás',
         }}
       />
@@ -97,7 +100,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/theme')}
             >
               <View style={[styles.menuIcon, { backgroundColor: currentTheme.colors.primary }]}>
-                <IconSymbol name="paintbrush.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="paintbrush.fill" android_material_icon_name="palette" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Color de la App</Text>
@@ -106,7 +109,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -118,7 +122,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/permissions')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#3B82F6' }]}>
-                <IconSymbol name="lock.shield.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="lock.shield.fill" android_material_icon_name="security" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Permisos</Text>
@@ -127,7 +131,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -139,7 +144,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/notifications')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#10B981' }]}>
-                <IconSymbol name="bell.badge.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="bell.badge.fill" android_material_icon_name="notifications" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Notificaciones</Text>
@@ -148,7 +153,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -160,7 +166,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/printer')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#8B5CF6' }]}>
-                <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="printer.fill" android_material_icon_name="print" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Impresora</Text>
@@ -169,7 +175,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -187,7 +194,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/whatsapp')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#25D366' }]}>
-                <IconSymbol name="message.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>WhatsApp</Text>
@@ -196,7 +203,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -208,7 +216,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/units')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#F59E0B' }]}>
-                <IconSymbol name="ruler.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="ruler.fill" android_material_icon_name="straighten" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Unidades de Medida</Text>
@@ -217,7 +225,36 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Reports */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Reportes</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => handleNavigation('/settings/pdf-manager')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#EF4444' }]}>
+                <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="picture_as_pdf" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Gestor de PDF Pedidos</Text>
+                <Text style={styles.menuDescription}>
+                  Generar reportes PDF de pedidos
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -236,7 +273,7 @@ export default function SettingsScreen() {
                 onPress={() => handleNavigation('/settings/users')}
               >
                 <View style={[styles.menuIcon, { backgroundColor: '#F59E0B' }]}>
-                  <IconSymbol name="person.2.fill" size={20} color="#FFFFFF" />
+                  <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.menuContent}>
                   <Text style={styles.menuTitle}>Usuarios</Text>
@@ -245,7 +282,8 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
                 <IconSymbol
-                  name="chevron.right"
+                  ios_icon_name="chevron.right"
+                  android_material_icon_name="chevron_right"
                   size={20}
                   color={currentTheme.colors.textSecondary}
                   style={styles.menuChevron}
@@ -264,7 +302,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/printer-test')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#6B7280' }]}>
-                <IconSymbol name="printer.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="printer.fill" android_material_icon_name="print" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Prueba de Impresora</Text>
@@ -273,7 +311,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -285,7 +324,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/whatsapp-test')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#6B7280' }]}>
-                <IconSymbol name="message.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Prueba de WhatsApp Parser</Text>
@@ -294,7 +333,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -312,7 +352,7 @@ export default function SettingsScreen() {
               onPress={() => handleNavigation('/settings/about')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#6B7280' }]}>
-                <IconSymbol name="info.circle.fill" size={20} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={20} color="#FFFFFF" />
               </View>
               <View style={styles.menuContent}>
                 <Text style={styles.menuTitle}>Acerca de</Text>
@@ -321,7 +361,8 @@ export default function SettingsScreen() {
                 </Text>
               </View>
               <IconSymbol
-                name="chevron.right"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
                 size={20}
                 color={currentTheme.colors.textSecondary}
                 style={styles.menuChevron}
@@ -329,6 +370,9 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Bottom padding for tab bar */}
+        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
