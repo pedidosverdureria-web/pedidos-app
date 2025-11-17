@@ -64,6 +64,12 @@ export default function OrderDetailScreen() {
     message: '',
   });
 
+  // WhatsApp Edit Modal State
+  const [showWhatsAppEditModal, setShowWhatsAppEditModal] = useState(false);
+  const [whatsappEditInput, setWhatsappEditInput] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [parsedEditProduct, setParsedEditProduct] = useState<ParsedOrderItem | null>(null);
+
   // Use custom hooks
   const {
     order,
@@ -131,6 +137,25 @@ export default function OrderDetailScreen() {
       setParsedProducts([]);
     }
   }, [whatsappInput]);
+
+  // Parse WhatsApp edit input
+  useEffect(() => {
+    if (whatsappEditInput.trim()) {
+      try {
+        const parsed = parseWhatsAppMessage(whatsappEditInput);
+        if (parsed.length > 0) {
+          setParsedEditProduct(parsed[0]); // Take first parsed item
+        } else {
+          setParsedEditProduct(null);
+        }
+      } catch (error) {
+        console.error('[OrderDetail] Error parsing WhatsApp edit input:', error);
+        setParsedEditProduct(null);
+      }
+    } else {
+      setParsedEditProduct(null);
+    }
+  }, [whatsappEditInput]);
 
   const handleAddCustomerToMenu = async () => {
     const result = await customerHook.addCustomerToMenu();
@@ -536,6 +561,91 @@ export default function OrderDetailScreen() {
     });
   };
 
+  // Open WhatsApp Edit Modal
+  const openWhatsAppEditModal = (item: any) => {
+    setEditingItemId(item.id);
+    
+    // Format current product as WhatsApp message
+    const unit = item.notes?.match(/unidad:\s*(\w+)/)?.[1] || '';
+    const additionalNotes = getAdditionalNotes(item.notes);
+    
+    let formattedText = `${item.quantity} ${unit} de ${item.product_name}`;
+    if (additionalNotes) {
+      formattedText += `\n${additionalNotes}`;
+    }
+    
+    setWhatsappEditInput(formattedText);
+    setParsedEditProduct(null);
+    setShowWhatsAppEditModal(true);
+  };
+
+  // Apply WhatsApp Edit
+  const applyWhatsAppEdit = async () => {
+    if (!parsedEditProduct || !editingItemId) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setDialog({
+        visible: true,
+        type: 'warning',
+        title: 'Error',
+        message: 'No se pudo parsear el producto. Verifica el formato.',
+      });
+      return;
+    }
+
+    try {
+      const { getSupabase } = await import('@/lib/supabase');
+      const supabase = getSupabase();
+
+      // Build notes with unit information
+      let notes = `unidad: ${parsedEditProduct.unit}`;
+      
+      // Extract additional notes from the input (anything after the first line)
+      const lines = whatsappEditInput.trim().split('\n');
+      if (lines.length > 1) {
+        const additionalNotes = lines.slice(1).join('\n').trim();
+        if (additionalNotes) {
+          notes += `\n${additionalNotes}`;
+        }
+      }
+
+      const { error } = await supabase
+        .from('order_items')
+        .update({
+          product_name: parsedEditProduct.product,
+          quantity: parsedEditProduct.quantity,
+          notes: notes,
+        })
+        .eq('id', editingItemId);
+
+      if (error) throw error;
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowWhatsAppEditModal(false);
+      setEditingItemId(null);
+      setWhatsappEditInput('');
+      setParsedEditProduct(null);
+      
+      // Reload order
+      await loadOrder();
+
+      setDialog({
+        visible: true,
+        type: 'success',
+        title: 'Producto Actualizado',
+        message: 'El producto se actualizó correctamente con formato WhatsApp',
+      });
+    } catch (error: any) {
+      console.error('[OrderDetail] Error updating product:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setDialog({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: `No se pudo actualizar el producto: ${error.message}`,
+      });
+    }
+  };
+
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   if (loading) {
@@ -893,7 +1003,7 @@ export default function OrderDetailScreen() {
                 <View style={styles.productActions}>
                   <TouchableOpacity
                     style={styles.iconButton}
-                    onPress={() => productsHook.startEditingProduct(item)}
+                    onPress={() => openWhatsAppEditModal(item)}
                   >
                     <IconSymbol 
                       ios_icon_name="pencil"
@@ -1366,6 +1476,106 @@ export default function OrderDetailScreen() {
         </View>
       </Modal>
 
+      {/* WhatsApp Edit Product Modal */}
+      <Modal
+        visible={showWhatsAppEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowWhatsAppEditModal(false);
+          setEditingItemId(null);
+          setWhatsappEditInput('');
+          setParsedEditProduct(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Editar Producto con Formato WhatsApp</Text>
+            <Text style={{ color: colors.textSecondary, marginBottom: 16 }}>
+              Edita el producto usando formato WhatsApp:
+            </Text>
+            
+            <View style={styles.whatsappInputContainer}>
+              <TextInput
+                style={styles.whatsappEditInput}
+                placeholder="Ejemplo: 2 kilos de papas"
+                placeholderTextColor={colors.textSecondary}
+                value={whatsappEditInput}
+                onChangeText={setWhatsappEditInput}
+                multiline
+                autoFocus
+              />
+              <Text style={styles.exampleText}>
+                Formato: &quot;cantidad unidad de producto&quot;
+              </Text>
+              <Text style={styles.exampleText}>
+                Ejemplos: &quot;2 kilos de papas&quot;, &quot;1/2 kilo de tomates&quot;, &quot;3 unidades de lechuga&quot;
+              </Text>
+            </View>
+
+            {parsedEditProduct && (
+              <View style={styles.parsedEditContainer}>
+                <Text style={styles.parsedEditTitle}>Vista previa:</Text>
+                <View style={styles.parsedEditItem}>
+                  <IconSymbol 
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check_circle"
+                    size={20} 
+                    color="#10B981" 
+                  />
+                  <Text style={styles.parsedEditText}>
+                    {parsedEditProduct.quantity} {parsedEditProduct.unit} de {parsedEditProduct.product}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {!parsedEditProduct && whatsappEditInput.trim() && (
+              <View style={styles.parsedEditContainer}>
+                <View style={styles.parsedEditItem}>
+                  <IconSymbol 
+                    ios_icon_name="exclamationmark.triangle.fill"
+                    android_material_icon_name="warning"
+                    size={20} 
+                    color="#F59E0B" 
+                  />
+                  <Text style={[styles.parsedEditText, { color: colors.textSecondary }]}>
+                    No se pudo parsear. Verifica el formato.
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowWhatsAppEditModal(false);
+                  setEditingItemId(null);
+                  setWhatsappEditInput('');
+                  setParsedEditProduct(null);
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalButton, 
+                  styles.modalButtonConfirm,
+                  !parsedEditProduct && { opacity: 0.5 }
+                ]}
+                onPress={applyWhatsAppEdit}
+                disabled={!parsedEditProduct}
+              >
+                <Text style={[styles.modalButtonText, { color: '#fff' }]}>
+                  Actualizar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Bulk Price Modal */}
       <Modal
         visible={productsHook.showPriceModal}
@@ -1783,6 +1993,17 @@ function createStyles(colors: any) {
       minHeight: 120,
       textAlignVertical: 'top',
     },
+    whatsappEditInput: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: colors.text,
+      borderWidth: 1,
+      borderColor: colors.border,
+      minHeight: 100,
+      textAlignVertical: 'top',
+    },
     exampleText: {
       fontSize: 12,
       color: colors.textSecondary,
@@ -1808,6 +2029,29 @@ function createStyles(colors: any) {
     parsedItemText: {
       fontSize: 14,
       color: colors.text,
+    },
+    parsedEditContainer: {
+      marginTop: 16,
+      marginBottom: 8,
+    },
+    parsedEditTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    parsedEditItem: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    parsedEditText: {
+      fontSize: 14,
+      color: colors.text,
+      flex: 1,
     },
     historyHeader: {
       flexDirection: 'row',
