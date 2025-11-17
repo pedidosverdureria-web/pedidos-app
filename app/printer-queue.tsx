@@ -197,10 +197,8 @@ function generateDebtReceipt(customer: Customer, config?: PrinterConfig): string
   
   let receipt = '';
   
-  if (config?.include_logo !== false) {
-    receipt += centerText('DEUDA VALES PENDIENTES', width) + '\n';
-    receipt += '='.repeat(width) + '\n\n';
-  }
+  receipt += centerText('DEUDA VALES PENDIENTES', width) + '\n';
+  receipt += '='.repeat(width) + '\n\n';
   
   receipt += `Cliente: ${customer.name}\n`;
   if (customer.phone) {

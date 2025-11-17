@@ -250,11 +250,6 @@ export function generateAdvancedReceiptText(
   // Header spacing
   receipt += addSpacing(advConfig.header_spacing);
 
-  // Logo at top
-  if (advConfig.show_logo && advConfig.logo_position === 'top') {
-    receipt += centerText('[LOGO]', width) + '\n\n';
-  }
-
   // Header text - use context-specific header
   const headerText = getReceiptHeader(context, config);
   receipt += centerText(headerText, width) + '\n';
@@ -266,11 +261,6 @@ export function generateAdvancedReceiptText(
       const processedLine = processText(line, config);
       receipt += alignText(processedLine, width, advConfig.header_alignment) + '\n';
     }
-  }
-
-  // Logo in header
-  if (advConfig.show_logo && advConfig.logo_position === 'header') {
-    receipt += centerText('[LOGO]', width) + '\n';
   }
 
   // Separator after header
@@ -411,12 +401,10 @@ export function generateReceiptText(
   
   let receipt = '';
   
-  // Header with logo - use context-specific header
-  if (config?.include_logo !== false) {
-    const headerText = getReceiptHeader(context, config);
-    receipt += centerText(headerText, width) + '\n';
-    receipt += '='.repeat(width) + '\n\n';
-  }
+  // Header - use context-specific header
+  const headerText = getReceiptHeader(context, config);
+  receipt += centerText(headerText, width) + '\n';
+  receipt += '='.repeat(width) + '\n\n';
   
   // Order information
   receipt += `Pedido: ${order.order_number}\n`;
@@ -492,11 +480,9 @@ export function generateQueryReceiptText(
   let receipt = '';
   
   // Header - always use "CONSULTA DE CLIENTE" for queries
-  if (config?.include_logo !== false) {
-    const headerText = processText('CONSULTA DE CLIENTE', config);
-    receipt += centerText(headerText, width) + '\n';
-    receipt += '='.repeat(width) + '\n\n';
-  }
+  const headerText = processText('CONSULTA DE CLIENTE', config);
+  receipt += centerText(headerText, width) + '\n';
+  receipt += '='.repeat(width) + '\n\n';
   
   // Order and customer info
   receipt += `Pedido: ${order.order_number}\n`;
@@ -582,11 +568,9 @@ export function generateCustomerAccountReceipt(
   let receipt = '';
   
   // Header - always use "CUENTA DE CLIENTES" for customer accounts
-  if (config?.include_logo !== false) {
-    const headerText = processText('CUENTA DE CLIENTES', config);
-    receipt += centerText(headerText, width) + '\n';
-    receipt += '='.repeat(width) + '\n\n';
-  }
+  const headerText = processText('CUENTA DE CLIENTES', config);
+  receipt += centerText(headerText, width) + '\n';
+  receipt += '='.repeat(width) + '\n\n';
   
   const processedCustomerName = processText(customerName, config);
   receipt += `Cliente: ${processedCustomerName}\n`;

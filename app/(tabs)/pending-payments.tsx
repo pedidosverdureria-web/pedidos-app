@@ -102,10 +102,8 @@ function generatePendingOrdersReceipt(customer: Customer, config?: PrinterConfig
   
   let receipt = '';
   
-  if (config?.include_logo !== false) {
-    receipt += centerText('CUENTA DE CLIENTES', width) + '\n';
-    receipt += '='.repeat(width) + '\n\n';
-  }
+  receipt += centerText('CUENTA DE CLIENTES', width) + '\n';
+  receipt += '='.repeat(width) + '\n\n';
   
   receipt += `Cliente: ${customer.name}\n`;
   if (customer.phone) {
@@ -160,10 +158,8 @@ function generatePaymentReceipt(
   
   let receipt = '';
   
-  if (config?.include_logo !== false) {
-    receipt += centerText('RECIBO DE PAGO', width) + '\n';
-    receipt += '='.repeat(width) + '\n\n';
-  }
+  receipt += centerText('RECIBO DE PAGO', width) + '\n';
+  receipt += '='.repeat(width) + '\n\n';
   
   receipt += `Cliente: ${customer.name}\n`;
   if (customer.phone) {
