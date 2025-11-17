@@ -232,6 +232,77 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Manuals Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Manuales</Text>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/settings/user-manual')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="book.fill" size={24} color="#3B82F6" />
+              <Text style={styles.menuItemText}>Guía de Usuario</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/settings/admin-manual')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="person.badge.key.fill" size={24} color="#10B981" />
+              <Text style={styles.menuItemText}>Guía de Administrador</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/settings/special-functions-manual')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="sparkles" size={24} color="#F59E0B" />
+              <Text style={styles.menuItemText}>Guía de Funciones Especiales</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/settings/technical-manual')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="wrench.and.screwdriver.fill" size={24} color="#8B5CF6" />
+              <Text style={styles.menuItemText}>Guía Técnica</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/settings/developer-manual')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="chevron.left.forwardslash.chevron.right" size={24} color="#EF4444" />
+              <Text style={styles.menuItemText}>Guía de Desarrollador</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push('/settings/troubleshooting-manual')}
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol name="wrench.adjustable.fill" size={24} color="#EC4899" />
+              <Text style={styles.menuItemText}>Guía para Resolver Problemas</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Admin and Desarrollador Only Section */}
         {(user?.role === 'admin' || user?.role === 'desarrollador') && (
           <View style={styles.section}>
