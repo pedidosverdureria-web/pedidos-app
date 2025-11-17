@@ -113,6 +113,14 @@ export default function CompletedOrdersScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen
+          options={{
+            title: 'Pedidos Completados',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+          }}
+        />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -129,18 +137,16 @@ export default function CompletedOrdersScreen() {
         }}
       />
       
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Pedidos Completados</Text>
-        <View style={styles.searchContainer}>
-          <IconSymbol name="magnifyingglass" size={20} color="#fff" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar pedidos..."
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={colors.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar pedidos..."
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
       </View>
 
       {orders.length > 0 && (
@@ -166,7 +172,7 @@ export default function CompletedOrdersScreen() {
 
       {filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="checkmark.circle" size={64} color={colors.textSecondary} />
+          <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>
             {searchQuery
               ? 'No se encontraron pedidos completados'
@@ -186,6 +192,7 @@ export default function CompletedOrdersScreen() {
               tintColor={colors.primary}
             />
           }
+          contentContainerStyle={styles.listContent}
         />
       )}
     </View>
@@ -198,35 +205,27 @@ function createStyles(colors: any) {
       flex: 1,
       backgroundColor: colors.background,
     },
-    header: {
-      padding: 16,
-      paddingTop: 60,
-      backgroundColor: colors.primary,
-    },
-    headerTitle: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: '#fff',
-      marginBottom: 16,
-    },
     searchContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      borderRadius: 8,
-      paddingHorizontal: 12,
-    },
-    searchIcon: {
-      marginRight: 8,
+      margin: 16,
+      marginBottom: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      gap: 12,
     },
     searchInput: {
       flex: 1,
-      height: 40,
-      color: '#fff',
       fontSize: 16,
+      color: colors.text,
     },
     content: {
       flex: 1,
+    },
+    listContent: {
+      paddingBottom: 100,
     },
     orderCard: {
       backgroundColor: colors.card,
@@ -308,7 +307,7 @@ function createStyles(colors: any) {
       padding: 16,
       backgroundColor: colors.card,
       marginHorizontal: 16,
-      marginTop: 16,
+      marginTop: 8,
       marginBottom: 8,
       borderRadius: 12,
     },
