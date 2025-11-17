@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Switch,
   Alert,
+  Linking,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
@@ -180,13 +181,17 @@ export default function NotificationsScreen() {
               {
                 text: 'Abrir Configuración',
                 style: 'default',
-                onPress: () => {
+                onPress: async () => {
                   closeDialog();
-                  if (Platform.OS === 'ios') {
-                    Notifications.openSettingsAsync();
-                  } else {
-                    // On Android, we can't directly open notification settings
-                    // but we can show instructions
+                  try {
+                    if (Platform.OS === 'ios') {
+                      await Linking.openURL('app-settings:');
+                    } else {
+                      // On Android, open app settings
+                      await Linking.openSettings();
+                    }
+                  } catch (error) {
+                    console.error('[NotificationsScreen] Error opening settings:', error);
                     Alert.alert(
                       'Configuración de Notificaciones',
                       'Ve a Configuración > Aplicaciones > Pedidos > Notificaciones y activa las notificaciones.'

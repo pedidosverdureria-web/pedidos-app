@@ -38,20 +38,20 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Arquitectura General</Text>
             <Text style={styles.code}>
-              app/                    # Pantallas y rutas{'\n'}
-              ├── (tabs)/            # Navegación por pestañas{'\n'}
-              ├── order/             # Pantallas de pedidos{'\n'}
-              ├── settings/          # Configuraciones{'\n'}
+              {'app/                    '}{'# Pantallas y rutas'}{'\n'}
+              {'├── (tabs)/            '}{'# Navegación por pestañas'}{'\n'}
+              {'├── order/             '}{'# Pantallas de pedidos'}{'\n'}
+              {'├── settings/          '}{'# Configuraciones'}{'\n'}
               └── ...{'\n'}
               {'\n'}
-              components/            # Componentes reutilizables{'\n'}
-              contexts/              # Context API{'\n'}
-              hooks/                 # Custom hooks{'\n'}
-              utils/                 # Utilidades{'\n'}
-              types/                 # TypeScript types{'\n'}
-              styles/                # Estilos globales{'\n'}
-              lib/                   # Configuración de librerías{'\n'}
-              supabase/              # Edge Functions
+              {'components/            '}{'# Componentes reutilizables'}{'\n'}
+              {'contexts/              '}{'# Context API'}{'\n'}
+              {'hooks/                 '}{'# Custom hooks'}{'\n'}
+              {'utils/                 '}{'# Utilidades'}{'\n'}
+              {'types/                 '}{'# TypeScript types'}{'\n'}
+              {'styles/                '}{'# Estilos globales'}{'\n'}
+              {'lib/                   '}{'# Configuración de librerías'}{'\n'}
+              {'supabase/              '}{'# Edge Functions'}
             </Text>
           </View>
 
@@ -127,16 +127,16 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Instalación</Text>
             <Text style={styles.code}>
-              # Clonar repositorio{'\n'}
+              {'# Clonar repositorio'}{'\n'}
               git clone [repo-url]{'\n'}
               {'\n'}
-              # Instalar dependencias{'\n'}
+              {'# Instalar dependencias'}{'\n'}
               npm install{'\n'}
               {'\n'}
-              # Configurar variables de entorno{'\n'}
-              # Editar lib/supabase.ts con tus credenciales{'\n'}
+              {'# Configurar variables de entorno'}{'\n'}
+              {'# Editar lib/supabase.ts con tus credenciales'}{'\n'}
               {'\n'}
-              # Iniciar servidor de desarrollo{'\n'}
+              {'# Iniciar servidor de desarrollo'}{'\n'}
               npm run dev
             </Text>
           </View>
@@ -144,11 +144,11 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Scripts Disponibles</Text>
             <Text style={styles.code}>
-              npm run dev          # Inicia Expo con túnel{'\n'}
-              npm run android      # Inicia en Android{'\n'}
-              npm run ios          # Inicia en iOS{'\n'}
-              npm run web          # Inicia en web{'\n'}
-              npm run lint         # Ejecuta ESLint
+              {'npm run dev          '}{'# Inicia Expo con túnel'}{'\n'}
+              {'npm run android      '}{'# Inicia en Android'}{'\n'}
+              {'npm run ios          '}{'# Inicia en iOS'}{'\n'}
+              {'npm run web          '}{'# Inicia en web'}{'\n'}
+              {'npm run lint         '}{'# Ejecuta ESLint'}
             </Text>
           </View>
         </View>
@@ -195,12 +195,12 @@ export default function DeveloperManualScreen() {
               Todas las tablas tienen RLS habilitado. Ejemplo:
             </Text>
             <Text style={styles.code}>
-              -- Política de SELECT para orders{'\n'}
+              {'-- Política de SELECT para orders'}{'\n'}
               CREATE POLICY &quot;Users can view all orders&quot;{'\n'}
               ON orders FOR SELECT{'\n'}
               USING (auth.uid() IS NOT NULL);{'\n'}
               {'\n'}
-              -- Política de INSERT{'\n'}
+              {'-- Política de INSERT'}{'\n'}
               CREATE POLICY &quot;Users can create orders&quot;{'\n'}
               ON orders FOR INSERT{'\n'}
               WITH CHECK (auth.uid() IS NOT NULL);
@@ -213,7 +213,7 @@ export default function DeveloperManualScreen() {
               Las migraciones se aplican usando la herramienta apply_migration:
             </Text>
             <Text style={styles.code}>
-              // Ejemplo de uso{'\n'}
+              {'// Ejemplo de uso'}{'\n'}
               await apply_migration({'\n'}
               {'  '}project_id: &apos;lgiqpypnhnkylzyhhtze&apos;,{'\n'}
               {'  '}name: &apos;add_customer_blocked_field&apos;,{'\n'}
@@ -236,7 +236,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Supabase Client</Text>
             <Text style={styles.code}>
-              // lib/supabase.ts{'\n'}
+              {'// lib/supabase.ts'}{'\n'}
               import {'{'}createClient{'}'} from &apos;@supabase/supabase-js&apos;;{'\n'}
               {'\n'}
               const supabaseUrl = &apos;YOUR_URL&apos;;{'\n'}
@@ -252,24 +252,24 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Operaciones CRUD</Text>
             <Text style={styles.code}>
-              // SELECT{'\n'}
+              {'// SELECT'}{'\n'}
               const {'{'}data, error{'}'} = await supabase{'\n'}
               {'  '}.from(&apos;orders&apos;){'\n'}
               {'  '}.select(&apos;*&apos;){'\n'}
               {'  '}.eq(&apos;status&apos;, &apos;pending&apos;);{'\n'}
               {'\n'}
-              // INSERT{'\n'}
+              {'// INSERT'}{'\n'}
               const {'{'}data, error{'}'} = await supabase{'\n'}
               {'  '}.from(&apos;orders&apos;){'\n'}
               {'  '}.insert([{'{'}customer_name: &apos;Juan&apos;{'}'}]);{'\n'}
               {'\n'}
-              // UPDATE{'\n'}
+              {'// UPDATE'}{'\n'}
               const {'{'}data, error{'}'} = await supabase{'\n'}
               {'  '}.from(&apos;orders&apos;){'\n'}
               {'  '}.update({'{'}status: &apos;completed&apos;{'}'}){'\n'}
               {'  '}.eq(&apos;id&apos;, orderId);{'\n'}
               {'\n'}
-              // DELETE{'\n'}
+              {'// DELETE'}{'\n'}
               const {'{'}data, error{'}'} = await supabase{'\n'}
               {'  '}.from(&apos;orders&apos;){'\n'}
               {'  '}.delete(){'\n'}
@@ -306,21 +306,21 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Estructura de Edge Function</Text>
             <Text style={styles.code}>
-              // supabase/functions/whatsapp-webhook/index.ts{'\n'}
+              {'// supabase/functions/whatsapp-webhook/index.ts'}{'\n'}
               import {'{'}serve{'}'} from &apos;https://deno.land/std@0.168.0/http/server.ts&apos;;{'\n'}
               {'\n'}
               serve(async (req) =&gt; {'{'}
               {'\n'}
-              {'  '}// Manejar GET para verificación{'\n'}
+              {'  '}{'// Manejar GET para verificación'}{'\n'}
               {'  '}if (req.method === &apos;GET&apos;) {'{'}
               {'\n'}
-              {'    '}// Lógica de verificación{'\n'}
+              {'    '}{'// Lógica de verificación'}{'\n'}
               {'  '}{'}'}{'\n'}
               {'\n'}
-              {'  '}// Manejar POST para mensajes{'\n'}
+              {'  '}{'// Manejar POST para mensajes'}{'\n'}
               {'  '}if (req.method === &apos;POST&apos;) {'{'}
               {'\n'}
-              {'    '}// Lógica de procesamiento{'\n'}
+              {'    '}{'// Lógica de procesamiento'}{'\n'}
               {'  '}{'}'}{'\n'}
               {'}'});
             </Text>
@@ -329,16 +329,16 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Desplegar Edge Function</Text>
             <Text style={styles.code}>
-              # Instalar Supabase CLI{'\n'}
+              {'# Instalar Supabase CLI'}{'\n'}
               npm install -g supabase{'\n'}
               {'\n'}
-              # Login{'\n'}
+              {'# Login'}{'\n'}
               supabase login{'\n'}
               {'\n'}
-              # Desplegar función{'\n'}
+              {'# Desplegar función'}{'\n'}
               supabase functions deploy whatsapp-webhook{'\n'}
               {'\n'}
-              # Ver logs{'\n'}
+              {'# Ver logs'}{'\n'}
               supabase functions logs whatsapp-webhook
             </Text>
           </View>
@@ -346,10 +346,10 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Variables de Entorno</Text>
             <Text style={styles.code}>
-              # Configurar secretos{'\n'}
+              {'# Configurar secretos'}{'\n'}
               supabase secrets set WHATSAPP_TOKEN=your_token{'\n'}
               {'\n'}
-              # Usar en la función{'\n'}
+              {'# Usar en la función'}{'\n'}
               const token = Deno.env.get(&apos;WHATSAPP_TOKEN&apos;);
             </Text>
           </View>
@@ -365,7 +365,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>useOrders</Text>
             <Text style={styles.code}>
-              // hooks/useOrders.ts{'\n'}
+              {'// hooks/useOrders.ts'}{'\n'}
               export function useOrders() {'{'}
               {'\n'}
               {'  '}const [orders, setOrders] = useState([]);{'\n'}
@@ -373,7 +373,7 @@ export default function DeveloperManualScreen() {
               {'\n'}
               {'  '}const loadOrders = async () =&gt; {'{'}
               {'\n'}
-              {'    '}// Lógica de carga{'\n'}
+              {'    '}{'// Lógica de carga'}{'\n'}
               {'  '}{'}'};{'\n'}
               {'\n'}
               {'  '}return {'{'}orders, loading, loadOrders{'}'};{'\n'}
@@ -384,7 +384,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>useAuth</Text>
             <Text style={styles.code}>
-              // contexts/AuthContext.tsx{'\n'}
+              {'// contexts/AuthContext.tsx'}{'\n'}
               export function useAuth() {'{'}
               {'\n'}
               {'  '}const context = useContext(AuthContext);{'\n'}
@@ -400,7 +400,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>usePrinter</Text>
             <Text style={styles.code}>
-              // hooks/usePrinter.ts{'\n'}
+              {'// hooks/usePrinter.ts'}{'\n'}
               export function usePrinter() {'{'}
               {'\n'}
               {'  '}const [isConnected, setIsConnected] = useState(false);{'\n'}
@@ -408,12 +408,12 @@ export default function DeveloperManualScreen() {
               {'\n'}
               {'  '}const scanDevices = async () =&gt; {'{'}
               {'\n'}
-              {'    '}// Lógica de escaneo BLE{'\n'}
+              {'    '}{'// Lógica de escaneo BLE'}{'\n'}
               {'  '}{'}'};{'\n'}
               {'\n'}
               {'  '}const printReceipt = async (text: string) =&gt; {'{'}
               {'\n'}
-              {'    '}// Lógica de impresión{'\n'}
+              {'    '}{'// Lógica de impresión'}{'\n'}
               {'  '}{'}'};{'\n'}
               {'\n'}
               {'  '}return {'{'}isConnected, devices, scanDevices, printReceipt{'}'};{'\n'}
@@ -432,7 +432,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>CustomDialog</Text>
             <Text style={styles.code}>
-              // components/CustomDialog.tsx{'\n'}
+              {'// components/CustomDialog.tsx'}{'\n'}
               &lt;CustomDialog{'\n'}
               {'  '}visible={'{'}dialog.visible{'}'}{'\n'}
               {'  '}type={'{'}dialog.type{'}'}{'\n'}
@@ -447,7 +447,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>IconSymbol</Text>
             <Text style={styles.code}>
-              // components/IconSymbol.tsx{'\n'}
+              {'// components/IconSymbol.tsx'}{'\n'}
               &lt;IconSymbol{'\n'}
               {'  '}ios_icon_name=&quot;cart.fill&quot;{'\n'}
               {'  '}android_material_icon_name=&quot;shopping_cart&quot;{'\n'}
@@ -460,9 +460,9 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>FloatingTabBar</Text>
             <Text style={styles.code}>
-              // components/FloatingTabBar.tsx{'\n'}
-              // Barra de navegación flotante{'\n'}
-              // Se usa automáticamente en (tabs)/_layout.tsx
+              {'// components/FloatingTabBar.tsx'}{'\n'}
+              {'// Barra de navegación flotante'}{'\n'}
+              {'// Se usa automáticamente en (tabs)/_layout.tsx'}
             </Text>
           </View>
         </View>
@@ -477,7 +477,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Context API</Text>
             <Text style={styles.code}>
-              // contexts/AuthContext.tsx{'\n'}
+              {'// contexts/AuthContext.tsx'}{'\n'}
               const AuthContext = createContext&lt;AuthContextType | undefined&gt;(undefined);{'\n'}
               {'\n'}
               export function AuthProvider({'{'}children{'}'}): JSX.Element {'{'}
@@ -485,7 +485,7 @@ export default function DeveloperManualScreen() {
               {'  '}const [user, setUser] = useState&lt;User | null&gt;(null);{'\n'}
               {'  '}const [loading, setLoading] = useState(true);{'\n'}
               {'\n'}
-              {'  '}// Lógica de autenticación{'\n'}
+              {'  '}{'// Lógica de autenticación'}{'\n'}
               {'\n'}
               {'  '}return ({'\n'}
               {'    '}&lt;AuthContext.Provider value={'{'}{'{'} user, loading, signIn, signOut {'}'}{'}'}&gt;
@@ -501,17 +501,17 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Local Storage</Text>
             <Text style={styles.code}>
-              // Usar AsyncStorage{'\n'}
+              {'// Usar AsyncStorage'}{'\n'}
               import AsyncStorage from &apos;@react-native-async-storage/async-storage&apos;;{'\n'}
               {'\n'}
-              // Guardar{'\n'}
+              {'// Guardar'}{'\n'}
               await AsyncStorage.setItem(&apos;key&apos;, JSON.stringify(data));{'\n'}
               {'\n'}
-              // Leer{'\n'}
+              {'// Leer'}{'\n'}
               const data = await AsyncStorage.getItem(&apos;key&apos;);{'\n'}
               const parsed = JSON.parse(data);{'\n'}
               {'\n'}
-              // Eliminar{'\n'}
+              {'// Eliminar'}{'\n'}
               await AsyncStorage.removeItem(&apos;key&apos;);
             </Text>
           </View>
@@ -549,7 +549,7 @@ export default function DeveloperManualScreen() {
               {'}'} catch (error) {'{'}
               {'\n'}
               {'  '}console.error(&apos;[Component] Error:&apos;, error);{'\n'}
-              {'  '}// Mostrar error al usuario{'\n'}
+              {'  '}{'// Mostrar error al usuario'}{'\n'}
               {'  '}showDialog(&apos;error&apos;, &apos;Error&apos;, error.message);{'\n'}
               {'}'}
             </Text>
@@ -612,22 +612,22 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Build con EAS</Text>
             <Text style={styles.code}>
-              # Instalar EAS CLI{'\n'}
+              {'# Instalar EAS CLI'}{'\n'}
               npm install -g eas-cli{'\n'}
               {'\n'}
-              # Login{'\n'}
+              {'# Login'}{'\n'}
               eas login{'\n'}
               {'\n'}
-              # Configurar proyecto{'\n'}
+              {'# Configurar proyecto'}{'\n'}
               eas build:configure{'\n'}
               {'\n'}
-              # Build para Android{'\n'}
+              {'# Build para Android'}{'\n'}
               eas build --platform android{'\n'}
               {'\n'}
-              # Build para iOS{'\n'}
+              {'# Build para iOS'}{'\n'}
               eas build --platform ios{'\n'}
               {'\n'}
-              # Build para ambos{'\n'}
+              {'# Build para ambos'}{'\n'}
               eas build --platform all
             </Text>
           </View>
@@ -635,7 +635,7 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Configuración de Build</Text>
             <Text style={styles.code}>
-              // eas.json{'\n'}
+              {'// eas.json'}{'\n'}
               {'{'}
               {'\n'}
               {'  '}&quot;build&quot;: {'{'}
@@ -661,10 +661,10 @@ export default function DeveloperManualScreen() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Updates OTA</Text>
             <Text style={styles.code}>
-              # Publicar update{'\n'}
+              {'# Publicar update'}{'\n'}
               eas update --branch production{'\n'}
               {'\n'}
-              # Ver updates{'\n'}
+              {'# Ver updates'}{'\n'}
               eas update:list
             </Text>
           </View>
