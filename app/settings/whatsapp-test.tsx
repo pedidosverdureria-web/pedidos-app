@@ -1,6 +1,5 @@
 
-import { colors } from '@/styles/commonStyles';
-import { IconSymbol } from '@/components/IconSymbol';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,10 +8,11 @@ import {
   TextInput,
   TouchableOpacity,
 } from 'react-native';
-import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
 import { Stack } from 'expo-router';
+import { IconSymbol } from '@/components/IconSymbol';
+import { useTheme } from '@/contexts/ThemeContext';
+import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
-import React, { useState } from 'react';
 
 interface DialogState {
   visible: boolean;
@@ -22,129 +22,9 @@ interface DialogState {
   buttons?: DialogButton[];
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  input: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: colors.text,
-    minHeight: 200,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  buttonText: {
-    color: colors.background,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  buttonTextSecondary: {
-    color: colors.text,
-  },
-  resultContainer: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  resultTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  resultItem: {
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  resultText: {
-    fontSize: 14,
-    color: colors.text,
-    marginBottom: 4,
-  },
-  resultLabel: {
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  emptyResult: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  exampleButton: {
-    flex: 1,
-    minWidth: 100,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-});
-
 export default function WhatsAppTestScreen() {
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
   const [message, setMessage] = useState('');
   const [result, setResult] = useState<ParsedOrderItem[]>([]);
   const [dialog, setDialog] = useState<DialogState>({
@@ -266,11 +146,134 @@ tomates 2 kilos
 un atado de cilantro`);
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 20,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    input: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      fontSize: 16,
+      color: colors.text,
+      minHeight: 200,
+      textAlignVertical: 'top',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 12,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    buttonSecondary: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    buttonText: {
+      color: colors.background,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    buttonTextSecondary: {
+      color: colors.text,
+    },
+    resultContainer: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    resultTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    resultItem: {
+      backgroundColor: colors.background,
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    resultText: {
+      fontSize: 14,
+      color: colors.text,
+      marginBottom: 4,
+    },
+    resultLabel: {
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    emptyResult: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontStyle: 'italic',
+      textAlign: 'center',
+      paddingVertical: 20,
+    },
+    exampleButton: {
+      flex: 1,
+      minWidth: 100,
+    },
+    statsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    statItem: {
+      alignItems: 'center',
+    },
+    statValue: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+    statLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginTop: 4,
+    },
+  });
+
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
           title: 'Test de Parser WhatsApp',
+          headerBackTitle: 'Atrás',
           headerStyle: { backgroundColor: colors.card },
           headerTintColor: colors.text,
         }}

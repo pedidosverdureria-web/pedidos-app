@@ -212,6 +212,8 @@ export default function ThemeSettingsScreen() {
           options={{
             title: 'Color de la App',
             headerBackTitle: 'Atrás',
+            headerStyle: { backgroundColor: currentTheme.colors.card },
+            headerTintColor: currentTheme.colors.text,
           }}
         />
         <ActivityIndicator size="large" color={currentTheme.colors.primary} />
@@ -228,6 +230,8 @@ export default function ThemeSettingsScreen() {
         options={{
           title: 'Color de la App',
           headerBackTitle: 'Atrás',
+          headerStyle: { backgroundColor: currentTheme.colors.card },
+          headerTintColor: currentTheme.colors.text,
         }}
       />
       <ScrollView style={styles.content}>
