@@ -351,13 +351,12 @@ export default function AboutScreen() {
           <Text style={styles.description}>{appInfo.description}</Text>
         </View>
 
-        {/* Quick Start Guide for New Customers */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Guía Rápida para Nuevos Clientes</Text>
           <View style={styles.card}>
             <View style={styles.guideSection}>
               <View style={styles.guideHeader}>
-                <View style={[styles.guideIcon, { backgroundColor: '#3B82F6' }]}>
+                <View style={[styles.guideIcon, { backgroundColor: colors.primary }]}>
                   <IconSymbol name="cart.fill.badge.plus" size={24} color="#FFFFFF" />
                 </View>
                 <Text style={styles.guideTitle}>1. Cómo Hacer un Pedido</Text>
@@ -377,7 +376,7 @@ export default function AboutScreen() {
 
             <View style={styles.guideSection}>
               <View style={styles.guideHeader}>
-                <View style={[styles.guideIcon, { backgroundColor: '#10B981' }]}>
+                <View style={[styles.guideIcon, { backgroundColor: colors.success }]}>
                   <IconSymbol name="questionmark.circle.fill" size={24} color="#FFFFFF" />
                 </View>
                 <Text style={styles.guideTitle}>2. Cómo Hacer Consultas</Text>
@@ -397,7 +396,7 @@ export default function AboutScreen() {
 
             <View style={styles.guideSection}>
               <View style={styles.guideHeader}>
-                <View style={[styles.guideIcon, { backgroundColor: '#F59E0B' }]}>
+                <View style={[styles.guideIcon, { backgroundColor: colors.warning }]}>
                   <IconSymbol name="arrow.triangle.2.circlepath" size={24} color="#FFFFFF" />
                 </View>
                 <Text style={styles.guideTitle}>3. Pedidos Adicionales</Text>
@@ -417,26 +416,26 @@ export default function AboutScreen() {
 
             <View style={styles.guideSection}>
               <View style={styles.guideHeader}>
-                <View style={[styles.guideIcon, { backgroundColor: '#8B5CF6' }]}>
+                <View style={[styles.guideIcon, { backgroundColor: colors.info }]}>
                   <IconSymbol name="info.circle.fill" size={24} color="#FFFFFF" />
                 </View>
                 <Text style={styles.guideTitle}>Estados del Pedido</Text>
               </View>
               <View style={styles.guideContent}>
                 <View style={styles.statusItem}>
-                  <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+                  <View style={[styles.statusDot, { backgroundColor: colors.statusPending }]} />
                   <Text style={styles.statusText}>Pendiente - Tu pedido fue recibido</Text>
                 </View>
                 <View style={styles.statusItem}>
-                  <View style={[styles.statusDot, { backgroundColor: '#3B82F6' }]} />
+                  <View style={[styles.statusDot, { backgroundColor: colors.statusPreparing }]} />
                   <Text style={styles.statusText}>Preparando - Estamos preparando tu pedido</Text>
                 </View>
                 <View style={styles.statusItem}>
-                  <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                  <View style={[styles.statusDot, { backgroundColor: colors.statusReady }]} />
                   <Text style={styles.statusText}>Listo - Tu pedido está listo para recoger</Text>
                 </View>
                 <View style={styles.statusItem}>
-                  <View style={[styles.statusDot, { backgroundColor: '#6B7280' }]} />
+                  <View style={[styles.statusDot, { backgroundColor: colors.statusDelivered }]} />
                   <Text style={styles.statusText}>Entregado - Pedido completado</Text>
                 </View>
               </View>
@@ -444,7 +443,6 @@ export default function AboutScreen() {
           </View>
         </View>
 
-        {/* Manuals Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Manuales</Text>
           <View style={styles.card}>
@@ -452,7 +450,7 @@ export default function AboutScreen() {
               style={styles.manualItem}
               onPress={() => handleManualPress('/settings/user-manual')}
             >
-              <View style={[styles.manualIcon, { backgroundColor: '#3B82F6' }]}>
+              <View style={[styles.manualIcon, { backgroundColor: colors.primary }]}>
                 <IconSymbol name="book.fill" size={24} color="#FFFFFF" />
               </View>
               <View style={styles.manualContent}>
@@ -468,7 +466,7 @@ export default function AboutScreen() {
               style={[styles.manualItem, styles.manualItemLast]}
               onPress={() => handleManualPress('/settings/technical-manual')}
             >
-              <View style={[styles.manualIcon, { backgroundColor: '#8B5CF6' }]}>
+              <View style={[styles.manualIcon, { backgroundColor: colors.secondary }]}>
                 <IconSymbol name="wrench.and.screwdriver.fill" size={24} color="#FFFFFF" />
               </View>
               <View style={styles.manualContent}>

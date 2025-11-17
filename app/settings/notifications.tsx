@@ -12,10 +12,10 @@ import {
   Linking,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { Notification } from '@/types';
 import { 
   registerForPushNotificationsAsync, 
@@ -36,6 +36,9 @@ interface DialogState {
 
 export default function NotificationsScreen() {
   const { user } = useAuth();
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
+  
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [permissionsGranted, setPermissionsGranted] = useState(false);
@@ -98,8 +101,6 @@ export default function NotificationsScreen() {
       
       console.log('[NotificationsScreen] Loading notifications...');
       
-      // Fetch all notifications (both user-specific and global)
-      // Since we use PIN-based auth, we load all notifications
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -124,7 +125,6 @@ export default function NotificationsScreen() {
   useEffect(() => {
     loadNotifications();
 
-    // Set up real-time subscription for new notifications
     const supabase = getSupabase();
     if (supabase) {
       console.log('[NotificationsScreen] Setting up realtime subscription for notifications...');
@@ -168,7 +168,6 @@ export default function NotificationsScreen() {
       try {
         setSavingSettings(true);
         
-        // First request permissions
         const granted = await requestNotificationPermissions();
         
         if (!granted) {
@@ -187,7 +186,6 @@ export default function NotificationsScreen() {
                     if (Platform.OS === 'ios') {
                       await Linking.openURL('app-settings:');
                     } else {
-                      // On Android, open app settings
                       await Linking.openSettings();
                     }
                   } catch (error) {
@@ -206,8 +204,6 @@ export default function NotificationsScreen() {
 
         setPermissionsGranted(true);
 
-        // Register for push notifications with user role (not user_id)
-        // This works with PIN-based authentication
         console.log('[NotificationsScreen] Registering push notifications for role:', user?.role);
         const token = await registerForPushNotificationsAsync(user?.role);
         
@@ -371,9 +367,204 @@ export default function NotificationsScreen() {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginLeft: 4,
+      textTransform: 'uppercase',
+    },
+    headerActions: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    headerButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    headerButtonText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    warningBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: 'rgba(251, 191, 36, 0.1)',
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(251, 191, 36, 0.3)',
+    },
+    warningContent: {
+      flex: 1,
+      marginLeft: 12,
+    },
+    warningTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.warning,
+      marginBottom: 4,
+    },
+    warningText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    switchLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    switchTextContainer: {
+      flex: 1,
+      marginLeft: 12,
+    },
+    switchLabel: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text,
+      marginLeft: 12,
+    },
+    switchSubtext: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginLeft: 12,
+      marginTop: 2,
+    },
+    notificationItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+    },
+    notificationUnread: {
+      backgroundColor: 'rgba(59, 130, 246, 0.05)',
+      marginHorizontal: -16,
+      paddingHorizontal: 16,
+    },
+    notificationBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    notificationLeft: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      flex: 1,
+    },
+    notificationIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    notificationContent: {
+      flex: 1,
+    },
+    notificationTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    notificationMessage: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      marginBottom: 4,
+    },
+    notificationTime: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    deleteButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      backgroundColor: colors.background,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginLeft: 8,
+    },
+    emptyCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 48,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    emptyText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      marginTop: 16,
+      textAlign: 'center',
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 8,
+      textAlign: 'center',
+      lineHeight: 20,
+    },
+  });
+
   if (loading || checkingPermissions) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen
+          options={{
+            title: 'Notificaciones',
+            headerBackTitle: 'Atrás',
+          }}
+        />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -393,7 +584,6 @@ export default function NotificationsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configuración</Text>
           
-          {/* Permission Status Banner */}
           {Platform.OS !== 'web' && !permissionsGranted && (
             <View style={styles.warningBanner}>
               <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={24} color={colors.warning} />
@@ -571,7 +761,6 @@ export default function NotificationsScreen() {
         </View>
       </ScrollView>
 
-      {/* Custom Dialog */}
       <CustomDialog
         visible={dialog.visible}
         type={dialog.type}
@@ -583,192 +772,3 @@ export default function NotificationsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  headerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  headerButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(251, 191, 36, 0.3)',
-  },
-  warningContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  warningTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.warning,
-    marginBottom: 4,
-  },
-  warningText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  switchLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  switchTextContainer: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    marginLeft: 12,
-  },
-  switchSubtext: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginLeft: 12,
-    marginTop: 2,
-  },
-  notificationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  notificationUnread: {
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
-  },
-  notificationBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  notificationLeft: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  notificationIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  notificationMessage: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginLeft: 8,
-  },
-  emptyCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 48,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-});

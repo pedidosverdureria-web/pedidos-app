@@ -92,7 +92,6 @@ export default function PermissionsScreen() {
       const status = await requestPermission(permission.name);
       console.log('[PermissionsScreen] Permission result:', status);
       
-      // Reload permissions to reflect changes
       await loadPermissions();
       
       if (status === 'granted') {
@@ -131,7 +130,6 @@ export default function PermissionsScreen() {
       console.log('[PermissionsScreen] Requesting all permissions...');
       await requestAllRequiredPermissions();
       
-      // Reload permissions to reflect changes
       await loadPermissions();
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -176,16 +174,16 @@ export default function PermissionsScreen() {
       borderColor: colors.border,
     },
     infoCard: {
-      backgroundColor: '#EFF6FF',
+      backgroundColor: colors.info + '20',
       borderRadius: 12,
       padding: 16,
       marginBottom: 16,
       borderWidth: 1,
-      borderColor: '#BFDBFE',
+      borderColor: colors.info + '40',
     },
     infoText: {
       fontSize: 14,
-      color: '#1E40AF',
+      color: colors.text,
       lineHeight: 20,
     },
     permissionItem: {
@@ -305,12 +303,12 @@ export default function PermissionsScreen() {
       fontWeight: '600',
     },
     warningCard: {
-      backgroundColor: '#FEF3C7',
+      backgroundColor: colors.warning + '20',
       borderRadius: 12,
       padding: 16,
       marginBottom: 16,
       borderWidth: 1,
-      borderColor: '#FCD34D',
+      borderColor: colors.warning + '40',
       flexDirection: 'row',
       alignItems: 'flex-start',
     },
@@ -321,7 +319,7 @@ export default function PermissionsScreen() {
     warningText: {
       flex: 1,
       fontSize: 14,
-      color: '#92400E',
+      color: colors.text,
       lineHeight: 20,
     },
   });
@@ -363,21 +361,19 @@ export default function PermissionsScreen() {
           />
         }
       >
-        {/* Info Card */}
         <View style={styles.infoCard}>
           <Text style={styles.infoText}>
             Esta aplicación necesita ciertos permisos para funcionar correctamente, especialmente para la auto-impresión en segundo plano y las notificaciones de nuevos pedidos.
           </Text>
         </View>
 
-        {/* Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Permisos concedidos:</Text>
             <Text
               style={[
                 styles.summaryValue,
-                { color: allGranted ? '#10B981' : '#F59E0B' },
+                { color: allGranted ? colors.success : colors.warning },
               ]}
             >
               {grantedCount} de {totalCount}
@@ -388,7 +384,7 @@ export default function PermissionsScreen() {
             <View
               style={[
                 styles.statusBadge,
-                { backgroundColor: allGranted ? '#10B981' : '#F59E0B' },
+                { backgroundColor: allGranted ? colors.success : colors.warning },
               ]}
             >
               <IconSymbol
@@ -403,13 +399,12 @@ export default function PermissionsScreen() {
           </View>
         </View>
 
-        {/* Warning Card */}
         {hasIssues && (
           <View style={styles.warningCard}>
             <IconSymbol
               name="exclamationmark.triangle.fill"
               size={24}
-              color="#D97706"
+              color={colors.warning}
               style={styles.warningIcon}
             />
             <Text style={styles.warningText}>
@@ -418,7 +413,6 @@ export default function PermissionsScreen() {
           </View>
         )}
 
-        {/* Permissions List */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Permisos Requeridos</Text>
           <View style={styles.card}>
@@ -487,7 +481,6 @@ export default function PermissionsScreen() {
           </View>
         </View>
 
-        {/* Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Acciones</Text>
           {!allGranted && (
@@ -509,7 +502,6 @@ export default function PermissionsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Additional Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Información Adicional</Text>
           <View style={styles.card}>

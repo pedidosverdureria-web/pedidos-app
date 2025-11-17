@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,104 +17,13 @@ import {
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
-import { colors } from '@/styles/commonStyles';
 
 const RECEIPT_LOGO_KEY = '@receipt_logo';
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-  },
-  section: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  sectionDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  logoPreviewContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 24,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderStyle: 'dashed',
-    minHeight: 200,
-  },
-  logoImage: {
-    width: 150,
-    height: 150,
-    borderRadius: 8,
-  },
-  noLogoText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 12,
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.secondary,
-  },
-  buttonDanger: {
-    backgroundColor: colors.error,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  infoBox: {
-    backgroundColor: colors.info + '20',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-  },
-  infoText: {
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  warningBox: {
-    backgroundColor: '#F59E0B20',
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-  },
-  warningText: {
-    fontSize: 14,
-    color: '#F59E0B',
-    lineHeight: 20,
-  },
-});
-
 export default function ReceiptLogoScreen() {
   const { user } = useAuth();
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
   const [loading, setLoading] = useState(false);
   const [logoUri, setLogoUri] = useState<string | null>(null);
 
@@ -138,7 +48,6 @@ export default function ReceiptLogoScreen() {
 
   const handleSelectFromGallery = async () => {
     try {
-      // Request permission
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (status !== 'granted') {
@@ -150,7 +59,6 @@ export default function ReceiptLogoScreen() {
         return;
       }
 
-      // Launch image picker
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -162,7 +70,6 @@ export default function ReceiptLogoScreen() {
         setLoading(true);
         const uri = result.assets[0].uri;
         
-        // Save to AsyncStorage
         await AsyncStorage.setItem(RECEIPT_LOGO_KEY, uri);
         setLogoUri(uri);
         
@@ -188,7 +95,6 @@ export default function ReceiptLogoScreen() {
 
   const handleTakePhoto = async () => {
     try {
-      // Request permission
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
@@ -200,7 +106,6 @@ export default function ReceiptLogoScreen() {
         return;
       }
 
-      // Launch camera
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
@@ -211,7 +116,6 @@ export default function ReceiptLogoScreen() {
         setLoading(true);
         const uri = result.assets[0].uri;
         
-        // Save to AsyncStorage
         await AsyncStorage.setItem(RECEIPT_LOGO_KEY, uri);
         setLogoUri(uri);
         
@@ -273,18 +177,109 @@ export default function ReceiptLogoScreen() {
     );
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+    },
+    section: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    sectionDescription: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 16,
+      lineHeight: 20,
+    },
+    logoPreviewContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      padding: 24,
+      marginBottom: 16,
+      borderWidth: 2,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+      minHeight: 200,
+    },
+    logoImage: {
+      width: 150,
+      height: 150,
+      borderRadius: 8,
+    },
+    noLogoText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 12,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonSecondary: {
+      backgroundColor: colors.secondary,
+    },
+    buttonDanger: {
+      backgroundColor: colors.error,
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    infoBox: {
+      backgroundColor: colors.info + '20',
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 16,
+    },
+    infoText: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+    warningBox: {
+      backgroundColor: colors.warning + '20',
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 16,
+    },
+    warningText: {
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+  });
+
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
           title: 'Logo del Recibo',
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
+          headerBackTitle: 'Atrás',
         }}
       />
       <ScrollView style={styles.content}>
-        {/* Description */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Logo del Recibo</Text>
           <Text style={styles.sectionDescription}>
@@ -293,7 +288,6 @@ export default function ReceiptLogoScreen() {
           </Text>
         </View>
 
-        {/* Logo Preview */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vista Previa</Text>
           
@@ -323,7 +317,6 @@ export default function ReceiptLogoScreen() {
           )}
         </View>
 
-        {/* Actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Acciones</Text>
           
@@ -354,7 +347,6 @@ export default function ReceiptLogoScreen() {
           )}
         </View>
 
-        {/* Important Note */}
         <View style={styles.section}>
           <View style={styles.warningBox}>
             <Text style={styles.warningText}>
@@ -365,7 +357,6 @@ export default function ReceiptLogoScreen() {
           </View>
         </View>
 
-        {/* Instructions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Instrucciones</Text>
           <Text style={styles.sectionDescription}>
