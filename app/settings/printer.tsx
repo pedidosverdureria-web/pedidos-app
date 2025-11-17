@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { usePrinter } from '@/hooks/usePrinter';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -15,7 +16,6 @@ import {
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
-import { colors } from '@/styles/commonStyles';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import { 
   registerBackgroundAutoPrintTask, 
@@ -36,159 +36,9 @@ interface DialogState {
   buttons?: DialogButton[];
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-  },
-  section: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  settingRowLast: {
-    borderBottomWidth: 0,
-  },
-  settingLabel: {
-    fontSize: 16,
-    color: colors.text,
-    flex: 1,
-  },
-  settingValue: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginRight: 8,
-  },
-  deviceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  deviceItemLast: {
-    borderBottomWidth: 0,
-  },
-  deviceName: {
-    fontSize: 16,
-    color: colors.text,
-    flex: 1,
-  },
-  connectedBadge: {
-    backgroundColor: colors.success,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 8,
-  },
-  connectedText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.secondary,
-  },
-  buttonDanger: {
-    backgroundColor: colors.error,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
-  loadingContainer: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  statusBadgeSuccess: {
-    backgroundColor: '#10B981',
-  },
-  statusBadgeWarning: {
-    backgroundColor: '#F59E0B',
-  },
-  statusBadgeError: {
-    backgroundColor: '#EF4444',
-  },
-  statusText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  infoText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    lineHeight: 20,
-  },
-  navigationRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  navigationRowLast: {
-    borderBottomWidth: 0,
-  },
-  navigationContent: {
-    flex: 1,
-  },
-  navigationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  navigationDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-});
-
 export default function PrinterSettingsScreen() {
   const { user } = useAuth();
+  const { currentTheme } = useTheme();
   const {
     availableDevices,
     connectedDevice,
@@ -422,13 +272,164 @@ export default function PrinterSettingsScreen() {
     router.push('/settings/receipt-editor');
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: currentTheme.colors.background,
+    },
+    content: {
+      padding: 16,
+    },
+    section: {
+      backgroundColor: currentTheme.colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: currentTheme.colors.text,
+      marginBottom: 12,
+    },
+    settingRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: currentTheme.colors.border,
+    },
+    settingRowLast: {
+      borderBottomWidth: 0,
+    },
+    settingLabel: {
+      fontSize: 16,
+      color: currentTheme.colors.text,
+      flex: 1,
+    },
+    settingValue: {
+      fontSize: 16,
+      color: currentTheme.colors.textSecondary,
+      marginRight: 8,
+    },
+    deviceItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: currentTheme.colors.border,
+    },
+    deviceItemLast: {
+      borderBottomWidth: 0,
+    },
+    deviceName: {
+      fontSize: 16,
+      color: currentTheme.colors.text,
+      flex: 1,
+    },
+    connectedBadge: {
+      backgroundColor: currentTheme.colors.success,
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 12,
+      marginRight: 8,
+    },
+    connectedText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    button: {
+      backgroundColor: currentTheme.colors.primary,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    buttonSecondary: {
+      backgroundColor: currentTheme.colors.secondary,
+    },
+    buttonDanger: {
+      backgroundColor: currentTheme.colors.error,
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    emptyText: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+      textAlign: 'center',
+      paddingVertical: 16,
+    },
+    loadingContainer: {
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    statusBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      marginTop: 8,
+    },
+    statusBadgeSuccess: {
+      backgroundColor: '#10B981',
+    },
+    statusBadgeWarning: {
+      backgroundColor: '#F59E0B',
+    },
+    statusBadgeError: {
+      backgroundColor: '#EF4444',
+    },
+    statusText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    infoText: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+      marginTop: 8,
+      lineHeight: 20,
+    },
+    navigationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: currentTheme.colors.border,
+    },
+    navigationRowLast: {
+      borderBottomWidth: 0,
+    },
+    navigationContent: {
+      flex: 1,
+    },
+    navigationTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: currentTheme.colors.text,
+      marginBottom: 4,
+    },
+    navigationDescription: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+      lineHeight: 18,
+    },
+  });
+
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
           title: 'Configuración de Impresora',
           headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
+          headerStyle: { backgroundColor: currentTheme.colors.primary },
           headerTintColor: '#fff',
         }}
       />
@@ -447,7 +448,7 @@ export default function PrinterSettingsScreen() {
                 Personaliza el diseño completo del recibo: encabezado, pie de página, espaciado, estilos predefinidos y más
               </Text>
             </View>
-            <IconSymbol name="chevron.right" size={24} color={colors.primary} />
+            <IconSymbol name="chevron.right" size={24} color={currentTheme.colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -475,7 +476,7 @@ export default function PrinterSettingsScreen() {
             <>
               {isScanning ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={colors.primary} />
+                  <ActivityIndicator size="large" color={currentTheme.colors.primary} />
                   <Text style={styles.emptyText}>Buscando impresoras...</Text>
                 </View>
               ) : availableDevices && availableDevices.length > 0 ? (
@@ -523,7 +524,7 @@ export default function PrinterSettingsScreen() {
             <Switch
               value={autoPrintEnabled}
               onValueChange={setAutoPrintEnabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
+              trackColor={{ false: currentTheme.colors.border, true: currentTheme.colors.primary }}
             />
           </View>
           
@@ -563,7 +564,7 @@ export default function PrinterSettingsScreen() {
             <Switch
               value={autoCutEnabled}
               onValueChange={setAutoCutEnabled}
-              trackColor={{ false: colors.border, true: colors.primary }}
+              trackColor={{ false: currentTheme.colors.border, true: currentTheme.colors.primary }}
             />
           </View>
           
@@ -579,7 +580,7 @@ export default function PrinterSettingsScreen() {
           >
             <Text style={styles.settingLabel}>Tamaño de papel</Text>
             <Text style={styles.settingValue}>{paperSize}</Text>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol name="chevron.right" size={20} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
           
           <View style={styles.settingRow}>
@@ -590,7 +591,7 @@ export default function PrinterSettingsScreen() {
                 setIncludeCustomerInfo(value);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
-              trackColor={{ false: colors.border, true: colors.primary }}
+              trackColor={{ false: currentTheme.colors.border, true: currentTheme.colors.primary }}
             />
           </View>
           
@@ -602,7 +603,7 @@ export default function PrinterSettingsScreen() {
                 setIncludeTotals(value);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
-              trackColor={{ false: colors.border, true: colors.primary }}
+              trackColor={{ false: currentTheme.colors.border, true: currentTheme.colors.primary }}
             />
           </View>
           
@@ -619,7 +620,7 @@ export default function PrinterSettingsScreen() {
                 setPrintSpecialChars(value);
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               }}
-              trackColor={{ false: colors.border, true: colors.primary }}
+              trackColor={{ false: currentTheme.colors.border, true: currentTheme.colors.primary }}
             />
           </View>
         </View>

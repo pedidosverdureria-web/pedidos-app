@@ -12,11 +12,11 @@ import {
   Switch,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { WhatsAppConfig } from '@/types';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface DialogState {
   visible: boolean;
@@ -27,6 +27,7 @@ interface DialogState {
 }
 
 export default function WhatsAppSettingsScreen() {
+  const { currentTheme } = useTheme();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -236,10 +237,167 @@ export default function WhatsAppSettingsScreen() {
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: currentTheme.colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: currentTheme.colors.background,
+    },
+    infoCard: {
+      flexDirection: 'row',
+      backgroundColor: currentTheme.colors.card,
+      padding: 16,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: currentTheme.colors.info,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+      marginBottom: 24,
+    },
+    infoText: {
+      flex: 1,
+      marginLeft: 12,
+      fontSize: 14,
+      color: currentTheme.colors.text,
+      lineHeight: 20,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: currentTheme.colors.textSecondary,
+      marginBottom: 8,
+      marginLeft: 4,
+      textTransform: 'uppercase',
+    },
+    card: {
+      backgroundColor: currentTheme.colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+    },
+    switchLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    switchLabel: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: currentTheme.colors.text,
+      marginLeft: 12,
+    },
+    inputGroup: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: currentTheme.colors.text,
+      marginBottom: 8,
+    },
+    input: {
+      backgroundColor: currentTheme.colors.background,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 16,
+      color: currentTheme.colors.text,
+    },
+    textArea: {
+      minHeight: 100,
+      textAlignVertical: 'top',
+    },
+    helperText: {
+      fontSize: 12,
+      color: currentTheme.colors.textSecondary,
+      marginTop: 4,
+      fontStyle: 'italic',
+    },
+    testButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: currentTheme.colors.background,
+      borderWidth: 2,
+      borderColor: currentTheme.colors.primary,
+      borderRadius: 8,
+      padding: 12,
+      marginTop: 8,
+    },
+    testButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: currentTheme.colors.primary,
+      marginLeft: 8,
+    },
+    parserTestButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: currentTheme.colors.card,
+      borderWidth: 2,
+      borderColor: currentTheme.colors.primary,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+    },
+    parserTestButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: currentTheme.colors.primary,
+      marginLeft: 8,
+    },
+    saveButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: currentTheme.colors.success,
+      borderRadius: 12,
+      padding: 16,
+    },
+    saveButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#FFFFFF',
+      marginLeft: 8,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+  });
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Stack.Screen
+          options={{
+            title: 'WhatsApp Integration',
+            headerBackTitle: 'Back',
+            headerStyle: { backgroundColor: currentTheme.colors.primary },
+            headerTintColor: '#fff',
+          }}
+        />
+        <ActivityIndicator size="large" color={currentTheme.colors.primary} />
       </View>
     );
   }
@@ -250,11 +408,13 @@ export default function WhatsAppSettingsScreen() {
         options={{
           title: 'WhatsApp Integration',
           headerBackTitle: 'Back',
+          headerStyle: { backgroundColor: currentTheme.colors.primary },
+          headerTintColor: '#fff',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.infoCard}>
-          <IconSymbol name="info.circle.fill" size={24} color={colors.info} />
+          <IconSymbol name="info.circle.fill" size={24} color={currentTheme.colors.info} />
           <Text style={styles.infoText}>
             Configura la integración con WhatsApp Business API para recibir pedidos automáticamente.
             Las credenciales se configuran directamente en Supabase Edge Functions.
@@ -269,14 +429,14 @@ export default function WhatsAppSettingsScreen() {
                 <IconSymbol
                   name={formData.is_active ? 'checkmark.circle.fill' : 'xmark.circle.fill'}
                   size={24}
-                  color={formData.is_active ? colors.success : colors.error}
+                  color={formData.is_active ? currentTheme.colors.success : currentTheme.colors.error}
                 />
                 <Text style={styles.switchLabel}>Integración Activa</Text>
               </View>
               <Switch
                 value={formData.is_active}
                 onValueChange={(value) => setFormData({ ...formData, is_active: value })}
-                trackColor={{ false: colors.border, true: colors.success }}
+                trackColor={{ false: currentTheme.colors.border, true: currentTheme.colors.success }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -293,7 +453,7 @@ export default function WhatsAppSettingsScreen() {
                 value={formData.webhook_url}
                 onChangeText={(text) => setFormData({ ...formData, webhook_url: text })}
                 placeholder="https://tu-proyecto.supabase.co/functions/v1/whatsapp-webhook"
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={currentTheme.colors.textSecondary}
                 autoCapitalize="none"
                 keyboardType="url"
               />
@@ -308,10 +468,10 @@ export default function WhatsAppSettingsScreen() {
               disabled={testing}
             >
               {testing ? (
-                <ActivityIndicator color={colors.primary} />
+                <ActivityIndicator color={currentTheme.colors.primary} />
               ) : (
                 <>
-                  <IconSymbol name="bolt.fill" size={20} color={colors.primary} />
+                  <IconSymbol name="bolt.fill" size={20} color={currentTheme.colors.primary} />
                   <Text style={styles.testButtonText}>Probar Conexión del Webhook</Text>
                 </>
               )}
@@ -324,7 +484,7 @@ export default function WhatsAppSettingsScreen() {
           <View style={styles.card}>
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <IconSymbol name="message.fill" size={24} color={colors.primary} />
+                <IconSymbol name="message.fill" size={24} color={currentTheme.colors.primary} />
                 <Text style={styles.switchLabel}>Respuesta Automática</Text>
               </View>
               <Switch
@@ -332,7 +492,7 @@ export default function WhatsAppSettingsScreen() {
                 onValueChange={(value) =>
                   setFormData({ ...formData, auto_reply_enabled: value })
                 }
-                trackColor={{ false: colors.border, true: colors.primary }}
+                trackColor={{ false: currentTheme.colors.border, true: currentTheme.colors.primary }}
                 thumbColor="#FFFFFF"
               />
             </View>
@@ -347,7 +507,7 @@ export default function WhatsAppSettingsScreen() {
                     setFormData({ ...formData, auto_reply_message: text })
                   }
                   placeholder="Mensaje que se enviará automáticamente"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor={currentTheme.colors.textSecondary}
                   multiline
                   numberOfLines={4}
                 />
@@ -360,7 +520,7 @@ export default function WhatsAppSettingsScreen() {
           style={styles.parserTestButton}
           onPress={() => router.push('/settings/whatsapp-test')}
         >
-          <IconSymbol name="text.bubble.fill" size={20} color={colors.primary} />
+          <IconSymbol name="text.bubble.fill" size={20} color={currentTheme.colors.primary} />
           <Text style={styles.parserTestButtonText}>Probar Parser de Mensajes</Text>
         </TouchableOpacity>
 
@@ -391,152 +551,3 @@ export default function WhatsAppSettingsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.info,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 24,
-  },
-  infoText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  switchLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    marginLeft: 12,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  helperText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  testButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 8,
-  },
-  testButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  parserTestButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  parserTestButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-    marginLeft: 8,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.success,
-    borderRadius: 12,
-    padding: 16,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-});
