@@ -120,7 +120,13 @@ export default function PrinterSettingsScreen() {
     try {
       setLoading(true);
 
+      // Load existing config first to preserve receipt editor settings
+      const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
+      const existingConfig = configStr ? JSON.parse(configStr) : {};
+
+      // Merge with existing config, preserving advanced_config from receipt editor
       const config = {
+        ...existingConfig, // Preserve all existing settings
         auto_print_enabled: autoPrintEnabled,
         auto_cut_enabled: autoCutEnabled,
         text_size: 'small', // Fixed to small
@@ -130,6 +136,8 @@ export default function PrinterSettingsScreen() {
         print_special_chars: printSpecialChars,
         printer_name: connectedDevice?.name || null,
         printer_address: connectedDevice?.id || null,
+        // Keep advanced_config if it exists
+        advanced_config: existingConfig.advanced_config || undefined,
       };
       
       console.log('[PrinterSettings] Saving config to local storage:', config);

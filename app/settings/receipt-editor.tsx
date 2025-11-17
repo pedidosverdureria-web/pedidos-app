@@ -339,16 +339,24 @@ export default function ReceiptEditorScreen() {
     try {
       setLoading(true);
 
+      // Load existing config first to preserve printer settings
       const configStr = await AsyncStorage.getItem(PRINTER_CONFIG_KEY);
       const existingConfig = configStr ? JSON.parse(configStr) : {};
 
+      // Merge with existing config, preserving printer-specific settings
       const newConfig = {
-        ...existingConfig,
+        ...existingConfig, // Preserve all existing settings
         paper_size: paperSize,
         text_size: textSize,
         include_customer_info: includeCustomerInfo,
         include_totals: includeTotals,
         advanced_config: advancedConfig,
+        // Keep printer-specific settings if they exist
+        auto_print_enabled: existingConfig.auto_print_enabled ?? false,
+        auto_cut_enabled: existingConfig.auto_cut_enabled ?? true,
+        print_special_chars: existingConfig.print_special_chars ?? true,
+        printer_name: existingConfig.printer_name || null,
+        printer_address: existingConfig.printer_address || null,
       };
       
       console.log('[ReceiptEditor] Saving config:', newConfig);
