@@ -3,6 +3,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Profile, UserRole } from '@/types';
 import { Platform } from 'react-native';
+import { 
+  registerForPushNotificationsAsync, 
+  setupNotificationResponseHandler,
+  setupNotificationReceivedHandler 
+} from '@/utils/pushNotifications';
+import { router } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 
 const AUTH_STORAGE_KEY = 'auth_user';
 
@@ -33,6 +40,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const savedUser = JSON.parse(savedUserJson);
           console.log('[Auth] Found saved user:', savedUser.role);
           setUser(savedUser);
+          
+          // Register for push notifications if on native platform
+          if (Platform.OS !== 'web' && savedUser.user_id) {
+            console.log('[Auth] Registering for push notifications...');
+            try {
+              await registerForPushNotificationsAsync(savedUser.user_id);
+              console.log('[Auth] Push notifications registered successfully');
+            } catch (error) {
+              console.error('[Auth] Error registering push notifications:', error);
+            }
+          }
         } else {
           console.log('[Auth] No saved user found');
         }
@@ -44,6 +62,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     loadSavedUser();
+  }, []);
+
+  /**
+   * Set up notification handlers
+   */
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    console.log('[Auth] Setting up notification handlers...');
+
+    // Handle notification taps (when user taps on a notification)
+    const responseSubscription = setupNotificationResponseHandler((response) => {
+      console.log('[Auth] Notification tapped:', response);
+      
+      const data = response.notification.request.content.data;
+      
+      // Navigate to order if orderId is present
+      if (data?.orderId) {
+        console.log('[Auth] Navigating to order:', data.orderId);
+        router.push(`/order/${data.orderId}` as any);
+      }
+    });
+
+    // Handle notifications received while app is in foreground
+    const receivedSubscription = setupNotificationReceivedHandler((notification) => {
+      console.log('[Auth] Notification received in foreground:', notification);
+      
+      // The notification will be displayed automatically by the notification handler
+      // configured in utils/pushNotifications.ts
+    });
+
+    return () => {
+      console.log('[Auth] Cleaning up notification handlers...');
+      responseSubscription.remove();
+      receivedSubscription.remove();
+    };
   }, []);
 
   /**
@@ -97,6 +153,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userProfile));
     
     console.log('[Auth] Sign in successful');
+
+    // Register for push notifications after successful login
+    if (Platform.OS !== 'web') {
+      console.log('[Auth] Registering for push notifications...');
+      try {
+        const token = await registerForPushNotificationsAsync(userProfile.user_id);
+        if (token) {
+          console.log('[Auth] Push notifications registered successfully');
+        } else {
+          console.warn('[Auth] Failed to register push notifications');
+        }
+      } catch (error) {
+        console.error('[Auth] Error registering push notifications:', error);
+      }
+    }
   };
 
   /**

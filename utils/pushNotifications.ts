@@ -3,6 +3,7 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { getSupabase } from '@/lib/supabase';
+import Constants from 'expo-constants';
 
 // Configure notification handler (only on native platforms)
 // This ensures notifications are shown with sound and vibration even when app is in foreground
@@ -97,8 +98,18 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
     console.log('[PushNotifications] Notification permissions granted');
     
     try {
+      // Get the project ID from expo-constants
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      
+      if (!projectId) {
+        console.error('[PushNotifications] No Expo project ID found in app.config.js');
+        throw new Error('Expo project ID not configured');
+      }
+
+      console.log('[PushNotifications] Using project ID:', projectId);
+
       const pushToken = await Notifications.getExpoPushTokenAsync({
-        projectId: 'your-project-id', // Replace with your Expo project ID
+        projectId,
       });
       token = pushToken.data;
       console.log('[PushNotifications] Push token obtained:', token);

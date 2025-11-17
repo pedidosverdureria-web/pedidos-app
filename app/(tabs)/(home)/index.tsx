@@ -18,9 +18,11 @@ import {
 import { 
   registerForPushNotificationsAsync, 
   setupNotificationResponseHandler,
+  setupNotificationReceivedHandler,
   checkNotificationPermissions,
   requestNotificationPermissions 
 } from '@/utils/pushNotifications';
+import * as Notifications from 'expo-notifications';
 import { getSupabase } from '@/lib/supabase';
 import { 
   registerBackgroundAutoPrintTask, 
@@ -90,6 +92,8 @@ export default function HomeScreen() {
   
   const appState = useRef(AppState.currentState);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const notificationResponseListener = useRef<Notifications.Subscription | null>(null);
+  const notificationReceivedListener = useRef<Notifications.Subscription | null>(null);
 
   // Load printer config
   const loadPrinterConfig = useCallback(async () => {
@@ -196,6 +200,7 @@ export default function HomeScreen() {
       ) {
         console.log('[HomeScreen] App has come to the foreground, checking for new orders');
         checkAndPrintNewOrders();
+        refetch(); // Refresh orders when app comes to foreground
       }
       appState.current = nextAppState;
     });
@@ -203,7 +208,7 @@ export default function HomeScreen() {
     return () => {
       subscription.remove();
     };
-  }, [checkAndPrintNewOrders]);
+  }, [checkAndPrintNewOrders, refetch]);
 
   // Setup push notifications
   useEffect(() => {
@@ -227,10 +232,38 @@ export default function HomeScreen() {
         }
         
         // Register for push notifications
-        await registerForPushNotificationsAsync(user.id);
+        const token = await registerForPushNotificationsAsync(user.id);
+        console.log('[HomeScreen] Push token registered:', token);
         
-        // Setup notification response handler
-        setupNotificationResponseHandler();
+        // Setup notification response handler (when user taps notification)
+        if (Platform.OS !== 'web') {
+          console.log('[HomeScreen] Setting up notification response handler...');
+          notificationResponseListener.current = setupNotificationResponseHandler((response) => {
+            console.log('[HomeScreen] Notification tapped:', response);
+            
+            // Get order ID from notification data
+            const orderId = response.notification.request.content.data?.orderId;
+            
+            if (orderId) {
+              console.log('[HomeScreen] Navigating to order:', orderId);
+              // Navigate to order detail screen
+              router.push(`/order/${orderId}` as any);
+            } else {
+              console.log('[HomeScreen] No order ID in notification data');
+              // Refresh orders list
+              refetch();
+            }
+          });
+          
+          // Setup notification received handler (when notification arrives while app is open)
+          console.log('[HomeScreen] Setting up notification received handler...');
+          notificationReceivedListener.current = setupNotificationReceivedHandler((notification) => {
+            console.log('[HomeScreen] Notification received while app is open:', notification);
+            
+            // Refresh orders when new notification arrives
+            refetch();
+          });
+        }
         
         console.log('[HomeScreen] Push notifications setup complete');
       } catch (error) {
@@ -239,7 +272,19 @@ export default function HomeScreen() {
     };
 
     setupNotifications();
-  }, [isAuthenticated, user]);
+
+    // Cleanup notification listeners
+    return () => {
+      if (notificationResponseListener.current) {
+        console.log('[HomeScreen] Removing notification response listener');
+        notificationResponseListener.current.remove();
+      }
+      if (notificationReceivedListener.current) {
+        console.log('[HomeScreen] Removing notification received listener');
+        notificationReceivedListener.current.remove();
+      }
+    };
+  }, [isAuthenticated, user, refetch]);
 
   // Auto-refresh orders
   useEffect(() => {
@@ -293,7 +338,8 @@ export default function HomeScreen() {
                   { backgroundColor: item.source === 'whatsapp' ? '#25D366' : colors.textSecondary }
                 ]}>
                   <IconSymbol 
-                    name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'} 
+                    ios_icon_name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'}
+                    android_material_icon_name={item.source === 'whatsapp' ? 'message' : 'edit'}
                     size={12} 
                     color="#fff" 
                   />
@@ -307,18 +353,18 @@ export default function HomeScreen() {
         
         <View style={styles.orderDetails}>
           <View style={styles.orderDetailRow}>
-            <IconSymbol name="clock.fill" size={14} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={14} color={colors.textSecondary} />
             <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatDate(item.created_at)}</Text>
           </View>
           <View style={styles.orderDetailRow}>
-            <IconSymbol name="bag.fill" size={14} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="bag.fill" android_material_icon_name="shopping_bag" size={14} color={colors.textSecondary} />
             <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>
               {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
             </Text>
           </View>
           {total > 0 && (
             <View style={styles.orderDetailRow}>
-              <IconSymbol name="dollarsign.circle.fill" size={14} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="attach_money" size={14} color={colors.textSecondary} />
               <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatCLP(total)}</Text>
             </View>
           )}
@@ -342,10 +388,10 @@ export default function HomeScreen() {
           headerRight: () => (
             <View style={{ flexDirection: 'row', gap: 16, marginRight: 16 }}>
               <TouchableOpacity onPress={() => router.push('/order/new')}>
-                <IconSymbol name="plus.circle.fill" size={28} color="#fff" />
+                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={28} color="#fff" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => router.push('/settings')}>
-                <IconSymbol name="gearshape.fill" size={24} color="#fff" />
+                <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color="#fff" />
               </TouchableOpacity>
             </View>
           ),
@@ -354,7 +400,7 @@ export default function HomeScreen() {
 
       {/* Search Bar */}
       <View style={[styles.searchContainer, { backgroundColor: colors.card }]}>
-        <IconSymbol name="magnifyingglass" size={20} color={colors.textSecondary} />
+        <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={colors.textSecondary} />
         <TextInput
           style={[styles.searchInput, { color: colors.text }]}
           placeholder="Buscar pedidos..."
@@ -403,7 +449,7 @@ export default function HomeScreen() {
         </View>
       ) : filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="tray.fill" size={64} color={colors.textSecondary} />
+          <IconSymbol ios_icon_name="tray.fill" android_material_icon_name="inbox" size={64} color={colors.textSecondary} />
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Sin Pedidos</Text>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {searchQuery

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Switch,
+  Alert,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
@@ -15,8 +16,14 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Notification } from '@/types';
-import { registerForPushNotificationsAsync } from '@/utils/pushNotifications';
+import { 
+  registerForPushNotificationsAsync, 
+  checkNotificationPermissions,
+  requestNotificationPermissions 
+} from '@/utils/pushNotifications';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
+import * as Notifications from 'expo-notifications';
+import { Platform } from 'react-native';
 
 interface DialogState {
   visible: boolean;
@@ -30,6 +37,8 @@ export default function NotificationsScreen() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [checkingPermissions, setCheckingPermissions] = useState(true);
   const [settings, setSettings] = useState({
     newOrderNotifications: true,
     statusChangeNotifications: true,
@@ -57,6 +66,29 @@ export default function NotificationsScreen() {
   const closeDialog = () => {
     setDialog({ ...dialog, visible: false });
   };
+
+  // Check notification permissions on mount
+  useEffect(() => {
+    const checkPermissions = async () => {
+      if (Platform.OS === 'web') {
+        setCheckingPermissions(false);
+        return;
+      }
+
+      try {
+        const granted = await checkNotificationPermissions();
+        setPermissionsGranted(granted);
+        setSettings(prev => ({ ...prev, pushNotificationsEnabled: granted }));
+        console.log('[NotificationsScreen] Permissions granted:', granted);
+      } catch (error) {
+        console.error('[NotificationsScreen] Error checking permissions:', error);
+      } finally {
+        setCheckingPermissions(false);
+      }
+    };
+
+    checkPermissions();
+  }, []);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -125,24 +157,68 @@ export default function NotificationsScreen() {
   }, [loadNotifications]);
 
   const handlePushNotificationToggle = async (value: boolean) => {
-    if (value && user?.user_id) {
+    if (Platform.OS === 'web') {
+      showDialog('info', 'No disponible', 'Las notificaciones push no están disponibles en la web');
+      return;
+    }
+
+    if (value) {
       try {
         setSavingSettings(true);
-        const token = await registerForPushNotificationsAsync(user.user_id);
-        if (token) {
-          setSettings({ ...settings, pushNotificationsEnabled: true });
-          showDialog('success', 'Éxito', 'Notificaciones push activadas');
-        } else {
-          showDialog('error', 'Error', 'No se pudieron activar las notificaciones push');
+        
+        // First request permissions
+        const granted = await requestNotificationPermissions();
+        
+        if (!granted) {
+          showDialog(
+            'warning', 
+            'Permisos requeridos', 
+            'Debes otorgar permisos de notificaciones en la configuración de tu dispositivo para recibir notificaciones push.',
+            [
+              { text: 'Cancelar', style: 'cancel', onPress: closeDialog },
+              {
+                text: 'Abrir Configuración',
+                style: 'default',
+                onPress: () => {
+                  closeDialog();
+                  if (Platform.OS === 'ios') {
+                    Notifications.openSettingsAsync();
+                  } else {
+                    // On Android, we can't directly open notification settings
+                    // but we can show instructions
+                    Alert.alert(
+                      'Configuración de Notificaciones',
+                      'Ve a Configuración > Aplicaciones > Pedidos > Notificaciones y activa las notificaciones.'
+                    );
+                  }
+                },
+              },
+            ]
+          );
+          return;
+        }
+
+        setPermissionsGranted(true);
+
+        // Then register for push notifications
+        if (user?.user_id) {
+          const token = await registerForPushNotificationsAsync(user.user_id);
+          if (token) {
+            setSettings({ ...settings, pushNotificationsEnabled: true });
+            showDialog('success', 'Éxito', 'Notificaciones push activadas correctamente');
+          } else {
+            showDialog('error', 'Error', 'No se pudo obtener el token de notificaciones push');
+          }
         }
       } catch (error) {
         console.error('Error enabling push notifications:', error);
-        showDialog('error', 'Error', 'No se pudieron activar las notificaciones push');
+        showDialog('error', 'Error', 'No se pudieron activar las notificaciones push: ' + (error as Error).message);
       } finally {
         setSavingSettings(false);
       }
     } else {
       setSettings({ ...settings, pushNotificationsEnabled: false });
+      showDialog('info', 'Desactivado', 'Las notificaciones push han sido desactivadas. Para volver a activarlas, activa el interruptor nuevamente.');
     }
   };
 
@@ -278,7 +354,7 @@ export default function NotificationsScreen() {
     }
   };
 
-  if (loading) {
+  if (loading || checkingPermissions) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -299,24 +375,47 @@ export default function NotificationsScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configuración</Text>
+          
+          {/* Permission Status Banner */}
+          {Platform.OS !== 'web' && !permissionsGranted && (
+            <View style={styles.warningBanner}>
+              <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={24} color={colors.warning} />
+              <View style={styles.warningContent}>
+                <Text style={styles.warningTitle}>Permisos de notificaciones desactivados</Text>
+                <Text style={styles.warningText}>
+                  Activa los permisos de notificaciones para recibir alertas de nuevos pedidos
+                </Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.card}>
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <IconSymbol name="bell.badge.fill" size={24} color={colors.primary} />
-                <Text style={styles.switchLabel}>Notificaciones Push</Text>
+                <IconSymbol ios_icon_name="bell.badge.fill" android_material_icon_name="notifications_active" size={24} color={colors.primary} />
+                <View style={styles.switchTextContainer}>
+                  <Text style={styles.switchLabel}>Notificaciones Push</Text>
+                  <Text style={styles.switchSubtext}>
+                    {Platform.OS === 'web' 
+                      ? 'No disponible en web' 
+                      : permissionsGranted 
+                        ? 'Activadas y funcionando' 
+                        : 'Requiere permisos del sistema'}
+                  </Text>
+                </View>
               </View>
               <Switch
                 value={settings.pushNotificationsEnabled}
                 onValueChange={handlePushNotificationToggle}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor="#FFFFFF"
-                disabled={savingSettings}
+                disabled={savingSettings || Platform.OS === 'web'}
               />
             </View>
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <IconSymbol name="bell.fill" size={24} color={colors.primary} />
+                <IconSymbol ios_icon_name="bell.fill" android_material_icon_name="notifications" size={24} color={colors.primary} />
                 <Text style={styles.switchLabel}>Nuevos Pedidos</Text>
               </View>
               <Switch
@@ -331,7 +430,7 @@ export default function NotificationsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <IconSymbol name="arrow.triangle.2.circlepath" size={24} color={colors.info} />
+                <IconSymbol ios_icon_name="arrow.triangle.2.circlepath" android_material_icon_name="sync" size={24} color={colors.info} />
                 <Text style={styles.switchLabel}>Cambios de Estado</Text>
               </View>
               <Switch
@@ -346,7 +445,7 @@ export default function NotificationsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <IconSymbol name="speaker.wave.2.fill" size={24} color={colors.success} />
+                <IconSymbol ios_icon_name="speaker.wave.2.fill" android_material_icon_name="volume_up" size={24} color={colors.success} />
                 <Text style={styles.switchLabel}>Sonido</Text>
               </View>
               <Switch
@@ -359,7 +458,7 @@ export default function NotificationsScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchLeft}>
-                <IconSymbol name="iphone.radiowaves.left.and.right" size={24} color={colors.accent} />
+                <IconSymbol ios_icon_name="iphone.radiowaves.left.and.right" android_material_icon_name="vibration" size={24} color={colors.accent} />
                 <Text style={styles.switchLabel}>Vibración</Text>
               </View>
               <Switch
@@ -415,7 +514,8 @@ export default function NotificationsScreen() {
                       ]}
                     >
                       <IconSymbol
-                        name={getNotificationIcon(notification.type) as any}
+                        ios_icon_name={getNotificationIcon(notification.type) as any}
+                        android_material_icon_name="notifications"
                         size={20}
                         color="#FFFFFF"
                       />
@@ -437,14 +537,14 @@ export default function NotificationsScreen() {
                     style={styles.deleteButton}
                     onPress={() => deleteNotification(notification.id)}
                   >
-                    <IconSymbol name="trash" size={18} color={colors.error} />
+                    <IconSymbol ios_icon_name="trash" android_material_icon_name="delete" size={18} color={colors.error} />
                   </TouchableOpacity>
                 </TouchableOpacity>
               ))}
             </View>
           ) : (
             <View style={styles.emptyCard}>
-              <IconSymbol name="bell.slash.fill" size={48} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="bell.slash.fill" android_material_icon_name="notifications_off" size={48} color={colors.textSecondary} />
               <Text style={styles.emptyText}>No hay notificaciones</Text>
               <Text style={styles.emptySubtext}>
                 Las notificaciones aparecerán aquí cuando recibas nuevos pedidos o actualizaciones
@@ -515,6 +615,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary,
   },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+  },
+  warningContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  warningTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.warning,
+    marginBottom: 4,
+  },
+  warningText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
   card: {
     backgroundColor: colors.card,
     borderRadius: 12,
@@ -533,11 +658,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  switchTextContainer: {
+    flex: 1,
+    marginLeft: 12,
+  },
   switchLabel: {
     fontSize: 16,
     fontWeight: '500',
     color: colors.text,
     marginLeft: 12,
+  },
+  switchSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginLeft: 12,
+    marginTop: 2,
   },
   notificationItem: {
     flexDirection: 'row',
