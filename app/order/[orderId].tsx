@@ -70,6 +70,9 @@ export default function OrderDetailScreen() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [parsedEditProduct, setParsedEditProduct] = useState<ParsedOrderItem | null>(null);
 
+  // Recurring Customer Dialog State
+  const [showRecurringCustomerDialog, setShowRecurringCustomerDialog] = useState(false);
+
   // Use custom hooks
   const {
     order,
@@ -158,7 +161,16 @@ export default function OrderDetailScreen() {
   }, [whatsappEditInput]);
 
   const handleAddCustomerToMenu = async () => {
-    const result = await customerHook.addCustomerToMenu();
+    if (!order) return;
+
+    // Show recurring customer dialog first
+    setShowRecurringCustomerDialog(true);
+  };
+
+  const handleAddCustomerAsRecurring = async (asRecurring: boolean) => {
+    setShowRecurringCustomerDialog(false);
+
+    const result = await customerHook.addCustomerToMenu(asRecurring);
     
     if (result.needsConfirmation && result.existingCustomerId) {
       // Show confirmation dialog for linking to existing customer
@@ -1405,6 +1417,97 @@ export default function OrderDetailScreen() {
         onClose={() => setDialog({ ...dialog, visible: false })}
       />
 
+      {/* Recurring Customer Dialog */}
+      <Modal
+        visible={showRecurringCustomerDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRecurringCustomerDialog(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.recurringDialogHeader}>
+              <IconSymbol 
+                ios_icon_name="person.badge.plus"
+                android_material_icon_name="person_add"
+                size={48} 
+                color={colors.primary} 
+              />
+              <Text style={styles.modalTitle}>Agregar Cliente</Text>
+            </View>
+            
+            <Text style={styles.recurringDialogMessage}>
+              ¿Deseas agregar a <Text style={styles.customerNameHighlight}>{order?.customer_name}</Text> como cliente recurrente con la posibilidad de trabajar con vales pendientes?
+            </Text>
+
+            <View style={styles.recurringDialogInfo}>
+              <View style={styles.recurringDialogInfoItem}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check_circle"
+                  size={20} 
+                  color="#10B981" 
+                />
+                <Text style={styles.recurringDialogInfoText}>
+                  Podrás gestionar sus pedidos y pagos
+                </Text>
+              </View>
+              <View style={styles.recurringDialogInfoItem}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check_circle"
+                  size={20} 
+                  color="#10B981" 
+                />
+                <Text style={styles.recurringDialogInfoText}>
+                  Aparecerá en el menú de Clientes
+                </Text>
+              </View>
+              <View style={styles.recurringDialogInfoItem}>
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check_circle"
+                  size={20} 
+                  color="#10B981" 
+                />
+                <Text style={styles.recurringDialogInfoText}>
+                  Podrá tener vales pendientes de pago
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => {
+                  setShowRecurringCustomerDialog(false);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  handleAddCustomerAsRecurring(true);
+                }}
+              >
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check_circle"
+                  size={20} 
+                  color="#fff" 
+                />
+                <Text style={[styles.modalButtonText, { color: '#fff', marginLeft: 6 }]}>
+                  Sí, Agregar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modals - Add Product Modal */}
       <Modal
         visible={showAddProductModal}
@@ -1943,6 +2046,8 @@ function createStyles(colors: any) {
       padding: 12,
       borderRadius: 8,
       alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
     },
     modalButtonCancel: {
       backgroundColor: colors.border,
@@ -2399,6 +2504,38 @@ function createStyles(colors: any) {
       fontSize: 13,
       color: colors.textSecondary,
       marginBottom: 2,
+    },
+    recurringDialogHeader: {
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    recurringDialogMessage: {
+      fontSize: 16,
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 20,
+      lineHeight: 24,
+    },
+    customerNameHighlight: {
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+    recurringDialogInfo: {
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      padding: 16,
+      marginBottom: 20,
+    },
+    recurringDialogInfoItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      marginBottom: 12,
+    },
+    recurringDialogInfoText: {
+      fontSize: 14,
+      color: colors.text,
+      flex: 1,
     },
   });
 }

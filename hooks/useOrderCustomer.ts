@@ -73,7 +73,7 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const addCustomerToMenu = async () => {
+  const addCustomerToMenu = async (asRecurring: boolean = true) => {
     if (!order) return { success: false, message: 'No hay pedido' };
 
     // Use the current order data
@@ -184,10 +184,19 @@ export function useOrderCustomer(order: Order | null, onUpdate: () => Promise<vo
       await onUpdate();
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      let successMessage = `${currentCustomerName} se agregó correctamente al menú de Clientes.`;
+      
+      if (asRecurring) {
+        successMessage += `\n\nAhora puedes gestionar sus pedidos y pagos desde el menú de Clientes y trabajar con vales pendientes.`;
+      } else {
+        successMessage += `\n\nAhora puedes gestionar sus pedidos desde el menú de Clientes.`;
+      }
+
       return {
         success: true,
         type: 'success' as const,
-        message: `${currentCustomerName} se agregó correctamente al menú de Clientes.\n\nAhora puedes gestionar sus pedidos y pagos desde el menú de Clientes.`
+        message: successMessage
       };
     } catch (error) {
       console.error('[useOrderCustomer] Error adding customer:', error);
