@@ -50,6 +50,7 @@ const MAPPING = {
   "minus": "remove",
   "xmark": "close",
   "xmark.circle.fill": "cancel",
+  "xmark.circle": "cancel",
   "checkmark": "check",
   "checkmark.circle.fill": "check-circle",
   "checkmark.circle": "check-circle-outline",
@@ -191,21 +192,33 @@ export type IconSymbolName = keyof typeof MAPPING;
  */
 export function IconSymbol({
   name,
+  ios_icon_name,
+  android_material_icon_name,
   size = 24,
   color,
   style,
 }: {
-  name: IconSymbolName;
+  name?: IconSymbolName;
+  ios_icon_name?: string;
+  android_material_icon_name?: string;
   size?: number;
   color: string | OpaqueColorValue;
   style?: StyleProp<ViewStyle>;
   weight?: SymbolWeight;
 }) {
+  // Support both old API (name) and new API (android_material_icon_name)
+  const iconName = android_material_icon_name || (name ? MAPPING[name] : undefined);
+  
+  if (!iconName) {
+    console.warn('IconSymbol: No valid icon name provided');
+    return null;
+  }
+
   return (
     <MaterialIcons
       color={color}
       size={size}
-      name={MAPPING[name]}
+      name={iconName as any}
       style={style as StyleProp<TextStyle>}
     />
   );
