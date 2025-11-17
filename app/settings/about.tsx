@@ -10,11 +10,14 @@ import {
   Image,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
+import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import * as Haptics from 'expo-haptics';
 
 export default function AboutScreen() {
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
+
   const appInfo = {
     name: 'Order Management',
     version: '1.0.0',
@@ -86,6 +89,243 @@ export default function AboutScreen() {
     router.push(path as any);
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    logoContainer: {
+      alignItems: 'center',
+      paddingVertical: 32,
+    },
+    logo: {
+      width: 120,
+      height: 120,
+      marginBottom: 16,
+    },
+    appName: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    version: {
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+    descriptionCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    description: {
+      fontSize: 16,
+      color: colors.text,
+      lineHeight: 24,
+      textAlign: 'center',
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 8,
+      marginLeft: 4,
+      textTransform: 'uppercase',
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    guideSection: {
+      marginBottom: 8,
+    },
+    guideHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    guideIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    guideTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+      flex: 1,
+    },
+    guideContent: {
+      paddingLeft: 52,
+    },
+    guideStep: {
+      fontSize: 15,
+      color: colors.text,
+      lineHeight: 24,
+      marginBottom: 8,
+    },
+    guideNote: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 20,
+      marginTop: 8,
+      fontStyle: 'italic',
+      backgroundColor: colors.background,
+      padding: 12,
+      borderRadius: 8,
+    },
+    guideDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 20,
+    },
+    statusItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    statusDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginRight: 12,
+    },
+    statusText: {
+      fontSize: 15,
+      color: colors.text,
+      flex: 1,
+    },
+    manualItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    manualItemLast: {
+      borderBottomWidth: 0,
+    },
+    manualIcon: {
+      width: 48,
+      height: 48,
+      borderRadius: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    manualContent: {
+      flex: 1,
+    },
+    manualTitle: {
+      fontSize: 17,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    manualDescription: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    featureItem: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      paddingVertical: 12,
+    },
+    featureItemBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    featureIcon: {
+      width: 36,
+      height: 36,
+      borderRadius: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    featureContent: {
+      flex: 1,
+    },
+    featureTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    featureDescription: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    linkItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 12,
+    },
+    linkItemBorder: {
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    linkLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    linkLabel: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text,
+      marginLeft: 12,
+    },
+    techItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    techLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    techValue: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    footer: {
+      alignItems: 'center',
+      paddingTop: 24,
+    },
+    footerText: {
+      fontSize: 14,
+      color: colors.text,
+      marginBottom: 8,
+    },
+    copyright: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+  });
+
   return (
     <>
       <Stack.Screen
@@ -125,7 +365,7 @@ export default function AboutScreen() {
               <View style={styles.guideContent}>
                 <Text style={styles.guideStep}>• Envía tu pedido por WhatsApp al número configurado</Text>
                 <Text style={styles.guideStep}>• Escribe solo la lista de productos con cantidades</Text>
-                <Text style={styles.guideStep}>• Ejemplo: "2 kg tomate, 1/2 kg cebolla, 3 lechugas"</Text>
+                <Text style={styles.guideStep}>• Ejemplo: &quot;2 kg tomate, 1/2 kg cebolla, 3 lechugas&quot;</Text>
                 <Text style={styles.guideStep}>• Recibirás una confirmación automática con el número de pedido</Text>
                 <Text style={styles.guideNote}>
                   💡 Tip: No incluyas saludos ni texto adicional, solo la lista de productos
@@ -144,7 +384,7 @@ export default function AboutScreen() {
               </View>
               <View style={styles.guideContent}>
                 <Text style={styles.guideStep}>• Envía tu pregunta por WhatsApp mencionando tu número de pedido</Text>
-                <Text style={styles.guideStep}>• Ejemplo: "¿Cuándo estará listo mi pedido #1234?"</Text>
+                <Text style={styles.guideStep}>• Ejemplo: &quot;¿Cuándo estará listo mi pedido #1234?&quot;</Text>
                 <Text style={styles.guideStep}>• El sistema registrará tu consulta automáticamente</Text>
                 <Text style={styles.guideStep}>• Recibirás una respuesta del equipo lo antes posible</Text>
                 <Text style={styles.guideNote}>
@@ -321,240 +561,3 @@ export default function AboutScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 16,
-  },
-  appName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  version: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  descriptionCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  description: {
-    fontSize: 16,
-    color: colors.text,
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  guideSection: {
-    marginBottom: 8,
-  },
-  guideHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  guideIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  guideTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    flex: 1,
-  },
-  guideContent: {
-    paddingLeft: 52,
-  },
-  guideStep: {
-    fontSize: 15,
-    color: colors.text,
-    lineHeight: 24,
-    marginBottom: 8,
-  },
-  guideNote: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 20,
-    marginTop: 8,
-    fontStyle: 'italic',
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 8,
-  },
-  guideDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 20,
-  },
-  statusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-  statusText: {
-    fontSize: 15,
-    color: colors.text,
-    flex: 1,
-  },
-  manualItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  manualItemLast: {
-    borderBottomWidth: 0,
-  },
-  manualIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  manualContent: {
-    flex: 1,
-  },
-  manualTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  manualDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 12,
-  },
-  featureItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  featureIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  featureContent: {
-    flex: 1,
-  },
-  featureTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  featureDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  linkItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  linkItemBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  linkLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  linkLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    marginLeft: 12,
-  },
-  techItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  techLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  techValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  footer: {
-    alignItems: 'center',
-    paddingTop: 24,
-  },
-  footerText: {
-    fontSize: 14,
-    color: colors.text,
-    marginBottom: 8,
-  },
-  copyright: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-});

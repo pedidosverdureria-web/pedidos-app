@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Stack } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
+import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import * as Haptics from 'expo-haptics';
@@ -32,184 +32,9 @@ interface DialogState {
   buttons?: DialogButton[];
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginLeft: 4,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  infoCard: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#1E40AF',
-    lineHeight: 20,
-  },
-  permissionItem: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  permissionItemLast: {
-    marginBottom: 0,
-    paddingBottom: 0,
-    borderBottomWidth: 0,
-  },
-  permissionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  permissionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  permissionInfo: {
-    flex: 1,
-  },
-  permissionName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 2,
-  },
-  permissionDescription: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-  },
-  permissionStatus: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 6,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  requestButton: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  requestButtonDisabled: {
-    backgroundColor: colors.border,
-  },
-  requestButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  button: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  buttonSecondary: {
-    backgroundColor: colors.secondary,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  summaryCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 15,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  summaryValue: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  warningCard: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  warningIcon: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  warningText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#92400E',
-    lineHeight: 20,
-  },
-});
-
 export default function PermissionsScreen() {
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [permissions, setPermissions] = useState<PermissionInfo[]>([]);
@@ -323,6 +148,183 @@ export default function PermissionsScreen() {
       setLoading(false);
     }
   };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginLeft: 4,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    infoCard: {
+      backgroundColor: '#EFF6FF',
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: '#BFDBFE',
+    },
+    infoText: {
+      fontSize: 14,
+      color: '#1E40AF',
+      lineHeight: 20,
+    },
+    permissionItem: {
+      marginBottom: 16,
+      paddingBottom: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    permissionItemLast: {
+      marginBottom: 0,
+      paddingBottom: 0,
+      borderBottomWidth: 0,
+    },
+    permissionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    permissionIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 8,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 12,
+    },
+    permissionInfo: {
+      flex: 1,
+    },
+    permissionName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 2,
+    },
+    permissionDescription: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
+    },
+    permissionStatus: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: 8,
+    },
+    statusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 8,
+      gap: 6,
+    },
+    statusText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    requestButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    requestButtonDisabled: {
+      backgroundColor: colors.border,
+    },
+    requestButtonText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    buttonSecondary: {
+      backgroundColor: colors.secondary,
+    },
+    buttonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    summaryCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    summaryLabel: {
+      fontSize: 15,
+      color: colors.text,
+      fontWeight: '500',
+    },
+    summaryValue: {
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    warningCard: {
+      backgroundColor: '#FEF3C7',
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: '#FCD34D',
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+    },
+    warningIcon: {
+      marginRight: 12,
+      marginTop: 2,
+    },
+    warningText: {
+      flex: 1,
+      fontSize: 14,
+      color: '#92400E',
+      lineHeight: 20,
+    },
+  });
 
   if (loading && !refreshing) {
     return (
