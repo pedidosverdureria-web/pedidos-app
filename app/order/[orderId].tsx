@@ -1106,8 +1106,8 @@ export default function OrderDetailScreen() {
             <>
               <TouchableOpacity style={styles.addButton} onPress={openAddProductModal}>
                 <IconSymbol 
-                  ios_icon_name="cart.badge.plus"
-                  android_material_icon_name="add_shopping_cart"
+                  ios_icon_name="cart.fill"
+                  android_material_icon_name="shopping_cart"
                   size={20} 
                   color="#fff" 
                 />
@@ -1117,8 +1117,8 @@ export default function OrderDetailScreen() {
               {order.items && order.items.length > 0 && (
                 <TouchableOpacity style={styles.bulkPriceButton} onPress={productsHook.openPriceModal}>
                   <IconSymbol 
-                    ios_icon_name="dollarsign.circle.fill"
-                    android_material_icon_name="attach_money"
+                    ios_icon_name="dollarsign.circle"
+                    android_material_icon_name="monetization_on"
                     size={20} 
                     color="#fff" 
                   />
@@ -1428,7 +1428,7 @@ export default function OrderDetailScreen() {
           <View style={styles.modalContent}>
             <View style={styles.recurringDialogHeader}>
               <IconSymbol 
-                ios_icon_name="person.badge.plus"
+                ios_icon_name="person.crop.circle.badge.plus"
                 android_material_icon_name="person_add"
                 size={48} 
                 color={colors.primary} 
