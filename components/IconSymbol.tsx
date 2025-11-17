@@ -122,9 +122,11 @@ const MAPPING = {
   // Shopping & Commerce
   "cart.fill": "shopping-cart",
   "cart": "shopping-cart-outlined",
+  "cart.badge.plus": "add-shopping-cart",
   "creditcard.fill": "credit-card",
   "creditcard": "credit-card",
-  "dollarsign.circle.fill": "monetization-on",
+  "dollarsign.circle.fill": "attach-money",
+  "dollarsign.circle": "monetization-on",
   "bag.fill": "shopping-bag",
   "bag": "shopping-bag",
 
@@ -150,6 +152,7 @@ const MAPPING = {
   "person.circle": "account-circle",
   "person.crop.circle.fill": "account-circle",
   "person.crop.circle": "account-circle",
+  "person.badge.plus": "person-add",
 
   // Sharing & Export
   "square.and.arrow.up": "share",
