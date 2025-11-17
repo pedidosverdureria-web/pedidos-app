@@ -12,223 +12,12 @@ import {
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { getSupabase } from '@/lib/supabase';
-import { colors } from '@/styles/commonStyles';
+import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Order, OrderStatus } from '@/types';
 import * as Haptics from 'expo-haptics';
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    backgroundColor: colors.primary,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backButton: {
-    marginRight: 12,
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-  },
-  statusBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  statusBadgeText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  orderCard: {
-    backgroundColor: colors.card,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  orderHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  orderNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  messageIndicator: {
-    backgroundColor: '#25D366',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  messageCount: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  orderStatusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  orderStatusText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  orderInfo: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  orderSourceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  orderSourceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  orderSourceWhatsApp: {
-    backgroundColor: '#25D366',
-  },
-  orderSourceManual: {
-    backgroundColor: '#6B7280',
-  },
-  orderSourceText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  orderDate: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  orderTotal: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginTop: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  summaryCard: {
-    backgroundColor: colors.card,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 8,
-    padding: 16,
-    borderRadius: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  summaryTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  summaryTotal: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-});
-
-function getStatusColor(status: OrderStatus): string {
+function getStatusColor(status: OrderStatus, colors: any): string {
   switch (status) {
     case 'pending':
       return '#F59E0B';
@@ -306,6 +95,8 @@ function formatDate(dateString: string): string {
 }
 
 export default function CustomerOrdersScreen() {
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
   const params = useLocalSearchParams();
   const customerId = params.customerId as string;
   const statusFilter = params.status as string || 'all';
@@ -391,7 +182,7 @@ export default function CustomerOrdersScreen() {
 
     return (
       <TouchableOpacity
-        style={[styles.orderCard, { borderLeftColor: getStatusColor(item.status) }]}
+        style={[styles.orderCard, { borderLeftColor: getStatusColor(item.status, colors) }]}
         onPress={() => handleOrderPress(item.id)}
       >
         <View style={styles.orderHeader}>
@@ -399,12 +190,12 @@ export default function CustomerOrdersScreen() {
             <Text style={styles.orderNumber}>{item.order_number}</Text>
             {hasMessages && (
               <View style={styles.messageIndicator}>
-                <IconSymbol name="message.fill" size={12} color="#fff" />
+                <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={12} color="#fff" />
                 <Text style={styles.messageCount}>{messageCount}</Text>
               </View>
             )}
           </View>
-          <View style={[styles.orderStatusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+          <View style={[styles.orderStatusBadge, { backgroundColor: getStatusColor(item.status, colors) }]}>
             <Text style={styles.orderStatusText}>{getStatusLabel(item.status)}</Text>
           </View>
         </View>
@@ -421,7 +212,8 @@ export default function CustomerOrdersScreen() {
             item.source === 'whatsapp' ? styles.orderSourceWhatsApp : styles.orderSourceManual
           ]}>
             <IconSymbol 
-              name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'} 
+              ios_icon_name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'}
+              android_material_icon_name={item.source === 'whatsapp' ? 'message' : 'edit'}
               size={12} 
               color="#fff" 
             />
@@ -442,6 +234,218 @@ export default function CustomerOrdersScreen() {
   const totalPaid = orders.reduce((sum, order) => sum + order.paid_amount, 0);
   const totalDebt = totalAmount - totalPaid;
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      padding: 16,
+      paddingTop: Platform.OS === 'ios' ? 60 : 40,
+      backgroundColor: colors.primary,
+    },
+    headerTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    backButton: {
+      marginRight: 12,
+    },
+    headerTitleContainer: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: 'rgba(255, 255, 255, 0.8)',
+      marginTop: 4,
+    },
+    statusBadge: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    statusBadgeText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    content: {
+      flex: 1,
+    },
+    orderCard: {
+      backgroundColor: colors.card,
+      marginHorizontal: 16,
+      marginVertical: 8,
+      padding: 16,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 3,
+        },
+      }),
+    },
+    orderHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    orderHeaderLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      flex: 1,
+    },
+    orderNumber: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    messageIndicator: {
+      backgroundColor: '#25D366',
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    messageCount: {
+      color: '#fff',
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    orderStatusBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 4,
+      borderRadius: 12,
+    },
+    orderStatusText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    orderInfo: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    orderSourceRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 4,
+      marginBottom: 2,
+    },
+    orderSourceBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 8,
+      gap: 4,
+    },
+    orderSourceWhatsApp: {
+      backgroundColor: '#25D366',
+    },
+    orderSourceManual: {
+      backgroundColor: '#6B7280',
+    },
+    orderSourceText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    orderDate: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 4,
+      fontStyle: 'italic',
+    },
+    orderTotal: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.primary,
+      marginTop: 8,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    emptyText: {
+      fontSize: 18,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: 16,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    summaryCard: {
+      backgroundColor: colors.card,
+      marginHorizontal: 16,
+      marginTop: 16,
+      marginBottom: 8,
+      padding: 16,
+      borderRadius: 12,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 3,
+        },
+      }),
+    },
+    summaryTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    summaryRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    summaryLabel: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    summaryValue: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    summaryTotal: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+  });
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -461,7 +465,7 @@ export default function CustomerOrdersScreen() {
             style={styles.backButton}
             onPress={handleBackPress}
           >
-            <IconSymbol name="chevron.left" size={28} color="#fff" />
+            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={28} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>{customerName}</Text>
@@ -503,7 +507,7 @@ export default function CustomerOrdersScreen() {
 
       {orders.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <IconSymbol name="tray" size={64} color={colors.textSecondary} />
+          <IconSymbol ios_icon_name="tray" android_material_icon_name="inbox" size={64} color={colors.textSecondary} />
           <Text style={styles.emptyText}>
             No hay pedidos {statusFilter !== 'all' ? getFilterLabel(statusFilter).toLowerCase() : ''}
           </Text>

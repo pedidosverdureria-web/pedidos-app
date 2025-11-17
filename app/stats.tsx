@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Stack } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
+import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { Order, OrderStatus } from '@/types';
@@ -17,6 +17,8 @@ import { Order, OrderStatus } from '@/types';
 const { width } = Dimensions.get('window');
 
 export default function StatsScreen() {
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState({
@@ -94,9 +96,169 @@ export default function StatsScreen() {
     return (count / stats.total) * 100;
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    heroCard: {
+      backgroundColor: colors.primary,
+      borderRadius: 16,
+      padding: 32,
+      alignItems: 'center',
+      marginBottom: 24,
+    },
+    heroValue: {
+      fontSize: 64,
+      fontWeight: '700',
+      color: '#FFFFFF',
+      marginBottom: 8,
+    },
+    heroLabel: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: 'rgba(255, 255, 255, 0.9)',
+    },
+    section: {
+      marginBottom: 24,
+    },
+    sectionTitle: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 8,
+      marginLeft: 4,
+      textTransform: 'uppercase',
+    },
+    periodGrid: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    periodCard: {
+      flex: 1,
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    periodValue: {
+      fontSize: 28,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: 8,
+      marginBottom: 4,
+    },
+    periodLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    revenueItem: {
+      paddingVertical: 8,
+    },
+    revenueLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    revenueTextContainer: {
+      marginLeft: 16,
+    },
+    revenueLabel: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    revenueValue: {
+      fontSize: 24,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 12,
+    },
+    statusItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    statusLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    statusDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      marginRight: 12,
+    },
+    statusLabel: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    statusRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    statusCount: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    statusPercentage: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      minWidth: 40,
+      textAlign: 'right',
+    },
+    progressBar: {
+      height: 8,
+      backgroundColor: colors.background,
+      borderRadius: 4,
+      marginBottom: 16,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 4,
+    },
+  });
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen
+          options={{
+            title: 'Order Statistics',
+            headerBackTitle: 'Back',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+          }}
+        />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -108,6 +270,8 @@ export default function StatsScreen() {
         options={{
           title: 'Order Statistics',
           headerBackTitle: 'Back',
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#fff',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -120,17 +284,17 @@ export default function StatsScreen() {
           <Text style={styles.sectionTitle}>Período</Text>
           <View style={styles.periodGrid}>
             <View style={styles.periodCard}>
-              <IconSymbol name="calendar" size={24} color={colors.primary} />
+              <IconSymbol ios_icon_name="calendar" android_material_icon_name="calendar_today" size={24} color={colors.primary} />
               <Text style={styles.periodValue}>{stats.todayOrders}</Text>
               <Text style={styles.periodLabel}>Hoy</Text>
             </View>
             <View style={styles.periodCard}>
-              <IconSymbol name="calendar" size={24} color={colors.info} />
+              <IconSymbol ios_icon_name="calendar" android_material_icon_name="calendar_today" size={24} color={colors.info} />
               <Text style={styles.periodValue}>{stats.weekOrders}</Text>
               <Text style={styles.periodLabel}>Esta Semana</Text>
             </View>
             <View style={styles.periodCard}>
-              <IconSymbol name="calendar" size={24} color={colors.accent} />
+              <IconSymbol ios_icon_name="calendar" android_material_icon_name="calendar_today" size={24} color={colors.accent} />
               <Text style={styles.periodValue}>{stats.monthOrders}</Text>
               <Text style={styles.periodLabel}>Este Mes</Text>
             </View>
@@ -142,7 +306,7 @@ export default function StatsScreen() {
           <View style={styles.card}>
             <View style={styles.revenueItem}>
               <View style={styles.revenueLeft}>
-                <IconSymbol name="dollarsign.circle.fill" size={32} color={colors.success} />
+                <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="attach_money" size={32} color={colors.success} />
                 <View style={styles.revenueTextContainer}>
                   <Text style={styles.revenueLabel}>Ingresos Totales</Text>
                   <Text style={styles.revenueValue}>
@@ -154,7 +318,7 @@ export default function StatsScreen() {
             <View style={styles.divider} />
             <View style={styles.revenueItem}>
               <View style={styles.revenueLeft}>
-                <IconSymbol name="chart.bar.fill" size={32} color={colors.primary} />
+                <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar_chart" size={32} color={colors.primary} />
                 <View style={styles.revenueTextContainer}>
                   <Text style={styles.revenueLabel}>Valor Promedio</Text>
                   <Text style={styles.revenueValue}>
@@ -294,155 +458,3 @@ export default function StatsScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  heroCard: {
-    backgroundColor: colors.primary,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  heroValue: {
-    fontSize: 64,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  heroLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-    marginLeft: 4,
-    textTransform: 'uppercase',
-  },
-  periodGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  periodCard: {
-    flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  periodValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  periodLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  revenueItem: {
-    paddingVertical: 8,
-  },
-  revenueLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  revenueTextContainer: {
-    marginLeft: 16,
-  },
-  revenueLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  revenueValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 12,
-  },
-  statusItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
-  },
-  statusLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  statusRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  statusCount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  statusPercentage: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    minWidth: 40,
-    textAlign: 'right',
-  },
-  progressBar: {
-    height: 8,
-    backgroundColor: colors.background,
-    borderRadius: 4,
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-});

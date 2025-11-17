@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Stack } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
+import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { Order } from '@/types';
@@ -23,6 +23,8 @@ interface ActivityItem {
 }
 
 export default function ActivityLogScreen() {
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -115,9 +117,134 @@ export default function ActivityLogScreen() {
     });
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      padding: 16,
+      paddingBottom: 32,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    infoCard: {
+      flexDirection: 'row',
+      backgroundColor: colors.card,
+      padding: 16,
+      borderRadius: 12,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.info,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 24,
+    },
+    infoText: {
+      flex: 1,
+      marginLeft: 12,
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+    timeline: {
+      paddingLeft: 8,
+    },
+    timelineItem: {
+      flexDirection: 'row',
+      marginBottom: 16,
+    },
+    timelineLeft: {
+      alignItems: 'center',
+      marginRight: 16,
+    },
+    timelineDot: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1,
+    },
+    timelineLine: {
+      width: 2,
+      flex: 1,
+      backgroundColor: colors.border,
+      marginTop: 4,
+    },
+    timelineContent: {
+      flex: 1,
+      paddingBottom: 8,
+    },
+    activityCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    activityHeader: {
+      marginBottom: 12,
+    },
+    activityTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    activityTime: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    activityDetails: {
+      gap: 8,
+    },
+    activityDetail: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    activityDetailText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginLeft: 8,
+    },
+    emptyCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 48,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    emptyText: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      marginTop: 16,
+      textAlign: 'center',
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 8,
+      textAlign: 'center',
+    },
+  });
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen
+          options={{
+            title: 'Activity Log',
+            headerBackTitle: 'Back',
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#fff',
+          }}
+        />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -129,17 +256,19 @@ export default function ActivityLogScreen() {
         options={{
           title: 'Activity Log',
           headerBackTitle: 'Back',
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#fff',
         }}
       />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />
         }
       >
         <View style={styles.infoCard}>
-          <IconSymbol name="info.circle.fill" size={24} color={colors.info} />
+          <IconSymbol ios_icon_name="info.circle.fill" android_material_icon_name="info" size={24} color={colors.info} />
           <Text style={styles.infoText}>
             Historial de actividad de los últimos 50 pedidos actualizados
           </Text>
@@ -157,7 +286,8 @@ export default function ActivityLogScreen() {
                     ]}
                   >
                     <IconSymbol
-                      name={getActivityIcon(activity.type) as any}
+                      ios_icon_name={getActivityIcon(activity.type) as any}
+                      android_material_icon_name={getActivityIcon(activity.type) as any}
                       size={16}
                       color="#FFFFFF"
                     />
@@ -174,14 +304,15 @@ export default function ActivityLogScreen() {
                     </View>
                     <View style={styles.activityDetails}>
                       <View style={styles.activityDetail}>
-                        <IconSymbol name="tag.fill" size={14} color={colors.textSecondary} />
+                        <IconSymbol ios_icon_name="tag.fill" android_material_icon_name="label" size={14} color={colors.textSecondary} />
                         <Text style={styles.activityDetailText}>
                           Estado: {activity.order.status}
                         </Text>
                       </View>
                       <View style={styles.activityDetail}>
                         <IconSymbol
-                          name="dollarsign.circle.fill"
+                          ios_icon_name="dollarsign.circle.fill"
+                          android_material_icon_name="attach_money"
                           size={14}
                           color={colors.textSecondary}
                         />
@@ -190,7 +321,7 @@ export default function ActivityLogScreen() {
                         </Text>
                       </View>
                       <View style={styles.activityDetail}>
-                        <IconSymbol name="clock.fill" size={14} color={colors.textSecondary} />
+                        <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={14} color={colors.textSecondary} />
                         <Text style={styles.activityDetailText}>
                           {new Date(activity.order.created_at).toLocaleString('es-ES', {
                             day: '2-digit',
@@ -208,7 +339,7 @@ export default function ActivityLogScreen() {
           </View>
         ) : (
           <View style={styles.emptyCard}>
-            <IconSymbol name="clock.fill" size={48} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={48} color={colors.textSecondary} />
             <Text style={styles.emptyText}>No hay actividad reciente</Text>
             <Text style={styles.emptySubtext}>
               La actividad de los pedidos aparecerá aquí
@@ -219,120 +350,3 @@ export default function ActivityLogScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.info,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 24,
-  },
-  infoText: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-  },
-  timeline: {
-    paddingLeft: 8,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    marginBottom: 16,
-  },
-  timelineLeft: {
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  timelineDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: colors.border,
-    marginTop: 4,
-  },
-  timelineContent: {
-    flex: 1,
-    paddingBottom: 8,
-  },
-  activityCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  activityHeader: {
-    marginBottom: 12,
-  },
-  activityTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  activityTime: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  activityDetails: {
-    gap: 8,
-  },
-  activityDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activityDetailText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginLeft: 8,
-  },
-  emptyCard: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 48,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-});
