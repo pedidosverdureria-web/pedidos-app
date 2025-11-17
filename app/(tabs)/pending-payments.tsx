@@ -237,32 +237,21 @@ export default function PendingPaymentsScreen() {
       flex: 1,
       backgroundColor: colors.background,
     },
-    header: {
-      padding: 16,
-      paddingTop: 60,
-      backgroundColor: colors.primary,
-    },
-    headerTitle: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: '#fff',
-      marginBottom: 16,
-    },
     searchContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.2)',
-      borderRadius: 8,
-      paddingHorizontal: 12,
-    },
-    searchIcon: {
-      marginRight: 8,
+      margin: 16,
+      marginBottom: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 12,
+      backgroundColor: colors.card,
+      gap: 12,
     },
     searchInput: {
       flex: 1,
-      height: 40,
-      color: '#fff',
       fontSize: 16,
+      color: colors.text,
     },
     content: {
       flex: 1,
@@ -1481,20 +1470,24 @@ export default function PendingPaymentsScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen 
+        options={{ 
+          title: 'Vales Pendientes',
+          headerShown: true,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#fff',
+        }} 
+      />
       
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Vales Pendientes</Text>
-        <View style={styles.searchContainer}>
-          <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color="#fff" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar clientes..."
-            placeholderTextColor="rgba(255, 255, 255, 0.6)"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+      <View style={styles.searchContainer}>
+        <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={colors.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar clientes..."
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
       </View>
 
       {filteredCustomers.length === 0 ? (
