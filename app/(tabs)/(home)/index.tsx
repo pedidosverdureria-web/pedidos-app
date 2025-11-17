@@ -20,7 +20,8 @@ import {
   setupNotificationResponseHandler,
   setupNotificationReceivedHandler,
   checkNotificationPermissions,
-  requestNotificationPermissions 
+  requestNotificationPermissions,
+  updateDeviceActivity 
 } from '@/utils/pushNotifications';
 import * as Notifications from 'expo-notifications';
 import { getSupabase } from '@/lib/supabase';
@@ -201,6 +202,11 @@ export default function HomeScreen() {
         console.log('[HomeScreen] App has come to the foreground, checking for new orders');
         checkAndPrintNewOrders();
         refetch(); // Refresh orders when app comes to foreground
+        
+        // Update device activity
+        if (Platform.OS !== 'web') {
+          updateDeviceActivity();
+        }
       }
       appState.current = nextAppState;
     });
@@ -231,8 +237,8 @@ export default function HomeScreen() {
           }
         }
         
-        // Register for push notifications
-        const token = await registerForPushNotificationsAsync(user.id);
+        // Register for push notifications with user role
+        const token = await registerForPushNotificationsAsync(user.role);
         console.log('[HomeScreen] Push token registered:', token);
         
         // Setup notification response handler (when user taps notification)

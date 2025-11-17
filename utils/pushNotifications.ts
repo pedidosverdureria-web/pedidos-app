@@ -4,6 +4,9 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { getSupabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const DEVICE_ID_KEY = '@device_id';
 
 // Configure notification handler (only on native platforms)
 // This ensures notifications are shown with sound and vibration even when app is in foreground
@@ -24,10 +27,46 @@ if (Platform.OS !== 'web') {
 }
 
 /**
+ * Get or create a unique device ID for this device
+ * This is used to identify the device in the database without requiring Supabase Auth
+ */
+async function getDeviceId(): Promise<string> {
+  try {
+    // Try to get existing device ID
+    let deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
+    
+    if (!deviceId) {
+      // Generate a new device ID using device info
+      const deviceName = Device.deviceName || 'Unknown Device';
+      const modelName = Device.modelName || 'Unknown Model';
+      const osVersion = Device.osVersion || 'Unknown OS';
+      const timestamp = Date.now();
+      
+      // Create a unique ID combining device info and timestamp
+      deviceId = `${Platform.OS}-${modelName}-${timestamp}`.replace(/\s+/g, '-');
+      
+      // Save it for future use
+      await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
+      console.log('[PushNotifications] Generated new device ID:', deviceId);
+    } else {
+      console.log('[PushNotifications] Using existing device ID:', deviceId);
+    }
+    
+    return deviceId;
+  } catch (error) {
+    console.error('[PushNotifications] Error getting device ID:', error);
+    // Fallback to a random ID
+    return `${Platform.OS}-${Date.now()}`;
+  }
+}
+
+/**
  * Register for push notifications and save the token to the database
  * CRITICAL: This sets up notification channels with maximum priority for screen-off delivery
+ * 
+ * @param userRole - The role of the user (admin, worker, printer, desarrollador)
  */
-export async function registerForPushNotificationsAsync(userId: string): Promise<string | null> {
+export async function registerForPushNotificationsAsync(userRole?: string): Promise<string | null> {
   // Push notifications are not supported on web
   if (Platform.OS === 'web') {
     console.log('[PushNotifications] Not supported on web');
@@ -114,14 +153,56 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
       token = pushToken.data;
       console.log('[PushNotifications] Push token obtained:', token);
 
-      // Save token to database
+      // Get device ID
+      const deviceId = await getDeviceId();
+      const deviceName = Device.deviceName || 'Unknown Device';
+
+      // Save token to database using device_push_tokens table
       const supabase = getSupabase();
       if (supabase) {
-        await supabase
-          .from('profiles')
-          .update({ push_token: token })
-          .eq('user_id', userId);
-        console.log('[PushNotifications] Push token saved to database');
+        // First, try to update existing record
+        const { data: existingToken, error: fetchError } = await supabase
+          .from('device_push_tokens')
+          .select('id')
+          .eq('device_id', deviceId)
+          .single();
+
+        if (existingToken) {
+          // Update existing record
+          const { error: updateError } = await supabase
+            .from('device_push_tokens')
+            .update({
+              push_token: token,
+              user_role: userRole || null,
+              device_name: deviceName,
+              last_active_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('device_id', deviceId);
+
+          if (updateError) {
+            console.error('[PushNotifications] Error updating push token:', updateError);
+          } else {
+            console.log('[PushNotifications] Push token updated in database');
+          }
+        } else {
+          // Insert new record
+          const { error: insertError } = await supabase
+            .from('device_push_tokens')
+            .insert({
+              device_id: deviceId,
+              push_token: token,
+              user_role: userRole || null,
+              device_name: deviceName,
+              last_active_at: new Date().toISOString(),
+            });
+
+          if (insertError) {
+            console.error('[PushNotifications] Error inserting push token:', insertError);
+          } else {
+            console.log('[PushNotifications] Push token saved to database');
+          }
+        }
       }
     } catch (e) {
       console.error('[PushNotifications] Error getting push token:', e);
@@ -135,6 +216,7 @@ export async function registerForPushNotificationsAsync(userId: string): Promise
 
 /**
  * Create an in-app notification
+ * Note: user_id is optional since we're using PIN-based auth
  */
 export async function createInAppNotification(
   userId: string | null,
@@ -237,9 +319,10 @@ export async function sendLocalNotification(
 }
 
 /**
- * Send notification to all admin users
+ * Send notification to all registered devices
+ * This works with PIN-based authentication by sending to all devices in the database
  */
-export async function notifyAdmins(
+export async function notifyAllDevices(
   title: string,
   message: string,
   type: 'info' | 'success' | 'warning' | 'error' | 'order',
@@ -252,24 +335,21 @@ export async function notifyAdmins(
       return;
     }
     
-    // Get all admin users
-    const { data: admins, error } = await supabase
-      .from('profiles')
-      .select('user_id, push_token')
-      .eq('role', 'admin')
-      .eq('is_active', true);
+    // Get all registered devices
+    const { data: devices, error } = await supabase
+      .from('device_push_tokens')
+      .select('device_id, push_token, user_role, device_name')
+      .not('push_token', 'is', null);
 
     if (error) {
-      console.error('[PushNotifications] Error fetching admins:', error);
+      console.error('[PushNotifications] Error fetching devices:', error);
       return;
     }
 
-    console.log(`[PushNotifications] Notifying ${admins?.length || 0} admin users`);
+    console.log(`[PushNotifications] Notifying ${devices?.length || 0} registered devices`);
 
-    // Create in-app notifications for all admins
-    for (const admin of admins || []) {
-      await createInAppNotification(admin.user_id, title, message, type, relatedOrderId);
-    }
+    // Create in-app notification (not tied to specific user)
+    await createInAppNotification(null, title, message, type, relatedOrderId);
 
     // Send local notification (only on native platforms)
     // CRITICAL: This ensures notification works with screen off
@@ -278,7 +358,7 @@ export async function notifyAdmins(
       console.log('[PushNotifications] Local notification sent to device');
     }
   } catch (error) {
-    console.error('[PushNotifications] Error notifying admins:', error);
+    console.error('[PushNotifications] Error notifying devices:', error);
   }
 }
 
@@ -388,5 +468,34 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   } catch (error) {
     console.error('[PushNotifications] Error requesting notification permissions:', error);
     return false;
+  }
+}
+
+/**
+ * Update device's last active timestamp
+ * Call this periodically to track which devices are still active
+ */
+export async function updateDeviceActivity(): Promise<void> {
+  if (Platform.OS === 'web') {
+    return;
+  }
+
+  try {
+    const deviceId = await getDeviceId();
+    const supabase = getSupabase();
+    
+    if (supabase) {
+      await supabase
+        .from('device_push_tokens')
+        .update({
+          last_active_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('device_id', deviceId);
+      
+      console.log('[PushNotifications] Device activity updated');
+    }
+  } catch (error) {
+    console.error('[PushNotifications] Error updating device activity:', error);
   }
 }

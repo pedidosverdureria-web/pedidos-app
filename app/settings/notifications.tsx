@@ -95,9 +95,10 @@ export default function NotificationsScreen() {
       setLoading(true);
       const supabase = getSupabase();
       
-      console.log('Loading notifications for user:', user?.id);
+      console.log('[NotificationsScreen] Loading notifications...');
       
       // Fetch all notifications (both user-specific and global)
+      // Since we use PIN-based auth, we load all notifications
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
@@ -105,19 +106,19 @@ export default function NotificationsScreen() {
         .limit(50);
 
       if (error) {
-        console.error('Error loading notifications:', error);
+        console.error('[NotificationsScreen] Error loading notifications:', error);
         throw error;
       }
 
-      console.log('Loaded notifications:', data?.length || 0);
+      console.log('[NotificationsScreen] Loaded notifications:', data?.length || 0);
       setNotifications(data || []);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('[NotificationsScreen] Error loading notifications:', error);
       showDialog('error', 'Error', 'No se pudieron cargar las notificaciones');
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, []);
 
   useEffect(() => {
     loadNotifications();
@@ -125,7 +126,7 @@ export default function NotificationsScreen() {
     // Set up real-time subscription for new notifications
     const supabase = getSupabase();
     if (supabase) {
-      console.log('Setting up realtime subscription for notifications...');
+      console.log('[NotificationsScreen] Setting up realtime subscription for notifications...');
       
       const channel = supabase
         .channel('notifications_changes')
@@ -133,7 +134,7 @@ export default function NotificationsScreen() {
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'notifications' },
           (payload) => {
-            console.log('New notification received:', payload);
+            console.log('[NotificationsScreen] New notification received:', payload);
             loadNotifications();
           }
         )
@@ -141,16 +142,16 @@ export default function NotificationsScreen() {
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'notifications' },
           (payload) => {
-            console.log('Notification updated:', payload);
+            console.log('[NotificationsScreen] Notification updated:', payload);
             loadNotifications();
           }
         )
         .subscribe((status) => {
-          console.log('Notifications subscription status:', status);
+          console.log('[NotificationsScreen] Notifications subscription status:', status);
         });
 
       return () => {
-        console.log('Cleaning up notifications subscription...');
+        console.log('[NotificationsScreen] Cleaning up notifications subscription...');
         supabase.removeChannel(channel);
       };
     }
@@ -200,25 +201,36 @@ export default function NotificationsScreen() {
 
         setPermissionsGranted(true);
 
-        // Then register for push notifications
-        if (user?.user_id) {
-          const token = await registerForPushNotificationsAsync(user.user_id);
-          if (token) {
-            setSettings({ ...settings, pushNotificationsEnabled: true });
-            showDialog('success', 'Éxito', 'Notificaciones push activadas correctamente');
-          } else {
-            showDialog('error', 'Error', 'No se pudo obtener el token de notificaciones push');
-          }
+        // Register for push notifications with user role (not user_id)
+        // This works with PIN-based authentication
+        console.log('[NotificationsScreen] Registering push notifications for role:', user?.role);
+        const token = await registerForPushNotificationsAsync(user?.role);
+        
+        if (token) {
+          setSettings({ ...settings, pushNotificationsEnabled: true });
+          showDialog(
+            'success', 
+            'Éxito', 
+            'Notificaciones push activadas correctamente. Recibirás notificaciones de nuevos pedidos en este dispositivo.'
+          );
+          console.log('[NotificationsScreen] Push notifications enabled successfully');
+        } else {
+          showDialog('error', 'Error', 'No se pudo obtener el token de notificaciones push');
+          console.error('[NotificationsScreen] Failed to get push token');
         }
       } catch (error) {
-        console.error('Error enabling push notifications:', error);
+        console.error('[NotificationsScreen] Error enabling push notifications:', error);
         showDialog('error', 'Error', 'No se pudieron activar las notificaciones push: ' + (error as Error).message);
       } finally {
         setSavingSettings(false);
       }
     } else {
       setSettings({ ...settings, pushNotificationsEnabled: false });
-      showDialog('info', 'Desactivado', 'Las notificaciones push han sido desactivadas. Para volver a activarlas, activa el interruptor nuevamente.');
+      showDialog(
+        'info', 
+        'Desactivado', 
+        'Las notificaciones push han sido desactivadas en este dispositivo. El token de notificación permanecerá registrado pero no recibirás alertas. Para volver a activarlas, activa el interruptor nuevamente.'
+      );
     }
   };
 
@@ -236,7 +248,7 @@ export default function NotificationsScreen() {
         prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('[NotificationsScreen] Error marking notification as read:', error);
     }
   };
 
@@ -260,7 +272,7 @@ export default function NotificationsScreen() {
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
       showDialog('success', 'Éxito', 'Todas las notificaciones marcadas como leídas');
     } catch (error) {
-      console.error('Error marking all as read:', error);
+      console.error('[NotificationsScreen] Error marking all as read:', error);
       showDialog('error', 'Error', 'No se pudieron marcar las notificaciones');
     }
   };
@@ -277,7 +289,7 @@ export default function NotificationsScreen() {
 
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
     } catch (error) {
-      console.error('Error deleting notification:', error);
+      console.error('[NotificationsScreen] Error deleting notification:', error);
       showDialog('error', 'Error', 'No se pudo eliminar la notificación');
     }
   };
@@ -308,7 +320,7 @@ export default function NotificationsScreen() {
               setNotifications([]);
               showDialog('success', 'Éxito', 'Todas las notificaciones eliminadas');
             } catch (error) {
-              console.error('Error clearing notifications:', error);
+              console.error('[NotificationsScreen] Error clearing notifications:', error);
               showDialog('error', 'Error', 'No se pudieron eliminar las notificaciones');
             }
           },

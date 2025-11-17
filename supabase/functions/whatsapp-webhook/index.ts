@@ -1,17 +1,10 @@
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
-};
-
-/**
- * Map of Spanish number words to their numeric values
- */
+// Number words mapping (Spanish)
 const NUMBER_WORDS: Record<string, number> = {
-  'un': 1, 'uno': 1, 'una': 1,
+  'un': 1, 'una': 1, 'uno': 1,
   'dos': 2,
   'tres': 3,
   'cuatro': 4,
@@ -26,205 +19,76 @@ const NUMBER_WORDS: Record<string, number> = {
   'trece': 13,
   'catorce': 14,
   'quince': 15,
+  'dieciseis': 16, 'dieciséis': 16,
+  'diecisiete': 17,
+  'dieciocho': 18,
+  'diecinueve': 19,
   'veinte': 20,
-  'treinta': 30,
-  'cuarenta': 40,
-  'cincuenta': 50,
 };
 
-/**
- * Map of Spanish fraction words to their numeric values
- */
+// Fraction words mapping (Spanish)
 const FRACTION_WORDS: Record<string, number> = {
   'medio': 0.5, 'media': 0.5,
   'cuarto': 0.25,
   'tercio': 0.33,
 };
 
-/**
- * Known unit variations - loaded from database
- */
-let UNIT_VARIATIONS: Record<string, string[]> = {
-  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
-  'gramo': ['gramo', 'gramos', 'gr', 'g'],
-  'unidad': ['unidad', 'unidades', 'u', 'und'],
-  'bolsa': ['bolsa', 'bolsas'],
-  'malla': ['malla', 'mallas'],
-  'saco': ['saco', 'sacos'],
-  'cajón': ['cajón', 'cajon', 'cajones'],
-  'atado': ['atado', 'atados'],
-  'cabeza': ['cabeza', 'cabezas'],
-  'libra': ['libra', 'libras', 'lb', 'lbs'],
-  'docena': ['docena', 'docenas'],
-  'paquete': ['paquete', 'paquetes'],
-  'caja': ['caja', 'cajas'],
-};
+// Unit variations mapping
+const UNIT_VARIATIONS: Record<string, string[]> = {};
 
-/**
- * Greeting patterns to remove
- */
+// Greeting patterns
 const GREETING_PATTERNS = [
-  /^hola\s*/i,
-  /^buenos?\s+d[ií]as?\s*/i,
-  /^buenas?\s+tardes?\s*/i,
-  /^buenas?\s+noches?\s*/i,
-  /^buen\s+d[ií]a\s*/i,
-  /^buena\s+tarde\s*/i,
-  /^buena\s+noche\s*/i,
-  /^saludos?\s*/i,
-  /^holi+\s*/i,
-  /^hey\s*/i,
-  /^ey\s*/i,
-  /^qu[eé]\s+tal\s*/i,
-  /^c[oó]mo\s+est[aá]s?\s*/i,
-  /^c[oó]mo\s+est[aá]n\s*/i,
-  /^qu[eé]\s+onda\s*/i,
+  /^(hola|buenos días|buenas tardes|buenas noches|saludos)/i,
+  /^(hi|hello|hey)/i,
 ];
 
-/**
- * Closing patterns to remove
- */
+// Closing patterns
 const CLOSING_PATTERNS = [
-  /\s*gracias\.?$/i,
-  /\s*muchas\s+gracias\.?$/i,
-  /\s*mil\s+gracias\.?$/i,
-  /\s*saludos\.?$/i,
-  /\s*bendiciones\.?$/i,
-  /\s*que\s+est[eé]s?\s+bien\.?$/i,
-  /\s*que\s+est[eé]n\s+bien\.?$/i,
-  /\s*hasta\s+luego\.?$/i,
-  /\s*nos\s+vemos\.?$/i,
-  /\s*chao\.?$/i,
-  /\s*adi[oó]s\.?$/i,
-  /\s*buen\s+d[ií]a\.?$/i,
-  /\s*buena\s+tarde\.?$/i,
-  /\s*buena\s+noche\.?$/i,
+  /(gracias|muchas gracias|saludos|hasta luego|chao|adiós)$/i,
+  /(thanks|thank you|bye|goodbye)$/i,
 ];
 
-/**
- * Filler patterns to remove
- */
+// Filler patterns to remove
 const FILLER_PATTERNS = [
-  /^quiero\s+hacer\s+un\s+pedido\s*/i,
-  /^quisiera\s+hacer\s+un\s+pedido\s*/i,
-  /^necesito\s+hacer\s+un\s+pedido\s*/i,
-  /^me\s+gustar[ií]a\s+hacer\s+un\s+pedido\s*/i,
-  /^quiero\s+pedir\s*/i,
-  /^quisiera\s+pedir\s*/i,
-  /^necesito\s+pedir\s*/i,
-  /^me\s+gustar[ií]a\s+pedir\s*/i,
-  /^mi\s+pedido\s+es\s*/i,
-  /^el\s+pedido\s+es\s*/i,
-  /^voy\s+a\s+pedir\s*/i,
-  /^por\s+favor\s*/i,
+  /por favor/gi,
+  /porfavor/gi,
+  /porfa/gi,
+  /please/gi,
 ];
 
-/**
- * Question patterns
- */
+// Question patterns
 const QUESTION_PATTERNS = [
-  'cómo hago', 'como hago', 'cómo puedo', 'como puedo',
-  'quiero hacer', 'necesito hacer', 'me gustaría hacer',
-  'cómo funciona', 'como funciona', 'cómo se hace', 'como se hace',
-  'ayuda', 'información', 'informacion', 'info',
-  'quiero pedir', 'necesito pedir', 'quisiera pedir',
-  'hacer un pedido', 'realizar un pedido', 'enviar un pedido',
-  'cómo pido', 'como pido', 'dónde pido', 'donde pido',
-  'tienen', 'venden', 'hay', 'disponible',
-  'precio', 'precios', 'cuánto', 'cuanto', 'cuesta',
-  'horario', 'horarios', 'abren', 'cierran',
-  'entregan', 'entrega', 'delivery', 'envío', 'envio'
+  /\?$/,
+  /^(cuánto|cuanto|cuando|dónde|donde|qué|que|cómo|como|por qué|porque)/i,
+  /^(how much|when|where|what|how|why)/i,
 ];
 
 /**
- * Extracts only the product list from a message, removing greetings, closings, and filler text
+ * Extract the product list from a message, removing greetings and closings
  */
 function extractProductList(message: string): string {
-  let cleaned = message.trim();
+  let cleanedMessage = message;
 
-  console.log('Original message:', cleaned);
-
-  // Remove greeting patterns from the beginning
+  // Remove greetings from the start
   for (const pattern of GREETING_PATTERNS) {
-    cleaned = cleaned.replace(pattern, '');
+    cleanedMessage = cleanedMessage.replace(pattern, '').trim();
   }
 
-  // Remove closing patterns from the end
+  // Remove closings from the end
   for (const pattern of CLOSING_PATTERNS) {
-    cleaned = cleaned.replace(pattern, '');
+    cleanedMessage = cleanedMessage.replace(pattern, '').trim();
   }
 
-  // Remove filler patterns from the beginning
+  // Remove filler words
   for (const pattern of FILLER_PATTERNS) {
-    cleaned = cleaned.replace(pattern, '');
+    cleanedMessage = cleanedMessage.replace(pattern, '').trim();
   }
 
-  // Remove lines that are purely greetings or questions (no product info)
-  const lines = cleaned.split('\n');
-  const productLines: string[] = [];
-
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    
-    // Skip empty lines
-    if (!trimmedLine) continue;
-
-    // Skip lines that are only greetings
-    let isGreeting = false;
-    for (const pattern of GREETING_PATTERNS) {
-      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
-        isGreeting = true;
-        break;
-      }
-    }
-    if (isGreeting) continue;
-
-    // Skip lines that are only closings
-    let isClosing = false;
-    for (const pattern of CLOSING_PATTERNS) {
-      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
-        isClosing = true;
-        break;
-      }
-    }
-    if (isClosing) continue;
-
-    // Skip lines that are only filler text
-    let isFiller = false;
-    for (const pattern of FILLER_PATTERNS) {
-      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
-        isFiller = true;
-        break;
-      }
-    }
-    if (isFiller) continue;
-
-    // Skip lines that are questions (contain ?)
-    if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
-
-    // Check if line contains product-like patterns (quantity + product)
-    // This helps identify actual product lines vs. conversational text
-    const hasProductPattern = 
-      /\d+/.test(trimmedLine) || // Contains numbers
-      /\b(kilo|kg|gramo|gr|unidad|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
-      /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
-      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
-
-    if (hasProductPattern) {
-      productLines.push(trimmedLine);
-    }
-  }
-
-  // If we found product lines, use them; otherwise use the cleaned message
-  const result = productLines.length > 0 ? productLines.join('\n') : cleaned.trim();
-
-  console.log('Extracted product list:', result);
-
-  return result;
+  return cleanedMessage;
 }
 
 /**
- * Loads known units from database
+ * Load known units from database
  */
 async function loadKnownUnits(supabase: any) {
   try {
@@ -237,47 +101,47 @@ async function loadKnownUnits(supabase: any) {
       return;
     }
 
-    // Merge database units with default units
-    for (const unit of data) {
-      UNIT_VARIATIONS[unit.unit_name] = unit.variations;
+    // Clear existing variations
+    for (const key in UNIT_VARIATIONS) {
+      delete UNIT_VARIATIONS[key];
     }
 
-    console.log(`Loaded ${Object.keys(UNIT_VARIATIONS).length} known units`);
+    // Load variations from database
+    for (const unit of data || []) {
+      UNIT_VARIATIONS[unit.unit_name.toLowerCase()] = unit.variations.map((v: string) => v.toLowerCase());
+    }
+
+    console.log('Loaded known units:', Object.keys(UNIT_VARIATIONS).length);
   } catch (error) {
-    console.error('Exception loading known units:', error);
+    console.error('Error loading known units:', error);
   }
 }
 
 /**
- * Normalizes phone number for comparison
- * Removes spaces, dashes, parentheses, and ensures consistent format
+ * Normalize phone number to international format
  */
 function normalizePhoneNumber(phone: string): string {
-  // Remove all spaces, dashes, parentheses, dots
-  let normalized = phone.replace(/[\s\-\(\)\.\+]/g, '');
+  // Remove all non-digit characters
+  let cleaned = phone.replace(/\D/g, '');
   
-  // If it starts with country code without +, add it
-  // For Chilean numbers, they typically start with 569
-  if (normalized.startsWith('569') && normalized.length >= 11) {
-    normalized = '+' + normalized;
-  } else if (normalized.startsWith('56') && normalized.length >= 10) {
-    normalized = '+' + normalized;
-  } else if (!normalized.startsWith('+')) {
-    // If no country code, assume Chilean and add +56
-    normalized = '+56' + normalized;
-  } else {
-    // Already has +, just keep it
-    normalized = '+' + normalized;
+  // If it starts with 56 (Chile country code), keep it
+  if (cleaned.startsWith('56')) {
+    return '+' + cleaned;
   }
   
-  console.log(`[normalizePhoneNumber] Input: "${phone}" → Output: "${normalized}"`);
-  return normalized;
+  // If it starts with 9 (Chilean mobile), add country code
+  if (cleaned.startsWith('9') && cleaned.length === 9) {
+    return '+56' + cleaned;
+  }
+  
+  // Otherwise, assume it already has country code
+  return '+' + cleaned;
 }
 
 /**
- * Loads authorized phone numbers from database
+ * Check if phone number is in authorized list
  */
-async function loadAuthorizedPhones(supabase: any): Promise<string[]> {
+async function loadAuthorizedPhones(supabase: any): Promise<Set<string>> {
   try {
     const { data, error } = await supabase
       .from('authorized_phones')
@@ -285,1023 +149,522 @@ async function loadAuthorizedPhones(supabase: any): Promise<string[]> {
 
     if (error) {
       console.error('Error loading authorized phones:', error);
-      return [];
+      return new Set();
     }
 
-    // Normalize all phone numbers for consistent comparison
-    const phoneNumbers = data.map((row: any) => normalizePhoneNumber(row.phone_number));
-    console.log(`✅ Loaded ${phoneNumbers.length} authorized phone numbers (normalized):`, phoneNumbers);
-    return phoneNumbers;
+    const authorizedSet = new Set<string>();
+    for (const record of data || []) {
+      const normalized = normalizePhoneNumber(record.phone_number);
+      authorizedSet.add(normalized);
+    }
+
+    console.log('Loaded authorized phones:', authorizedSet.size);
+    return authorizedSet;
   } catch (error) {
-    console.error('Exception loading authorized phones:', error);
-    return [];
+    console.error('Error loading authorized phones:', error);
+    return new Set();
   }
 }
 
 /**
- * Adds a new unit to the database
+ * Add a new unit variation to the database
  */
 async function addNewUnit(supabase: any, unitName: string, variation: string) {
   try {
-    const normalizedUnit = unitName.toLowerCase().trim();
-    const normalizedVariation = variation.toLowerCase().trim();
-
+    // Check if unit already exists
     const { data: existing } = await supabase
       .from('known_units')
       .select('id, variations')
-      .eq('unit_name', normalizedUnit)
+      .eq('unit_name', unitName)
       .single();
 
     if (existing) {
-      if (!existing.variations.includes(normalizedVariation)) {
-        const updatedVariations = [...existing.variations, normalizedVariation];
-        const { error } = await supabase
+      // Add variation if it doesn't exist
+      if (!existing.variations.includes(variation)) {
+        const updatedVariations = [...existing.variations, variation];
+        await supabase
           .from('known_units')
-          .update({ 
-            variations: updatedVariations,
-            updated_at: new Date().toISOString()
-          })
+          .update({ variations: updatedVariations, updated_at: new Date().toISOString() })
           .eq('id', existing.id);
-
-        if (error) {
-          console.error('Error updating unit variations:', error);
-        } else {
-          console.log(`✓ Added variation "${normalizedVariation}" to unit "${normalizedUnit}"`);
-          UNIT_VARIATIONS[normalizedUnit] = updatedVariations;
-        }
+        console.log(`Added variation "${variation}" to unit "${unitName}"`);
       }
     } else {
-      const { error } = await supabase
+      // Create new unit
+      await supabase
         .from('known_units')
         .insert({
-          unit_name: normalizedUnit,
-          variations: [normalizedVariation, normalizedUnit],
-          is_custom: true
+          unit_name: unitName,
+          variations: [variation],
+          is_custom: true,
         });
-
-      if (error) {
-        console.error('Error creating new unit:', error);
-      } else {
-        console.log(`✓ Created new unit "${normalizedUnit}" with variation "${normalizedVariation}"`);
-        UNIT_VARIATIONS[normalizedUnit] = [normalizedVariation, normalizedUnit];
-      }
+      console.log(`Created new unit "${unitName}" with variation "${variation}"`);
     }
   } catch (error) {
-    console.error('Exception adding new unit:', error);
+    console.error('Error adding new unit:', error);
   }
 }
 
 /**
- * Converts a number word to its numeric value
+ * Convert number word to numeric value
  */
 function convertNumberWord(word: string): number | null {
-  const normalized = word.toLowerCase().trim();
-  return NUMBER_WORDS[normalized] ?? null;
+  const lowerWord = word.toLowerCase();
+  return NUMBER_WORDS[lowerWord] || null;
 }
 
 /**
- * Converts a fraction word to its numeric value
+ * Convert fraction word to numeric value
  */
 function convertFractionWord(word: string): number | null {
-  const normalized = word.toLowerCase().trim();
-  return FRACTION_WORDS[normalized] ?? null;
+  const lowerWord = word.toLowerCase();
+  return FRACTION_WORDS[lowerWord] || null;
 }
 
 /**
- * Parses a quantity value from a string with enhanced intelligence
+ * Parse quantity value (handles numbers, fractions, and words)
  */
-function parseQuantityValue(quantityStr: string): number {
-  if (!quantityStr || !quantityStr.trim()) {
-    return 0;
+function parseQuantityValue(quantityStr: string): string {
+  const lowerQuantity = quantityStr.toLowerCase().trim();
+
+  // Check for fraction words
+  const fractionValue = convertFractionWord(lowerQuantity);
+  if (fractionValue !== null) {
+    return fractionValue.toString();
   }
 
-  const trimmed = quantityStr.trim().toLowerCase();
-
-  // Handle "y medio" or "y media" patterns (e.g., "1 y medio", "2 y media")
-  const yMedioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media)$/);
-  if (yMedioMatch) {
-    const integer = parseFloat(yMedioMatch[1]);
-    if (!isNaN(integer)) {
-      return integer + 0.5;
-    }
+  // Check for number words
+  const numberValue = convertNumberWord(lowerQuantity);
+  if (numberValue !== null) {
+    return numberValue.toString();
   }
 
-  // Handle "y cuarto" patterns (e.g., "1 y cuarto")
-  const yCuartoMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*cuarto$/);
-  if (yCuartoMatch) {
-    const integer = parseFloat(yCuartoMatch[1]);
-    if (!isNaN(integer)) {
-      return integer + 0.25;
-    }
-  }
-
-  // Handle "y tercio" patterns (e.g., "1 y tercio")
-  const yTercioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*tercio$/);
-  if (yTercioMatch) {
-    const integer = parseFloat(yTercioMatch[1]);
-    if (!isNaN(integer)) {
-      return integer + 0.33;
-    }
-  }
-
-  // Combined integer and fraction with space (e.g., "1 1/2")
-  const combinedSpaceMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (combinedSpaceMatch) {
-    const integer = parseFloat(combinedSpaceMatch[1]);
-    const numerator = parseFloat(combinedSpaceMatch[2]);
-    const denominator = parseFloat(combinedSpaceMatch[3]);
-    
-    if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
-      return integer + (numerator / denominator);
-    }
-  }
-
-  // Simple fraction (e.g., "1/2")
-  if (trimmed.includes('/')) {
-    const parts = trimmed.split('/');
+  // Check for numeric fractions (e.g., "1/2")
+  if (lowerQuantity.includes('/')) {
+    const parts = lowerQuantity.split('/');
     if (parts.length === 2) {
-      const numerator = parseFloat(parts[0].trim());
-      const denominator = parseFloat(parts[1].trim());
-
+      const numerator = parseFloat(parts[0]);
+      const denominator = parseFloat(parts[1]);
       if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
-        return numerator / denominator;
+        return (numerator / denominator).toString();
       }
     }
   }
 
-  // Number (decimal or integer)
-  const numValue = parseFloat(trimmed.replace(',', '.'));
-  if (!isNaN(numValue)) {
-    return numValue;
+  // Check for decimal numbers
+  const numericValue = parseFloat(lowerQuantity);
+  if (!isNaN(numericValue)) {
+    return numericValue.toString();
   }
 
-  // Text number (e.g., "dos", "tres")
-  const textValue = convertNumberWord(trimmed);
-  if (textValue !== null) {
-    return textValue;
-  }
-
-  // Fraction word (e.g., "medio", "cuarto")
-  const fractionValue = convertFractionWord(trimmed);
-  if (fractionValue !== null) {
-    return fractionValue;
-  }
-
-  console.warn(`Could not parse quantity: "${quantityStr}"`);
-  return 0;
+  // If we can't parse it, return '#' to indicate unknown quantity
+  return '#';
 }
 
 /**
- * Checks if a word is a known unit
+ * Check if a word is a known unit
  */
 function isKnownUnit(word: string): boolean {
-  if (!word) return false;
-
-  const normalized = word.toLowerCase().trim().replace(/[.,;:!?]$/, '');
-
+  const lowerWord = word.toLowerCase();
+  
+  // Check if it's a base unit name
+  if (UNIT_VARIATIONS[lowerWord]) {
+    return true;
+  }
+  
+  // Check if it's a variation of any unit
   for (const variations of Object.values(UNIT_VARIATIONS)) {
-    if (variations.includes(normalized)) {
+    if (variations.includes(lowerWord)) {
       return true;
     }
   }
-
+  
   return false;
 }
 
 /**
- * Normalizes a unit to its standard form
+ * Normalize unit to its base form
  */
-function normalizeUnit(unit: string, quantity: number = 1): string {
-  if (!unit || !unit.trim()) {
-    return quantity === 1 ? 'unidad' : 'unidades';
-  }
-
-  const normalized = unit.toLowerCase().trim().replace(/[.,;:!?]$/, '');
-
-  for (const [standardUnit, variations] of Object.entries(UNIT_VARIATIONS)) {
-    if (variations.includes(normalized)) {
+function normalizeUnit(unit: string, quantity: number): string {
+  const lowerUnit = unit.toLowerCase();
+  
+  // Find the base unit name
+  for (const [baseName, variations] of Object.entries(UNIT_VARIATIONS)) {
+    if (baseName === lowerUnit || variations.includes(lowerUnit)) {
+      // Return singular or plural form based on quantity
       if (quantity === 1) {
-        return standardUnit;
+        return baseName;
       } else {
-        if (standardUnit === 'cajón') return 'cajones';
-        if (standardUnit.endsWith('z')) return standardUnit.slice(0, -1) + 'ces';
-        return standardUnit + 's';
+        // Simple pluralization (works for most Spanish units)
+        if (baseName.endsWith('s') || baseName.endsWith('z')) {
+          return baseName;
+        }
+        return baseName + 's';
       }
     }
   }
-
-  return quantity === 1 ? 'unidad' : 'unidades';
+  
+  return unit;
 }
 
 /**
- * Cleans and normalizes a segment for parsing by removing bullet points, numbering, and other list formatting
+ * Clean a segment by removing extra whitespace and punctuation
  */
 function cleanSegment(segment: string): string {
-  let cleaned = segment.trim();
-  
-  // Remove common bullet point characters at the start
-  // Includes: • ● ○ ◦ ▪ ▫ ■ □ ★ ☆ ✓ ✔ ✗ ✘ ➤ ➢ ► ▸ ▹ ▻ ⇒ ⇨ → ⟶ ⟹ ⟼ ⤏ ⤐ and many more
-  cleaned = cleaned.replace(/^[•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→⟶⟹⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿·*+~]\s*/, '');
-  
-  // Remove numbered list markers (1. or 1) or 1- or 1: )
-  cleaned = cleaned.replace(/^\d+[.):]\s*/, '');
-  
-  // Remove lettered list markers (a. or a) or A. or A) )
-  cleaned = cleaned.replace(/^[a-zA-Z][.):]\s*/, '');
-  
-  // Remove Roman numeral list markers (i. or I. or iv) or IV) )
-  cleaned = cleaned.replace(/^(?:i{1,3}|iv|v|vi{0,3}|ix|x|xi{0,3}|xiv|xv)[.):]\s*/i, '');
-  
-  // Remove parenthesized numbers or letters at the start: (1) or (a) or (A)
-  cleaned = cleaned.replace(/^\([0-9a-zA-Z]+\)\s*/, '');
-  
-  // Remove square bracketed numbers or letters at the start: [1] or [a] or [A]
-  cleaned = cleaned.replace(/^\[[0-9a-zA-Z]+\]\s*/, '');
-  
-  // Remove dashes, asterisks, or plus signs that might be used as bullets
-  cleaned = cleaned.replace(/^[*+~]\s+/, '');
-  
-  // Remove any remaining leading whitespace
-  cleaned = cleaned.trim();
-  
-  return cleaned;
+  return segment
+    .replace(/[,;]/g, '') // Remove commas and semicolons
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
 }
 
 /**
- * Advanced segment parser with multiple intelligent strategies
+ * Parse a single segment (product line)
  */
-function parseSegment(segment: string): { item: any, unknownUnit?: string } {
-  const trimmed = segment.trim();
+function parseSegment(segment: string): { product: string; quantity: string; unit: string } | null {
+  const cleaned = cleanSegment(segment);
+  if (!cleaned) return null;
 
-  if (!trimmed) {
-    return { item: { quantity: '#', unit: '', product: trimmed } };
-  }
+  const words = cleaned.split(/\s+/);
+  
+  // Try to find quantity and unit
+  let quantity = '#';
+  let unit = '';
+  let productWords: string[] = [];
+  let foundQuantity = false;
 
-  const cleaned = cleanSegment(trimmed);
-
-  if (!cleaned) {
-    return { item: { quantity: '#', unit: '', product: trimmed } };
-  }
-
-  // NEW Strategy 0a: Integer + Space + Fraction + Space + Product (no unit, no "de")
-  // Examples: "1 1/2 manzana", "2 3/4 papas"
-  // This should be parsed as "1.5 kilos de manzana", "2.75 kilos de papas"
-  let match = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ].+)$/i);
-  if (match) {
-    const integerPart = parseInt(match[1]);
-    const numerator = parseInt(match[2]);
-    const denominator = parseInt(match[3]);
-    const restOfText = match[4].trim();
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
     
-    // Check if the first word after the fraction is a known unit
-    const firstWord = restOfText.split(/\s+/)[0];
-    const isFirstWordUnit = isKnownUnit(firstWord);
-    
-    if (!isFirstWordUnit) {
-      // No unit found, so this is "quantity product" format
-      const quantity = integerPart + (numerator / denominator);
-      const product = restOfText;
-      
-      if (quantity > 0 && product) {
-        const unit = normalizeUnit('kilo', quantity);
-        console.log(`✓ Strategy 0a (NEW): "${cleaned}" → ${quantity} ${unit} de ${product}`);
-        return { item: { quantity, unit, product } };
+    // Check if this word is a quantity
+    if (!foundQuantity) {
+      const parsedQuantity = parseQuantityValue(word);
+      if (parsedQuantity !== '#') {
+        quantity = parsedQuantity;
+        foundQuantity = true;
+        
+        // Check if next word is a unit
+        if (i + 1 < words.length && isKnownUnit(words[i + 1])) {
+          unit = normalizeUnit(words[i + 1], parseFloat(quantity));
+          i++; // Skip the unit word
+        }
+        continue;
       }
     }
-  }
-
-  // NEW Strategy 0b: Integer + Space + Fraction + Unit + Product (no "de")
-  // Examples: "1 1/2 kilo manzana", "2 3/4 kg papas"
-  // This should be parsed as "1.5 kilos de manzana", "2.75 kg de papas"
-  match = cleaned.match(/^(\d+)\s+(\d+)\/(\d+)\s+(\w+)\s+(.+)$/i);
-  if (match) {
-    const integerPart = parseInt(match[1]);
-    const numerator = parseInt(match[2]);
-    const denominator = parseInt(match[3]);
-    const unitStr = match[4];
-    const product = match[5].trim();
     
-    if (isKnownUnit(unitStr)) {
-      const quantity = integerPart + (numerator / denominator);
-      
-      if (quantity > 0 && product) {
-        const unit = normalizeUnit(unitStr, quantity);
-        console.log(`✓ Strategy 0b (NEW): "${cleaned}" → ${quantity} ${unit} de ${product}`);
-        return { item: { quantity, unit, product } };
-      }
+    // Check if this word is a unit (without explicit quantity)
+    if (!foundQuantity && isKnownUnit(word)) {
+      quantity = '1';
+      unit = normalizeUnit(word, 1);
+      foundQuantity = true;
+      continue;
     }
-  }
-
-  // Strategy 1: Integer + Space + Fraction + Unit + "de" + Product
-  // Examples: "1 1/2 kilo de manzanas", "2 3/4 kg de papas"
-  match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+(\w+)\s+de\s+(.+)$/i);
-  if (match) {
-    const quantityStr = match[1];
-    const quantity = parseQuantityValue(quantityStr);
-    const unitStr = match[2];
-    const product = match[3].trim();
     
-    if (quantity > 0 && product) {
-      const isKnown = isKnownUnit(unitStr);
-      const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
-      
-      console.log(`✓ Strategy 1: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { 
-        item: { quantity, unit, product },
-        unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
-      };
-    }
+    // Otherwise, it's part of the product name
+    productWords.push(word);
   }
 
-  // Strategy 2: Integer + Space + Fraction + "de" + Product (no explicit unit)
-  // Examples: "1 1/2 de manzanas", "2 3/4 de papas"
-  match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+de\s+(.+)$/i);
-  if (match) {
-    const quantityStr = match[1];
-    const quantity = parseQuantityValue(quantityStr);
-    const product = match[2].trim();
-    
-    if (quantity > 0 && product) {
-      const unit = normalizeUnit('kilo', quantity);
-      console.log(`✓ Strategy 2: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { item: { quantity, unit, product } };
-    }
+  // If we didn't find a quantity, the whole thing is the product name
+  if (!foundQuantity) {
+    productWords = words;
   }
 
-  // Strategy 3: Quantity + "y medio/media/cuarto/tercio" + Unit + "de" + Product
-  // Examples: "1 y medio kilo de manzanas", "2 y media libras de papas"
-  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio)\s+(\w+)\s+de\s+(.+)$/i);
-  if (match) {
-    const baseQuantity = parseFloat(match[1]);
-    const fractionWord = match[2].toLowerCase();
-    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
-    const quantity = baseQuantity + fractionValue;
-    const unitStr = match[3];
-    const product = match[4].trim();
+  const product = productWords.join(' ').trim();
+  
+  if (!product) return null;
 
-    if (quantity > 0 && product) {
-      const isKnown = isKnownUnit(unitStr);
-      const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
-      
-      console.log(`✓ Strategy 3: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { 
-        item: { quantity, unit, product },
-        unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
-      };
-    }
-  }
-
-  // Strategy 4: Quantity + "y medio/media/cuarto/tercio" + "de" + Product (no explicit unit)
-  // Examples: "1 y medio de manzanas", "2 y media de papas"
-  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
-  if (match) {
-    const baseQuantity = parseFloat(match[1]);
-    const fractionWord = match[2].toLowerCase();
-    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
-    const quantity = baseQuantity + fractionValue;
-    const product = match[3].trim();
-
-    if (quantity > 0 && product) {
-      const unit = normalizeUnit('kilo', quantity);
-      console.log(`✓ Strategy 4: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { item: { quantity, unit, product } };
-    }
-  }
-
-  // Strategy 5: Fraction word + Unit + "de" + Product
-  // Examples: "medio kilo de papas", "un cuarto de lechuga"
-  match = cleaned.match(/^(medio|media|cuarto|tercio|un|uno|una)\s+(\w+)\s+de\s+(.+)$/i);
-  if (match) {
-    const quantityWord = match[1].toLowerCase();
-    const unitStr = match[2];
-    const product = match[3].trim();
-
-    let quantity = 1;
-    if (quantityWord === 'medio' || quantityWord === 'media') {
-      quantity = 0.5;
-    } else if (quantityWord === 'cuarto') {
-      quantity = 0.25;
-    } else if (quantityWord === 'tercio') {
-      quantity = 0.33;
-    }
-
-    if (product) {
-      const isKnown = isKnownUnit(unitStr);
-      const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
-      
-      console.log(`✓ Strategy 5: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { 
-        item: { quantity, unit, product },
-        unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
-      };
-    }
-  }
-
-  // Strategy 6: Fraction word + "de" + Product (no explicit unit)
-  // Examples: "medio de papas", "un cuarto de lechuga"
-  match = cleaned.match(/^(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
-  if (match) {
-    const quantityWord = match[1].toLowerCase();
-    const product = match[2].trim();
-
-    let quantity = 0.5;
-    if (quantityWord === 'cuarto') {
-      quantity = 0.25;
-    } else if (quantityWord === 'tercio') {
-      quantity = 0.33;
-    }
-
-    if (product) {
-      const unit = normalizeUnit('kilo', quantity);
-      console.log(`✓ Strategy 6: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { item: { quantity, unit, product } };
-    }
-  }
-
-  // Strategy 7: Quantity + Unit + "de" + Product
-  // Examples: "3 kilos de tomates", "2 kg de papas", "dos kilos de cebollas"
-  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+de\s+(.+)$/i);
-  if (match) {
-    const quantityStr = match[1].replace(',', '.');
-    const quantity = parseQuantityValue(quantityStr);
-    const unitStr = match[2];
-    const product = match[3].trim();
-
-    if (quantity > 0 && product) {
-      const isKnown = isKnownUnit(unitStr);
-      const unit = isKnown ? normalizeUnit(unitStr, quantity) : unitStr.toLowerCase();
-      
-      console.log(`✓ Strategy 7: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { 
-        item: { quantity, unit, product },
-        unknownUnit: isKnown ? undefined : unitStr.toLowerCase()
-      };
-    }
-  }
-
-  // Strategy 8: Quantity + Unit + Product (no "de")
-  // Examples: "3 kilos tomates", "2 kg papas"
-  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+(.+)$/i);
-  if (match) {
-    const quantityStr = match[1].replace(',', '.');
-    const potentialUnit = match[2];
-
-    if (isKnownUnit(potentialUnit)) {
-      const quantity = parseQuantityValue(quantityStr);
-      const product = match[3].trim();
-
-      if (quantity > 0 && product) {
-        const unit = normalizeUnit(potentialUnit, quantity);
-        console.log(`✓ Strategy 8: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-        return { item: { quantity, unit, product } };
-      }
-    }
-  }
-
-  // Strategy 9: Quantity + Product (no explicit unit)
-  // Examples: "3 tomates", "5 pepinos", "dos lechugas"
-  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(.+)$/i);
-  if (match) {
-    const quantityStr = match[1].replace(',', '.');
-    const quantity = parseQuantityValue(quantityStr);
-    const restOfText = match[2].trim();
-
-    const firstWord = restOfText.split(/\s+/)[0];
-    if (quantity > 0 && restOfText && !isKnownUnit(firstWord)) {
-      const unit = normalizeUnit('', quantity);
-      console.log(`✓ Strategy 9: "${cleaned}" → ${quantity} ${unit} de ${restOfText}`);
-      return { item: { quantity, unit, product: restOfText } };
-    }
-  }
-
-  // Strategy 10: Product + Quantity + Unit (reversed order)
-  // Examples: "tomates 3 kilos", "papas 2 kg"
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)$/i);
-  if (match) {
-    const product = match[1].trim();
-    const quantityStr = match[2].replace(',', '.');
-    const unitStr = match[3];
-
-    if (isKnownUnit(unitStr)) {
-      const quantity = parseQuantityValue(quantityStr);
-
-      if (quantity > 0 && product) {
-        const unit = normalizeUnit(unitStr, quantity);
-        console.log(`✓ Strategy 10: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-        return { item: { quantity, unit, product } };
-      }
-    }
-  }
-
-  // Strategy 11: Product + Quantity (no unit, reversed order)
-  // Examples: "tomates 3", "pepinos 5"
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)$/i);
-  if (match) {
-    const product = match[1].trim();
-    const quantityStr = match[2].replace(',', '.');
-    const quantity = parseQuantityValue(quantityStr);
-
-    if (quantity > 0 && product && !isKnownUnit(product.split(/\s+/).pop() || '')) {
-      const unit = normalizeUnit('', quantity);
-      console.log(`✓ Strategy 11: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { item: { quantity, unit, product } };
-    }
-  }
-
-  // Strategy 12: Unit + "de" + Product (no explicit quantity, assume 1)
-  // Examples: "kilo de tomates", "bolsa de papas"
-  match = cleaned.match(/^(\w+)\s+de\s+(.+)$/i);
-  if (match) {
-    const unitStr = match[1];
-    const product = match[2].trim();
-
-    if (isKnownUnit(unitStr) && product) {
-      const quantity = 1;
-      const unit = normalizeUnit(unitStr, quantity);
-      console.log(`✓ Strategy 12: "${cleaned}" → ${quantity} ${unit} de ${product}`);
-      return { item: { quantity, unit, product } };
-    }
-  }
-
-  // Strategy 13: Just Product (default to 1 unit)
-  // Examples: "tomates", "cilantro", "lechuga"
-  if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
-    console.log(`✓ Strategy 13: "${cleaned}" → 1 unidad de ${cleaned}`);
-    return { item: { quantity: 1, unit: 'unidad', product: cleaned } };
-  }
-
-  // Fallback: unparseable item with "#" quantity
-  console.warn(`✗ Could not parse: "${cleaned}"`);
-  return { item: { quantity: '#', unit: '', product: cleaned } };
+  return {
+    product,
+    quantity,
+    unit: unit || '',
+  };
 }
 
 /**
- * Splits a line into multiple segments
+ * Split a line into segments (handles various separators)
  */
 function splitLineIntoSegments(line: string): string[] {
-  const trimmed = line.trim();
-
-  if (!trimmed) {
-    return [];
-  }
-
-  // Split by commas, semicolons, or pipe characters
-  if (trimmed.match(/[,;|]/)) {
-    return trimmed.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 0);
-  }
-
-  // Check for multiple items on same line with "y" separator
-  // Only split if "y" is followed by a number or quantity word
-  const yPattern = /\s+y\s+(?=\d|medio|media|cuarto|tercio|un|uno|una|dos|tres|cuatro|cinco)/i;
-  if (yPattern.test(trimmed)) {
-    return trimmed.split(yPattern).map(s => s.trim()).filter(s => s.length > 0);
-  }
-
-  return [trimmed];
+  // Split by common separators: newlines, commas, semicolons, "y", "and"
+  const segments = line.split(/[\n,;]|(?:\s+y\s+)|(?:\s+and\s+)/i);
+  return segments.filter(s => s.trim().length > 0);
 }
 
 /**
- * Detects if the message is in horizontal format
+ * Check if message is in horizontal format (multiple items on one line)
  */
 function isHorizontalFormat(message: string): boolean {
   const lines = message.split('\n').filter(l => l.trim().length > 0);
-
-  if (lines.length === 1 && message.match(/[,;|]/)) {
-    return true;
-  }
-
-  const yPattern = /\s+y\s+\d/i;
-  if (lines.some(line => yPattern.test(line))) {
-    return true;
-  }
-
-  return false;
+  if (lines.length > 1) return false;
+  
+  // Check for separators that indicate horizontal format
+  return /[,;]|(?:\s+y\s+)|(?:\s+and\s+)/i.test(message);
 }
 
 /**
- * Intelligent WhatsApp message parser
+ * Parse WhatsApp message into order items
  */
-function parseWhatsAppMessage(message: string): { items: any[], unknownUnits: string[] } {
-  if (!message || !message.trim()) {
-    console.warn('Empty message provided');
-    return { items: [], unknownUnits: [] };
+function parseWhatsAppMessage(message: string): any[] {
+  const items: any[] = [];
+  
+  // Extract product list (remove greetings and closings)
+  const productList = extractProductList(message);
+  
+  if (!productList) {
+    console.log('No product list found after cleaning');
+    return items;
   }
 
-  // First, extract only the product list from the message
-  const productListOnly = extractProductList(message);
+  // Determine format (horizontal or vertical)
+  const isHorizontal = isHorizontalFormat(productList);
+  console.log('Message format:', isHorizontal ? 'horizontal' : 'vertical');
 
-  if (!productListOnly || !productListOnly.trim()) {
-    console.log('No product list found after extraction');
-    return { items: [], unknownUnits: [] };
-  }
-
-  const lines = productListOnly.split('\n');
-  const orderItems: any[] = [];
-  const unknownUnits: string[] = [];
-
-  console.log(`\n========== INTELLIGENT PARSING (${lines.length} lines) ==========`);
-  console.log(`Format: ${isHorizontalFormat(productListOnly) ? 'HORIZONTAL' : 'VERTICAL'}`);
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-
-    if (!line) {
-      continue;
-    }
-
-    console.log(`\n--- Line ${i + 1}: "${line}"`);
-
-    const segments = splitLineIntoSegments(line);
-    console.log(`  Segments: ${segments.length}`);
-
+  if (isHorizontal) {
+    // Parse horizontal format (single line with separators)
+    const segments = splitLineIntoSegments(productList);
     for (const segment of segments) {
-      try {
-        const parsed = parseSegment(segment);
-
-        orderItems.push(parsed.item);
-
-        if (parsed.unknownUnit && !unknownUnits.includes(parsed.unknownUnit)) {
-          unknownUnits.push(parsed.unknownUnit);
-        }
-
-        if (parsed.item.quantity === '#') {
-          console.log(`  ⚠ Unparseable: "${segment}"`);
-        } else {
-          console.log(`  ✓ Success: "${segment}" → ${parsed.item.quantity} ${parsed.item.unit} de ${parsed.item.product}`);
-        }
-      } catch (error) {
-        console.error(`  ✗ Error parsing segment "${segment}":`, error);
-        orderItems.push({ quantity: '#', unit: '', product: segment });
+      const parsed = parseSegment(segment);
+      if (parsed) {
+        items.push(parsed);
+      }
+    }
+  } else {
+    // Parse vertical format (one item per line)
+    const lines = productList.split('\n').filter(l => l.trim().length > 0);
+    for (const line of lines) {
+      const parsed = parseSegment(line);
+      if (parsed) {
+        items.push(parsed);
       }
     }
   }
 
-  console.log(`\n========== PARSING COMPLETE: ${orderItems.length} items ==========`);
-
-  return { items: orderItems, unknownUnits };
+  console.log('Parsed items:', items.length);
+  return items;
 }
 
 /**
- * Checks if message is a greeting
+ * Check if message is a greeting
  */
 function isGreeting(message: string): boolean {
-  const normalized = message.toLowerCase().trim();
-  
-  if (normalized.includes('?') || normalized.includes('¿')) {
-    return true;
-  }
-  
-  for (const pattern of GREETING_PATTERNS) {
-    if (pattern.test(normalized)) {
-      return true;
-    }
-  }
-  
-  for (const pattern of QUESTION_PATTERNS) {
-    if (normalized.includes(pattern)) {
-      return true;
-    }
-  }
-  
-  return false;
+  const lowerMessage = message.toLowerCase().trim();
+  return GREETING_PATTERNS.some(pattern => pattern.test(lowerMessage));
 }
 
 /**
- * Checks if message contains new order keywords
+ * Check if message contains "new order" keywords
  */
 function isNewOrderKeyword(message: string): boolean {
-  const normalized = message.toLowerCase().trim();
-  
-  const newOrderPatterns = [
-    /\bnuevo\s+pedido\b/i,
-    /\botro\s+pedido\b/i,
-  ];
-  
-  for (const pattern of newOrderPatterns) {
-    if (pattern.test(normalized)) {
-      return true;
-    }
-  }
-  
-  return false;
+  const lowerMessage = message.toLowerCase();
+  return /\b(nuevo pedido|new order|pedido nuevo)\b/i.test(lowerMessage);
 }
 
 /**
- * Removes new order keywords from message
+ * Remove "new order" keywords from message
  */
 function removeNewOrderKeywords(message: string): string {
-  let cleaned = message;
-  
-  cleaned = cleaned.replace(/\bnuevo\s+pedido\b/gi, '');
-  cleaned = cleaned.replace(/\botro\s+pedido\b/gi, '');
-  
-  return cleaned.trim();
+  return message.replace(/\b(nuevo pedido|new order|pedido nuevo)\b/gi, '').trim();
 }
 
 /**
- * Format currency as Chilean Pesos
+ * Format currency (Chilean Peso)
  */
 function formatCLP(amount: number): string {
-  return `$${amount.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+  }).format(amount);
 }
 
 /**
- * Formats items list for messages
+ * Format items list for WhatsApp message
  */
 function formatItemsList(items: any[], showPrices: boolean = false): string {
-  return items.map((item) => {
-    const priceText = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    const quantityDisplay = item.quantity === '#' ? '#' : item.quantity;
-    const unitDisplay = item.unit ? ` ${item.unit}` : '';
-    return `${quantityDisplay}${unitDisplay} de ${item.product}`;
+  return items.map((item, index) => {
+    const quantity = item.quantity === '#' ? '' : `${item.quantity} `;
+    const unit = item.notes ? item.notes.split(' - ')[0] + ' ' : '';
+    const price = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
+    return `${index + 1}. ${quantity}${unit}${item.product_name}${price}`;
   }).join('\n');
 }
 
 /**
- * Creates confirmation message
+ * Create confirmation message for new order
  */
 function createConfirmationMessage(customerName: string, orderNumber: string, items: any[]): string {
-  const itemsList = formatItemsList(items, false);
-  
-  const hasUnparseableItems = items.some(item => item.quantity === '#');
-  const unparseableNote = hasUnparseableItems ? '\n\n⚠️ *Nota:* Algunos productos tienen cantidad "#" porque no pudieron ser procesados correctamente. Por favor revisa tu pedido y confirma las cantidades.' : '';
-  
-  return `✅ *¡Pedido Recibido!*
-
-Hola ${customerName}, hemos recibido tu pedido correctamente.
-
-📋 *Número de pedido:* ${orderNumber}
-
-📦 *Productos solicitados:*
-${itemsList}${unparseableNote}
-
-💰 Los precios se asignarán y te confirmaremos el total cuando tu pedido esté en preparación.
-
-Te mantendremos informado sobre el estado de tu pedido. ⏰
-
-¡Gracias por tu preferencia! 😊`;
+  return `¡Hola ${customerName}! 👋\n\n` +
+    `✅ Tu pedido *${orderNumber}* ha sido recibido correctamente.\n\n` +
+    `📋 *Resumen del pedido:*\n${formatItemsList(items)}\n\n` +
+    `⏰ Lo procesaremos lo antes posible.\n\n` +
+    `¡Gracias por tu preferencia! 🙏`;
 }
 
 /**
- * Creates blocked customer message
+ * Create blocked customer message
  */
 function createBlockedCustomerMessage(customerName: string): string {
-  return `🚫 *Acceso Bloqueado*
-
-Hola ${customerName}, tu cuenta ha sido bloqueada temporalmente.
-
-Por favor contacta con nosotros directamente para más información.
-
-Disculpa las molestias.`;
+  return `Hola ${customerName},\n\n` +
+    `❌ Lo sentimos, pero tu cuenta ha sido bloqueada temporalmente.\n\n` +
+    `Por favor, contacta con nosotros para más información.\n\n` +
+    `Gracias.`;
 }
 
 /**
- * Creates help message
+ * Create help message
  */
 function createHelpMessage(customerName: string): string {
-  return `❌ *No pudimos identificar productos*
-
-Hola ${customerName}! No pude identificar productos en tu mensaje.
-
-⚠️ *IMPORTANTE:* Envía SOLO la lista de productos, sin saludos ni texto extra. La aplicación detectará automáticamente quién eres.
-
-📝 *Formatos sugeridos:*
-
-*Formato vertical:*
-3 kilos de tomates
-2 kilos de palta
-1 kg de papas
-5 pepinos
-
-*Formato horizontal:*
-3 kilos de tomates, 2 kilos de palta, 5 pepinos
-
-*Otros formatos válidos:*
-3k de tomates
-1/2 kilo de papas
-1 1/2 kilo de manzanas
-1 1/2 manzana (se asume kilos)
-1 y medio kilo de papas
-medio kilo de cebollas
-tomates 3 kilos (orden invertido)
-dos kilos de papas (números en texto)
-
-🚫 *NO envíes:* "Hola, quiero pedir...", "Gracias", etc.
-✅ *SÍ envía:* Solo la lista de productos
-
-¡Gracias por tu comprensión! 😊`;
+  return `¡Hola ${customerName}! 👋\n\n` +
+    `Para hacer un pedido, simplemente envía la lista de productos que necesitas.\n\n` +
+    `*Ejemplos:*\n` +
+    `• 2 kg tomates\n` +
+    `• 1 lechuga\n` +
+    `• medio kilo cebollas\n\n` +
+    `También puedes enviar varios productos en un solo mensaje:\n` +
+    `2 kg tomates, 1 lechuga, medio kilo cebollas\n\n` +
+    `¡Estamos aquí para ayudarte! 😊`;
 }
 
 /**
- * Creates welcome message
+ * Create welcome message for new customers
  */
 function createWelcomeMessage(customerName: string): string {
-  return `👋 *¡Hola ${customerName}!*
-
-Gracias por contactarnos. Para hacer un pedido, es muy importante que sigas estas instrucciones:
-
-⚠️ *IMPORTANTE:*
-🔹 Envía SOLO la lista de productos
-🔹 NO incluyas saludos, despedidas ni texto extra
-🔹 La aplicación detectará automáticamente quién eres
-
-📝 *Ejemplos de cómo hacer tu pedido:*
-
-*Formato vertical:*
-3 kilos de tomates
-2 kilos de paltas
-5 pepinos
-1 cilantro
-
-*Formato horizontal:*
-3 kilos de tomates, 2 kilos de paltas, 5 pepinos
-
-*Otros formatos válidos:*
-3k de tomates
-1/2 kilo de papas
-1 1/2 kilo de manzanas
-1 1/2 manzana (se asume kilos)
-1 y medio kilo de papas
-medio kilo de cebollas
-tomates 3 kilos
-dos kilos de papas
-
-🚫 *Ejemplo INCORRECTO:*
-"Hola, buenos días, quiero hacer un pedido de 3 kilos de tomates. Gracias"
-
-✅ *Ejemplo CORRECTO:*
-3 kilos de tomates
-2 kilos de paltas
-
-¿En qué podemos ayudarte hoy? 😊`;
+  return `¡Hola ${customerName}! 👋\n\n` +
+    `Bienvenido/a a nuestro servicio de pedidos por WhatsApp.\n\n` +
+    `Para hacer un pedido, simplemente envía la lista de productos que necesitas.\n\n` +
+    `*Ejemplo:*\n` +
+    `2 kg tomates\n` +
+    `1 lechuga\n` +
+    `medio kilo cebollas\n\n` +
+    `¡Estamos aquí para ayudarte! 😊`;
 }
 
 /**
- * Creates status update message
+ * Create status update message
  */
 function createStatusUpdateMessage(customerName: string, orderNumber: string, status: string, items: any[]): string {
-  const showPrices = status === 'ready' || status === 'delivered';
-  const itemsList = formatItemsList(items, showPrices);
-  
   let statusEmoji = '📦';
-  let statusText = '';
-  let additionalInfo = '';
+  let statusText = 'actualizado';
   
   switch (status) {
     case 'preparing':
       statusEmoji = '👨‍🍳';
-      statusText = 'En Preparación';
-      additionalInfo = '\n\n💰 Estamos preparando tu pedido y confirmando los precios.';
+      statusText = 'en preparación';
       break;
     case 'ready':
       statusEmoji = '✅';
-      statusText = 'Listo para Entrega';
-      additionalInfo = '\n\n🚚 Tu pedido está listo. ¡Puedes pasar a recogerlo!';
+      statusText = 'listo para recoger';
       break;
     case 'delivered':
       statusEmoji = '🎉';
-      statusText = 'Entregado';
-      additionalInfo = '\n\n¡Esperamos que disfrutes tus productos! Gracias por tu compra.';
+      statusText = 'entregado';
       break;
     case 'cancelled':
       statusEmoji = '❌';
-      statusText = 'Cancelado';
-      additionalInfo = '\n\nSi tienes alguna pregunta, no dudes en contactarnos.';
+      statusText = 'cancelado';
       break;
-    default:
-      statusEmoji = '📦';
-      statusText = 'Pendiente';
   }
   
-  return `${statusEmoji} *Actualización de Pedido*
-
-Hola ${customerName}, tu pedido ha sido actualizado.
-
-📋 *Número de pedido:* ${orderNumber}
-🔄 *Nuevo estado:* ${statusText}
-
-📦 *Productos:*
-${itemsList}${additionalInfo}
-
-¡Gracias por tu preferencia! 😊`;
+  return `¡Hola ${customerName}! 👋\n\n` +
+    `${statusEmoji} Tu pedido *${orderNumber}* está ${statusText}.\n\n` +
+    `📋 *Resumen del pedido:*\n${formatItemsList(items)}\n\n` +
+    `¡Gracias por tu preferencia! 🙏`;
 }
 
 /**
- * Creates product added message
+ * Create product added message
  */
 function createProductAddedMessage(customerName: string, orderNumber: string, addedProduct: any, allItems: any[]): string {
-  const itemsList = formatItemsList(allItems, false);
-  const quantityDisplay = addedProduct.quantity === '#' ? '#' : addedProduct.quantity;
-  const unitDisplay = addedProduct.unit ? ` ${addedProduct.unit}` : '';
-
-  return `➕ *Producto Agregado*
-
-Hola ${customerName}, se ha agregado un producto a tu pedido.
-
-📋 *Número de pedido:* ${orderNumber}
-
-✨ *Producto agregado:*
-${quantityDisplay}${unitDisplay} de ${addedProduct.product}
-
-📦 *Lista completa de productos:*
-${itemsList}
-
-¡Gracias por tu preferencia! 😊`;
+  const quantity = addedProduct.quantity === '#' ? '' : `${addedProduct.quantity} `;
+  const unit = addedProduct.notes ? addedProduct.notes.split(' - ')[0] + ' ' : '';
+  
+  return `¡Hola ${customerName}! 👋\n\n` +
+    `✅ Se ha agregado *${quantity}${unit}${addedProduct.product_name}* a tu pedido *${orderNumber}*.\n\n` +
+    `📋 *Pedido actualizado:*\n${formatItemsList(allItems)}\n\n` +
+    `¡Gracias! 🙏`;
 }
 
 /**
- * Gets status label in Spanish
+ * Get status label in Spanish
  */
 function getStatusLabel(status: string): string {
-  switch (status) {
-    case 'pending':
-      return 'Pendiente';
-    case 'preparing':
-      return 'En Preparación';
-    case 'ready':
-      return 'Listo para Entrega';
-    case 'delivered':
-      return 'Entregado';
-    case 'cancelled':
-      return 'Cancelado';
-    default:
-      return status;
-  }
+  const labels: Record<string, string> = {
+    'pending': 'Pendiente',
+    'preparing': 'Preparando',
+    'ready': 'Listo',
+    'delivered': 'Entregado',
+    'cancelled': 'Cancelado',
+  };
+  return labels[status] || status;
 }
 
 /**
- * Sends WhatsApp message
+ * Send WhatsApp message
  */
-async function sendWhatsAppMessage(phoneNumberId: string, accessToken: string, to: string, message: string) {
-  const url = `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`;
+async function sendWhatsAppMessage(
+  phoneNumberId: string,
+  accessToken: string,
+  to: string,
+  message: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v17.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: to,
+          type: 'text',
+          text: { body: message },
+        }),
+      }
+    );
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      text: { body: message },
-    }),
-  });
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('WhatsApp API error:', error);
+      return false;
+    }
 
-  if (!response.ok) {
-    const error = await response.text();
-    console.error('Failed to send WhatsApp message:', error);
-    throw new Error(`Failed to send message: ${error}`);
+    console.log('WhatsApp message sent successfully');
+    return true;
+  } catch (error) {
+    console.error('Error sending WhatsApp message:', error);
+    return false;
   }
-
-  return response.json();
 }
 
 /**
- * Extracts customer name from WhatsApp contact
+ * Extract customer name from contact or phone
  */
 function extractCustomerName(contact: any, phone: string): string {
   if (contact?.profile?.name) {
     return contact.profile.name;
   }
   
-  if (contact?.wa_id) {
-    return contact.wa_id;
-  }
-  
-  return phone;
+  // Use last 4 digits of phone as fallback
+  return `Cliente ${phone.slice(-4)}`;
 }
 
 /**
- * Adds query to print queue for auto-printing
- * This marks the query for auto-printing when the app is active
+ * Add query to print queue
  */
 async function addQueryToPrintQueue(supabase: any, queryId: string) {
   try {
-    console.log('[WhatsApp Webhook] Adding query to print queue:', queryId);
-    
-    // We can't directly access AsyncStorage from Edge Function,
-    // so we'll use a database table to track queries that need printing
-    const { error } = await supabase
-      .from('print_queue')
-      .insert({
-        item_type: 'query',
-        item_id: queryId,
-        status: 'pending',
-      });
-    
-    if (error) {
-      console.error('[WhatsApp Webhook] Error adding query to print queue:', error);
-    } else {
-      console.log('[WhatsApp Webhook] Query added to print queue successfully');
-    }
+    await supabase.from('print_queue').insert({
+      item_type: 'query',
+      item_id: queryId,
+      status: 'pending',
+    });
+    console.log('Query added to print queue');
   } catch (error) {
-    console.error('[WhatsApp Webhook] Exception adding query to print queue:', error);
+    console.error('Error adding query to print queue:', error);
   }
 }
 
 /**
- * Checks if a customer is blocked by phone number
+ * Check if customer is blocked
  */
 async function isCustomerBlocked(supabase: any, phone: string): Promise<boolean> {
   try {
@@ -1311,558 +674,331 @@ async function isCustomerBlocked(supabase: any, phone: string): Promise<boolean>
       .eq('phone', phone)
       .single();
 
-    if (error) {
-      // Customer doesn't exist yet, so not blocked
-      if (error.code === 'PGRST116') {
-        return false;
-      }
-      console.error('[WhatsApp Webhook] Error checking if customer is blocked:', error);
+    if (error || !data) {
       return false;
     }
 
-    return data?.blocked === true;
+    return data.blocked === true;
   } catch (error) {
-    console.error('[WhatsApp Webhook] Exception checking if customer is blocked:', error);
+    console.error('Error checking if customer is blocked:', error);
     return false;
   }
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+  // Load known units at startup
+  await loadKnownUnits(supabase);
 
-    // Load known units from database
-    await loadKnownUnits(supabase);
+  // Handle GET request (webhook verification)
+  if (req.method === 'GET') {
+    const url = new URL(req.url);
+    const mode = url.searchParams.get('hub.mode');
+    const token = url.searchParams.get('hub.verify_token');
+    const challenge = url.searchParams.get('hub.challenge');
 
-    // Load authorized phone numbers from database
-    const authorizedPhones = await loadAuthorizedPhones(supabase);
+    // Get verify token from config
+    const { data: config } = await supabase
+      .from('whatsapp_config')
+      .select('verify_token')
+      .single();
 
-    // GET request - webhook verification
-    if (req.method === 'GET') {
-      const url = new URL(req.url);
-      const mode = url.searchParams.get('hub.mode');
-      const token = url.searchParams.get('hub.verify_token');
-      const challenge = url.searchParams.get('hub.challenge');
-
-      console.log('Webhook verification request:', { mode, token });
-
-      const { data: config } = await supabase
-        .from('whatsapp_config')
-        .select('verify_token')
-        .single();
-
-      if (mode === 'subscribe' && token === config?.verify_token) {
-        console.log('Webhook verified successfully');
-        return new Response(challenge, {
-          headers: { ...corsHeaders, 'Content-Type': 'text/plain' },
-        });
-      }
-
-      return new Response('Forbidden', { status: 403, headers: corsHeaders });
+    if (mode === 'subscribe' && token === config?.verify_token) {
+      console.log('Webhook verified successfully');
+      return new Response(challenge, { status: 200 });
     }
 
-    // POST request - incoming message
-    if (req.method === 'POST') {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  // Handle POST request (incoming messages)
+  if (req.method === 'POST') {
+    try {
       const body = await req.json();
       console.log('Received webhook:', JSON.stringify(body, null, 2));
 
+      // Extract message data
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const messages = value?.messages;
+
+      if (!messages || messages.length === 0) {
+        console.log('No messages in webhook');
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      const message = messages[0];
+      const from = message.from;
+      const messageId = message.id;
+      const messageText = message.text?.body;
+      const contact = value?.contacts?.[0];
+
+      if (!messageText) {
+        console.log('No text in message');
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log('Processing message from:', from);
+      console.log('Message text:', messageText);
+
+      // Get WhatsApp config
       const { data: config } = await supabase
         .from('whatsapp_config')
         .select('*')
-        .eq('is_active', true)
         .single();
 
-      if (!config) {
-        console.log('WhatsApp integration not configured or inactive');
-        return new Response(JSON.stringify({ success: false, error: 'Not configured' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const entry = body.entry?.[0];
-      if (!entry) {
+      if (!config || !config.is_active) {
+        console.log('WhatsApp integration is not active');
         return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json' },
         });
       }
 
-      const changes = entry.changes?.[0];
-      const messages = changes?.value?.messages;
-      const contacts = changes?.value?.contacts;
+      // Normalize phone number
+      const normalizedPhone = normalizePhoneNumber(from);
+      console.log('Normalized phone:', normalizedPhone);
 
-      if (!messages || messages.length === 0) {
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      for (let i = 0; i < messages.length; i++) {
-        const message = messages[i];
+      // Check if customer is blocked
+      const blocked = await isCustomerBlocked(supabase, normalizedPhone);
+      if (blocked) {
+        console.log('Customer is blocked');
+        const customerName = extractCustomerName(contact, from);
         
-        if (message.type !== 'text') continue;
-
-        const messageText = message.text.body;
-        const customerPhone = message.from;
-        const messageId = message.id;
-        
-        const contact = contacts?.find((c: any) => c.wa_id === customerPhone);
-        let customerName = extractCustomerName(contact, customerPhone);
-
-        console.log('Processing message from:', customerName, '(', customerPhone, ')');
-        console.log('Message text:', messageText);
-
-        // Check if customer is blocked
-        const blocked = await isCustomerBlocked(supabase, customerPhone);
-        if (blocked) {
-          console.log('Customer is blocked, rejecting message');
-          
-          // Send blocked message notification
-          if (config.access_token && config.phone_number_id) {
-            try {
-              const blockedMsg = createBlockedCustomerMessage(customerName);
-              await sendWhatsAppMessage(
-                config.phone_number_id,
-                config.access_token,
-                customerPhone,
-                blockedMsg
-              );
-              console.log('Sent blocked customer message to:', customerPhone);
-            } catch (error) {
-              console.error('Error sending blocked customer message:', error);
-            }
-          }
-          
-          continue; // Skip processing this message
+        // Send blocked message
+        if (config.auto_reply_enabled) {
+          await sendWhatsAppMessage(
+            config.phone_number_id,
+            config.access_token,
+            from,
+            createBlockedCustomerMessage(customerName)
+          );
         }
-
-        // FIXED: Normalize the incoming phone number for comparison
-        const normalizedCustomerPhone = normalizePhoneNumber(customerPhone);
         
-        // Check if this phone number is in the authorized list
-        const isAlwaysNewOrderPhone = authorizedPhones.includes(normalizedCustomerPhone);
-        
-        console.log('========================================');
-        console.log('🔍 AUTHORIZED PHONE CHECK:');
-        console.log('  Incoming phone (raw):', customerPhone);
-        console.log('  Incoming phone (normalized):', normalizedCustomerPhone);
-        console.log('  Authorized phones list:', authorizedPhones);
-        console.log('  Is authorized?', isAlwaysNewOrderPhone ? '✅ YES' : '❌ NO');
-        console.log('========================================');
+        return new Response(JSON.stringify({ success: true, blocked: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
 
-        // Check if customer has an order in active statuses (pending, preparing, ready)
-        // Orders in delivered, pending_payment, paid, or cancelled statuses should NOT trigger query behavior
+      // Load authorized phones
+      const authorizedPhones = await loadAuthorizedPhones(supabase);
+      const isAuthorized = authorizedPhones.has(normalizedPhone);
+      console.log('Is authorized:', isAuthorized);
+
+      // Check if message is a greeting only
+      if (isGreeting(messageText) && messageText.split(/\s+/).length <= 3) {
+        console.log('Message is a greeting only');
+        const customerName = extractCustomerName(contact, from);
+        
+        if (config.auto_reply_enabled) {
+          await sendWhatsAppMessage(
+            config.phone_number_id,
+            config.access_token,
+            from,
+            createWelcomeMessage(customerName)
+          );
+        }
+        
+        return new Response(JSON.stringify({ success: true, greeting: true }), {
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check if message is a question
+      const isQuestion = QUESTION_PATTERNS.some(pattern => pattern.test(messageText));
+      console.log('Is question:', isQuestion);
+
+      // Parse message
+      let cleanedMessage = messageText;
+      const hasNewOrderKeyword = isNewOrderKeyword(messageText);
+      
+      if (hasNewOrderKeyword) {
+        cleanedMessage = removeNewOrderKeywords(messageText);
+        console.log('Removed new order keywords:', cleanedMessage);
+      }
+
+      const parsedItems = parseWhatsAppMessage(cleanedMessage);
+      console.log('Parsed items:', parsedItems.length);
+
+      // Determine if this should be a query or an order
+      const shouldCreateQuery = !isAuthorized && (isQuestion || parsedItems.length === 0);
+      console.log('Should create query:', shouldCreateQuery);
+
+      if (shouldCreateQuery) {
+        // Create query
+        console.log('Creating query...');
+        
+        // Find existing pending order for this customer
         const { data: existingOrders } = await supabase
           .from('orders')
-          .select('id, order_number, customer_name, status, items:order_items(*)')
-          .eq('customer_phone', customerPhone)
-          .in('status', ['pending', 'preparing', 'ready']) // Only these statuses trigger query behavior
+          .select('id, order_number, customer_name')
+          .eq('customer_phone', normalizedPhone)
+          .eq('status', 'pending')
           .order('created_at', { ascending: false })
           .limit(1);
 
-        const hasActiveOrder = existingOrders && existingOrders.length > 0;
-        const activeOrder = hasActiveOrder ? existingOrders[0] : null;
-
-        console.log('Has active order (pending/preparing/ready):', hasActiveOrder);
-        if (activeOrder) {
-          console.log('Active order:', activeOrder.order_number, 'Status:', activeOrder.status);
-        } else {
-          console.log('No active order found - message will be treated as new order');
-        }
-
-        // Check for new order keywords
-        const hasNewOrderKeyword = isNewOrderKeyword(messageText);
-        console.log('Has new order keyword:', hasNewOrderKeyword);
-
-        // FIXED: If customer has active order (pending/preparing/ready) and no new order keyword,
-        // AND is NOT in the authorized list, treat as query
-        // If phone IS in authorized list, ALWAYS create new order regardless of active orders
-        if (hasActiveOrder && !hasNewOrderKeyword && !isAlwaysNewOrderPhone && activeOrder) {
-          console.log('📋 Treating message as ORDER QUERY (has active order, no new order keyword, not authorized phone)');
-          
-          // Save query to database with direction='incoming'
-          const { data: queryData, error: queryError } = await supabase
+        const existingOrder = existingOrders?.[0];
+        
+        if (existingOrder) {
+          // Add query to existing order
+          const { data: query, error: queryError } = await supabase
             .from('order_queries')
             .insert({
-              order_id: activeOrder.id,
-              customer_phone: customerPhone,
+              order_id: existingOrder.id,
+              customer_phone: normalizedPhone,
               query_text: messageText,
-              direction: 'incoming',
               whatsapp_message_id: messageId,
+              direction: 'incoming',
             })
             .select()
             .single();
 
           if (queryError) {
-            console.error('Error saving query:', queryError);
+            console.error('Error creating query:', queryError);
           } else {
-            console.log('Query saved successfully with ID:', queryData.id);
+            console.log('Query created for existing order:', existingOrder.order_number);
             
-            // Add query to print queue for auto-printing
-            await addQueryToPrintQueue(supabase, queryData.id);
-          }
-
-          // Send immediate acknowledgment message
-          if (config.access_token && config.phone_number_id) {
+            // Add to print queue
+            await addQueryToPrintQueue(supabase, query.id);
+            
+            // Send notification to all devices
             try {
-              const queryResponse = `📋 *Consulta Recibida*
-
-Hola ${activeOrder.customer_name}, hemos recibido tu consulta sobre el pedido ${activeOrder.order_number}.
-
-❓ *Tu consulta:*
-${messageText}
-
-⏰ Estamos revisando tu consulta y te responderemos a la brevedad.
-
-¡Gracias por tu paciencia! 😊`;
-
-              await sendWhatsAppMessage(
-                config.phone_number_id,
-                config.access_token,
-                customerPhone,
-                queryResponse
-              );
-              console.log('Sent query acknowledgment to:', customerPhone);
-            } catch (error) {
-              console.error('Error sending query acknowledgment:', error);
-            }
-          }
-
-          continue;
-        }
-
-        // If phone is in authorized list, log it
-        if (isAlwaysNewOrderPhone) {
-          console.log('✅ Phone number is in authorized list - BYPASSING query check and treating as NEW ORDER');
-        }
-
-        // If has new order keyword, remove it and process as new order
-        let processedMessageText = messageText;
-        if (hasNewOrderKeyword) {
-          processedMessageText = removeNewOrderKeywords(messageText);
-          console.log('Removed new order keywords, processing:', processedMessageText);
-        }
-
-        // Check for Manual keyword
-        const startsWithManual = /^\s*manual\s*/i.test(processedMessageText);
-        
-        if (startsWithManual) {
-          console.log('Detected Manual keyword');
-          
-          const withoutManual = processedMessageText.replace(/^\s*manual\s*[:#]?\s*/i, '');
-          
-          let customCustomerName = '';
-          let orderText = '';
-          
-          const hashPattern = /^#([^#]+)#\s*(.+)$/s;
-          const hashMatch = withoutManual.match(hashPattern);
-          
-          if (hashMatch) {
-            customCustomerName = hashMatch[1].trim();
-            orderText = hashMatch[2].trim();
-            console.log('Extracted name from # pattern:', customCustomerName);
-          } else {
-            const lines = withoutManual.split('\n');
-            
-            if (lines.length >= 2) {
-              customCustomerName = lines[0].trim();
-              orderText = lines.slice(1).join('\n').trim();
-              console.log('Extracted name from first line:', customCustomerName);
-            } else if (lines.length === 1) {
-              const singleLine = lines[0].trim();
+              // Create local notification for all devices
+              const notificationTitle = `💬 Consulta: ${existingOrder.order_number}`;
+              const notificationBody = `${existingOrder.customer_name}: ${messageText.substring(0, 100)}`;
               
-              const orderStartMatch = singleLine.match(/\b(\d+(?:\/\d+)?|\w+)\s+(?:\w+\s+)?(?:de\s+)?[a-zA-Z]/);
+              // Create in-app notification
+              await supabase.from('notifications').insert({
+                user_id: null, // Not tied to specific user (PIN-based auth)
+                title: notificationTitle,
+                message: notificationBody,
+                type: 'info',
+                related_order_id: existingOrder.id,
+                is_read: false,
+              });
               
-              if (orderStartMatch && orderStartMatch.index !== undefined && orderStartMatch.index > 0) {
-                customCustomerName = singleLine.substring(0, orderStartMatch.index).trim();
-                orderText = singleLine.substring(orderStartMatch.index).trim();
-                console.log('Extracted name from single line split:', customCustomerName);
-              } else {
-                console.log('Could not split name and order from single line');
-                customCustomerName = singleLine;
-                orderText = '';
-              }
-            }
-          }
-          
-          if (!customCustomerName || !orderText) {
-            console.log('Manual format error: missing name or order text');
-            
-            if (config.access_token && config.phone_number_id) {
-              try {
-                const errorMsg = `❌ *Formato Manual Incorrecto*
-
-Hola! Para usar el formato Manual, debes especificar el nombre del cliente y los productos.
-
-📝 *Formatos válidos:*
-
-*Opción 1 (con #):*
-Manual #Juan Pérez#
-3 kilos de tomates
-2 kilos de papas
-
-*Opción 2 (con salto de línea):*
-Manual: Juan Pérez
-3 kilos de tomates
-2 kilos de papas
-
-*Opción 3 (simple):*
-Manual Juan Pérez
-3 kilos de tomates
-2 kilos de papas
-
-¡Intenta nuevamente! 😊`;
-                
-                await sendWhatsAppMessage(
-                  config.phone_number_id,
-                  config.access_token,
-                  customerPhone,
-                  errorMsg
-                );
-                console.log('Sent Manual format error message to:', customerPhone);
-              } catch (error) {
-                console.error('Error sending Manual format error message:', error);
-              }
-            }
-            
-            continue;
-          }
-          
-          console.log('Custom customer name:', customCustomerName);
-          console.log('Order text:', orderText);
-          
-          const parseResult = parseWhatsAppMessage(orderText);
-          const parsedItems = parseResult.items;
-          const unknownUnits = parseResult.unknownUnits;
-          
-          // Add unknown units to database
-          for (const unknownUnit of unknownUnits) {
-            await addNewUnit(supabase, unknownUnit, unknownUnit);
-          }
-          
-          if (parsedItems.length === 0) {
-            console.log('No items could be parsed from Manual order');
-            
-            if (config.access_token && config.phone_number_id) {
-              try {
-                const helpMsg = createHelpMessage(customCustomerName);
-                await sendWhatsAppMessage(
-                  config.phone_number_id,
-                  config.access_token,
-                  customerPhone,
-                  helpMsg
-                );
-                console.log('Sent help message to:', customerPhone);
-              } catch (error) {
-                console.error('Error sending help message:', error);
-              }
-            }
-            
-            continue;
-          }
-          
-          const { data: order, error: orderError } = await supabase
-            .from('orders')
-            .insert({
-              customer_name: customCustomerName,
-              customer_phone: customerPhone,
-              status: 'pending',
-              source: 'manual',
-              whatsapp_message_id: messageId,
-            })
-            .select()
-            .single();
-
-          if (orderError) {
-            console.error('Error creating Manual order:', orderError);
-            continue;
-          }
-
-          console.log('Created Manual order:', order.id, 'with number:', order.order_number);
-
-          // Create order items (including unparseable ones with "#" quantity)
-          const orderItems = parsedItems.map((item) => {
-            const notes = item.unit ? `Unidad: ${item.unit}` : '';
-            return {
-              order_id: order.id,
-              product_name: `${item.product}`,
-              quantity: item.quantity === '#' ? '#' : item.quantity,
-              unit_price: 0,
-              notes,
-            };
-          });
-
-          const { error: itemsError } = await supabase
-            .from('order_items')
-            .insert(orderItems);
-
-          if (itemsError) {
-            console.error('Error creating order items for Manual order:', itemsError);
-          }
-
-          if (config.access_token && config.phone_number_id) {
-            try {
-              const confirmationMsg = createConfirmationMessage(
-                customCustomerName,
-                order.order_number,
-                parsedItems
-              );
-              await sendWhatsAppMessage(
-                config.phone_number_id,
-                config.access_token,
-                customerPhone,
-                confirmationMsg
-              );
-              console.log('Sent Manual confirmation message to:', customerPhone);
+              console.log('Notification created for query');
             } catch (error) {
-              console.error('Error sending Manual confirmation message:', error);
+              console.error('Error sending notification:', error);
             }
           }
-          
-          continue;
+        } else {
+          console.log('No existing pending order found for query');
         }
-
-        // Check if message is a greeting or question
-        if (isGreeting(processedMessageText)) {
-          console.log('Detected greeting/question, sending welcome message');
-          
-          if (config.access_token && config.phone_number_id) {
-            try {
-              const welcomeMsg = createWelcomeMessage(customerName);
-              await sendWhatsAppMessage(
-                config.phone_number_id,
-                config.access_token,
-                customerPhone,
-                welcomeMsg
-              );
-              console.log('Sent welcome message to:', customerPhone);
-            } catch (error) {
-              console.error('Error sending welcome message:', error);
-            }
-          }
-          
-          continue;
-        }
-
-        // Parse the message
-        const parseResult = parseWhatsAppMessage(processedMessageText);
-        const parsedItems = parseResult.items;
-        const unknownUnits = parseResult.unknownUnits;
-
-        // Add unknown units to database
-        for (const unknownUnit of unknownUnits) {
-          await addNewUnit(supabase, unknownUnit, unknownUnit);
-        }
-
-        // If no items could be parsed, send help message
-        if (parsedItems.length === 0) {
-          console.log('No items could be parsed, sending help message');
-          
-          if (config.access_token && config.phone_number_id) {
-            try {
-              const helpMsg = createHelpMessage(customerName);
-              await sendWhatsAppMessage(
-                config.phone_number_id,
-                config.access_token,
-                customerPhone,
-                helpMsg
-              );
-              console.log('Sent help message to:', customerPhone);
-            } catch (error) {
-              console.error('Error sending help message:', error);
-            }
-          }
-          
-          continue;
-        }
-
-        // FIXED: Determine the source based on whether the phone is a special number
-        // If the phone is in the authorized list, treat as 'manual', otherwise 'whatsapp'
-        const orderSource = isAlwaysNewOrderPhone ? 'manual' : 'whatsapp';
         
-        console.log('========================================');
-        console.log('📝 ORDER SOURCE DETERMINATION:');
-        console.log('  Is authorized phone?', isAlwaysNewOrderPhone);
-        console.log('  Order source:', orderSource);
-        console.log('========================================');
-
-        // Create order
-        const { data: order, error: orderError } = await supabase
-          .from('orders')
-          .insert({
-            customer_name: customerName,
-            customer_phone: customerPhone,
-            status: 'pending',
-            source: orderSource, // FIXED: Use determined source
-            whatsapp_message_id: messageId,
-          })
-          .select()
-          .single();
-
-        if (orderError) {
-          console.error('Error creating order:', orderError);
-          continue;
-        }
-
-        console.log(`✅ Created NEW ORDER (source: ${orderSource}):`, order.id, 'with number:', order.order_number);
-
-        // Create order items (including unparseable ones with "#" quantity)
-        const orderItems = parsedItems.map((item) => {
-          const notes = item.unit ? `Unidad: ${item.unit}` : '';
-          return {
-            order_id: order.id,
-            product_name: `${item.product}`,
-            quantity: item.quantity === '#' ? '#' : item.quantity,
-            unit_price: 0,
-            notes,
-          };
+        return new Response(JSON.stringify({ success: true, query: true }), {
+          headers: { 'Content-Type': 'application/json' },
         });
-
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(orderItems);
-
-        if (itemsError) {
-          console.error('Error creating order items:', itemsError);
-        }
-
-        // Send confirmation message
-        if (config.access_token && config.phone_number_id) {
-          try {
-            const confirmationMsg = createConfirmationMessage(
-              customerName,
-              order.order_number,
-              parsedItems
-            );
-            await sendWhatsAppMessage(
-              config.phone_number_id,
-              config.access_token,
-              customerPhone,
-              confirmationMsg
-            );
-            console.log('Sent confirmation message to:', customerPhone);
-          } catch (error) {
-            console.error('Error sending confirmation message:', error);
-          }
-        }
       }
 
-      return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      // Create order
+      console.log('Creating order...');
+      
+      const customerName = extractCustomerName(contact, from);
+      
+      // Generate order number
+      const { data: lastOrder } = await supabase
+        .from('orders')
+        .select('order_number')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      let orderNumber = '001';
+      if (lastOrder?.order_number) {
+        const lastNumber = parseInt(lastOrder.order_number);
+        orderNumber = (lastNumber + 1).toString().padStart(3, '0');
+      }
+
+      // Create order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          order_number: orderNumber,
+          customer_name: customerName,
+          customer_phone: normalizedPhone,
+          status: 'pending',
+          source: 'whatsapp',
+          whatsapp_message_id: messageId,
+          is_read: false,
+        })
+        .select()
+        .single();
+
+      if (orderError) {
+        console.error('Error creating order:', orderError);
+        return new Response(JSON.stringify({ success: false, error: orderError.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log('Order created:', orderNumber);
+
+      // Create order items
+      for (const item of parsedItems) {
+        const notes = item.unit ? `${item.unit}` : null;
+        
+        await supabase.from('order_items').insert({
+          order_id: order.id,
+          product_name: item.product,
+          quantity: item.quantity,
+          unit_price: 0,
+          notes: notes,
+        });
+      }
+
+      console.log('Order items created:', parsedItems.length);
+
+      // Send confirmation message
+      if (config.auto_reply_enabled) {
+        const confirmationMessage = createConfirmationMessage(customerName, orderNumber, parsedItems);
+        await sendWhatsAppMessage(
+          config.phone_number_id,
+          config.access_token,
+          from,
+          confirmationMessage
+        );
+      }
+
+      // Send notification to all devices
+      try {
+        const notificationTitle = `🛒 Nuevo Pedido: ${orderNumber}`;
+        const notificationBody = `${customerName} - ${parsedItems.length} producto(s)`;
+        
+        // Create in-app notification
+        await supabase.from('notifications').insert({
+          user_id: null, // Not tied to specific user (PIN-based auth)
+          title: notificationTitle,
+          message: notificationBody,
+          type: 'order',
+          related_order_id: order.id,
+          is_read: false,
+        });
+        
+        console.log('Notification created for new order');
+      } catch (error) {
+        console.error('Error sending notification:', error);
+      }
+
+      return new Response(JSON.stringify({ success: true, order_number: orderNumber }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch (error) {
+      console.error('Error processing webhook:', error);
+      return new Response(JSON.stringify({ success: false, error: error.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
       });
     }
-
-    return new Response('Method not allowed', { status: 405, headers: corsHeaders });
-  } catch (error: any) {
-    console.error('Error processing webhook:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
   }
+
+  return new Response('Method not allowed', { status: 405 });
 });

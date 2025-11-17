@@ -6,7 +6,8 @@ import { Platform } from 'react-native';
 import { 
   registerForPushNotificationsAsync, 
   setupNotificationResponseHandler,
-  setupNotificationReceivedHandler 
+  setupNotificationReceivedHandler,
+  updateDeviceActivity 
 } from '@/utils/pushNotifications';
 import { router } from 'expo-router';
 import * as Notifications from 'expo-notifications';
@@ -42,11 +43,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(savedUser);
           
           // Register for push notifications if on native platform
-          if (Platform.OS !== 'web' && savedUser.user_id) {
+          if (Platform.OS !== 'web') {
             console.log('[Auth] Registering for push notifications...');
             try {
-              await registerForPushNotificationsAsync(savedUser.user_id);
+              await registerForPushNotificationsAsync(savedUser.role);
               console.log('[Auth] Push notifications registered successfully');
+              
+              // Update device activity
+              await updateDeviceActivity();
             } catch (error) {
               console.error('[Auth] Error registering push notifications:', error);
             }
@@ -158,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (Platform.OS !== 'web') {
       console.log('[Auth] Registering for push notifications...');
       try {
-        const token = await registerForPushNotificationsAsync(userProfile.user_id);
+        const token = await registerForPushNotificationsAsync(role);
         if (token) {
           console.log('[Auth] Push notifications registered successfully');
         } else {
