@@ -1,5 +1,5 @@
 
-// This file is a fallback for using MaterialIcons on Android and web.
+// Android-specific implementation using MaterialIcons
 
 import React from "react";
 import { SymbolWeight } from "expo-symbols";
@@ -190,9 +190,8 @@ const MAPPING = {
 export type IconSymbolName = keyof typeof MAPPING;
 
 /**
- * An icon component that uses native SFSymbols on iOS, and MaterialIcons on Android and web. This ensures a consistent look across platforms, and optimal resource usage.
- *
- * Icon `name`s are based on SFSymbols and require manual mapping to MaterialIcons.
+ * An icon component that uses MaterialIcons on Android.
+ * This ensures proper icon rendering on Android devices.
  */
 export function IconSymbol({
   name,
@@ -220,7 +219,7 @@ export function IconSymbol({
   }
   
   if (!iconName) {
-    console.warn(`IconSymbol: No valid icon name provided. name=${name}, android_material_icon_name=${android_material_icon_name}`);
+    console.warn(`IconSymbol: No valid Android icon name provided. name=${name}, android_material_icon_name=${android_material_icon_name}`);
     // Return a fallback icon instead of null
     iconName = "help";
   }
