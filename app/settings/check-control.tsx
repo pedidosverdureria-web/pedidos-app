@@ -257,7 +257,7 @@ export default function CheckControlScreen() {
       return result;
     };
 
-    const integerPart = Math.floor(value);
+    let integerPart = Math.floor(value);
     const decimalPart = Math.round((value - integerPart) * 100);
 
     let result = '';
