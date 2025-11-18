@@ -11,7 +11,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { getSupabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -559,14 +559,6 @@ export default function NotificationsScreen() {
   if (loading || checkingPermissions) {
     return (
       <View style={styles.loadingContainer}>
-        <Stack.Screen
-          options={{
-            title: 'Notificaciones',
-            headerBackTitle: 'Atrás',
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#FFFFFF',
-          }}
-        />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -576,14 +568,6 @@ export default function NotificationsScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Notificaciones',
-          headerBackTitle: 'Atrás',
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#FFFFFF',
-        }}
-      />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configuración</Text>
