@@ -17,6 +17,12 @@ export default function SettingsLayout() {
       }}
     >
       <Stack.Screen
+        name="index"
+        options={{
+          title: 'Configuración',
+        }}
+      />
+      <Stack.Screen
         name="notifications"
         options={{
           title: 'Notificaciones',
