@@ -707,14 +707,6 @@ export default function OrderDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: 'Detalle del Pedido',
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
-        }}
-      />
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <Text style={styles.orderNumber}>{order.order_number}</Text>

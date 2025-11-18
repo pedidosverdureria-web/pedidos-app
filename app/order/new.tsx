@@ -588,16 +588,7 @@ export default function NewOrderScreen() {
     },
   }), [colors]);
 
-  // Memoize header options to ensure they update with theme
-  const headerOptions = useMemo(() => ({
-    title: 'Nuevo Pedido Manual',
-    headerBackTitle: 'Atrás',
-    headerStyle: {
-      backgroundColor: colors.primary,
-    },
-    headerTintColor: '#FFFFFF',
-    headerShadowVisible: true,
-  }), [colors.primary]);
+
 
   // Define loadCustomers with useCallback
   const loadCustomers = useCallback(async () => {
@@ -907,7 +898,6 @@ export default function NewOrderScreen() {
   if (!isAuthenticated || !user) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <Stack.Screen options={headerOptions} />
         <IconSymbol ios_icon_name="exclamationmark.triangle.fill" android_material_icon_name="warning" size={64} color={colors.warning} />
         <Text style={styles.warningTitle}>Sesión Requerida</Text>
         <Text style={styles.warningText}>
@@ -929,7 +919,6 @@ export default function NewOrderScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <Stack.Screen options={headerOptions} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
