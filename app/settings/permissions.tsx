@@ -331,8 +331,8 @@ export default function PermissionsScreen() {
           options={{
             title: 'Permisos',
             headerBackTitle: 'Atrás',
-            headerStyle: { backgroundColor: colors.card },
-            headerTintColor: colors.text,
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#FFFFFF',
           }}
         />
         <ActivityIndicator size="large" color={colors.primary} />
@@ -351,8 +351,8 @@ export default function PermissionsScreen() {
         options={{
           title: 'Permisos',
           headerBackTitle: 'Atrás',
-          headerStyle: { backgroundColor: colors.card },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#FFFFFF',
         }}
       />
       <ScrollView

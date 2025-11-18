@@ -563,8 +563,8 @@ export default function NotificationsScreen() {
           options={{
             title: 'Notificaciones',
             headerBackTitle: 'Atrás',
-            headerStyle: { backgroundColor: colors.card },
-            headerTintColor: colors.text,
+            headerStyle: { backgroundColor: colors.primary },
+            headerTintColor: '#FFFFFF',
           }}
         />
         <ActivityIndicator size="large" color={colors.primary} />
@@ -580,8 +580,8 @@ export default function NotificationsScreen() {
         options={{
           title: 'Notificaciones',
           headerBackTitle: 'Atrás',
-          headerStyle: { backgroundColor: colors.card },
-          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.primary },
+          headerTintColor: '#FFFFFF',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
