@@ -2,9 +2,7 @@
 import { OrderStatus } from '@/types';
 
 // Get color for order status
-export function getStatusColor(status: OrderStatus, theme: any): string {
-  const colors = theme.colors;
-  
+export function getStatusColor(status: OrderStatus): string {
   switch (status) {
     case 'pending':
       return '#F59E0B'; // Yellow
@@ -25,7 +23,33 @@ export function getStatusColor(status: OrderStatus, theme: any): string {
     case 'finalizado':
       return '#6B7280'; // Gray
     default:
-      return colors.textSecondary;
+      return '#6B7280'; // Gray
+  }
+}
+
+// Get icon for order status
+export function getStatusIcon(status: OrderStatus): string {
+  switch (status) {
+    case 'pending':
+      return 'clock.fill';
+    case 'preparing':
+      return 'flame.fill';
+    case 'ready':
+      return 'checkmark.circle.fill';
+    case 'delivered':
+      return 'shippingbox.fill';
+    case 'cancelled':
+      return 'xmark.circle.fill';
+    case 'pending_payment':
+      return 'creditcard.fill';
+    case 'abonado':
+      return 'dollarsign.circle.fill';
+    case 'pagado':
+      return 'checkmark.seal.fill';
+    case 'finalizado':
+      return 'flag.checkered';
+    default:
+      return 'circle.fill';
   }
 }
 
