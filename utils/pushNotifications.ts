@@ -160,49 +160,37 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
       // Save token to database using device_push_tokens table
       const supabase = getSupabase();
       if (supabase) {
-        // First, try to update existing record
-        const { data: existingToken, error: fetchError } = await supabase
+        console.log('[PushNotifications] Saving push token to database...');
+        console.log('[PushNotifications] Device ID:', deviceId);
+        console.log('[PushNotifications] Device Name:', deviceName);
+        console.log('[PushNotifications] User Role:', userRole || 'null');
+        
+        // Use upsert to insert or update in one operation
+        // This is more reliable than checking first then inserting/updating
+        const { data, error } = await supabase
           .from('device_push_tokens')
-          .select('id')
-          .eq('device_id', deviceId)
-          .single();
+          .upsert({
+            device_id: deviceId,
+            push_token: token,
+            user_role: userRole || null,
+            device_name: deviceName,
+            last_active_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'device_id', // Use device_id as the conflict resolution column
+            ignoreDuplicates: false, // Always update if exists
+          })
+          .select();
 
-        if (existingToken) {
-          // Update existing record
-          const { error: updateError } = await supabase
-            .from('device_push_tokens')
-            .update({
-              push_token: token,
-              user_role: userRole || null,
-              device_name: deviceName,
-              last_active_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('device_id', deviceId);
-
-          if (updateError) {
-            console.error('[PushNotifications] Error updating push token:', updateError);
-          } else {
-            console.log('[PushNotifications] Push token updated in database');
-          }
+        if (error) {
+          console.error('[PushNotifications] Error saving push token:', error);
+          console.error('[PushNotifications] Error details:', JSON.stringify(error, null, 2));
         } else {
-          // Insert new record
-          const { error: insertError } = await supabase
-            .from('device_push_tokens')
-            .insert({
-              device_id: deviceId,
-              push_token: token,
-              user_role: userRole || null,
-              device_name: deviceName,
-              last_active_at: new Date().toISOString(),
-            });
-
-          if (insertError) {
-            console.error('[PushNotifications] Error inserting push token:', insertError);
-          } else {
-            console.log('[PushNotifications] Push token saved to database');
-          }
+          console.log('[PushNotifications] Push token saved successfully to database');
+          console.log('[PushNotifications] Saved data:', data);
         }
+      } else {
+        console.error('[PushNotifications] Supabase client not available');
       }
     } catch (e) {
       console.error('[PushNotifications] Error getting push token:', e);
