@@ -35,11 +35,7 @@ import {
   getAdditionalNotes,
   formatDate,
   formatShortDate,
-  getPriorityColor,
-  getPriorityLabel,
-  getPriorityIcon,
 } from '@/utils/orderHelpers';
-import { OrderPriority } from '@/types';
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 
@@ -76,10 +72,6 @@ export default function OrderDetailScreen() {
 
   // Recurring Customer Dialog State
   const [showRecurringCustomerDialog, setShowRecurringCustomerDialog] = useState(false);
-
-  // Priority editing state
-  const [editingPriority, setEditingPriority] = useState(false);
-  const [selectedPriority, setSelectedPriority] = useState<OrderPriority>('normal');
 
   // Use custom hooks
   const {
@@ -536,42 +528,6 @@ export default function OrderDetailScreen() {
     }
   };
 
-  const handlePriorityChange = async () => {
-    if (!order) return;
-
-    try {
-      const { getSupabase } = await import('@/lib/supabase');
-      const supabase = getSupabase();
-
-      const { error } = await supabase
-        .from('orders')
-        .update({ priority: selectedPriority })
-        .eq('id', order.id);
-
-      if (error) throw error;
-
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setEditingPriority(false);
-      await loadOrder();
-
-      setDialog({
-        visible: true,
-        type: 'success',
-        title: 'Prioridad Actualizada',
-        message: `La prioridad del pedido se cambió a: ${getPriorityLabel(selectedPriority)}`,
-      });
-    } catch (error: any) {
-      console.error('[OrderDetail] Error updating priority:', error);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setDialog({
-        visible: true,
-        type: 'error',
-        title: 'Error',
-        message: `No se pudo actualizar la prioridad: ${error.message}`,
-      });
-    }
-  };
-
   const openAddProductModal = () => {
     setWhatsappInput('');
     setParsedProducts([]);
@@ -772,114 +728,6 @@ export default function OrderDetailScreen() {
             onStatusChange={handleStatusChange}
             colors={colors}
           />
-        </View>
-
-        {/* Priority Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Prioridad</Text>
-          </View>
-          
-          {!editingPriority ? (
-            <>
-              <View style={styles.priorityDisplay}>
-                <View style={[
-                  styles.priorityBadgeLarge,
-                  { backgroundColor: getPriorityColor(order.priority || 'normal') }
-                ]}>
-                  <IconSymbol 
-                    ios_icon_name={getPriorityIcon(order.priority || 'normal').ios}
-                    android_material_icon_name={getPriorityIcon(order.priority || 'normal').android}
-                    size={28} 
-                    color="#fff" 
-                  />
-                  <Text style={styles.priorityBadgeText}>
-                    {getPriorityLabel(order.priority || 'normal')}
-                  </Text>
-                </View>
-              </View>
-              
-              <TouchableOpacity
-                style={[styles.addButton, { marginTop: 12 }]}
-                onPress={() => {
-                  setSelectedPriority(order.priority || 'normal');
-                  setEditingPriority(true);
-                }}
-              >
-                <IconSymbol 
-                  ios_icon_name="pencil"
-                  android_material_icon_name="edit"
-                  size={20} 
-                  color="#fff" 
-                />
-                <Text style={styles.addButtonText}>Cambiar Prioridad</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <View style={styles.prioritySelector}>
-                {(['high', 'normal', 'low'] as OrderPriority[]).map((p) => {
-                  const isSelected = selectedPriority === p;
-                  const priorityColor = getPriorityColor(p);
-                  const priorityIcon = getPriorityIcon(p);
-                  
-                  return (
-                    <TouchableOpacity
-                      key={p}
-                      style={[
-                        styles.priorityOption,
-                        { 
-                          backgroundColor: isSelected ? priorityColor : colors.background,
-                          borderColor: priorityColor,
-                          borderWidth: 2,
-                        }
-                      ]}
-                      onPress={() => setSelectedPriority(p)}
-                    >
-                      <IconSymbol 
-                        ios_icon_name={priorityIcon.ios}
-                        android_material_icon_name={priorityIcon.android}
-                        size={24} 
-                        color={isSelected ? '#fff' : priorityColor} 
-                      />
-                      <Text style={[
-                        styles.priorityOptionText,
-                        { color: isSelected ? '#fff' : colors.text }
-                      ]}>
-                        {getPriorityLabel(p)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handlePriorityChange}
-              >
-                <IconSymbol 
-                  ios_icon_name="checkmark.circle"
-                  android_material_icon_name="check-circle"
-                  size={20} 
-                  color="#fff" 
-                />
-                <Text style={styles.addButtonText}>Guardar</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.addButton, { backgroundColor: colors.border, marginTop: 8 }]}
-                onPress={() => setEditingPriority(false)}
-              >
-                <IconSymbol 
-                  ios_icon_name="xmark.circle"
-                  android_material_icon_name="cancel"
-                  size={20} 
-                  color={colors.text} 
-                />
-                <Text style={[styles.addButtonText, { color: colors.text }]}>Cancelar</Text>
-              </TouchableOpacity>
-            </>
-          )}
         </View>
 
         {/* Customer Section */}
@@ -2691,44 +2539,6 @@ function createStyles(colors: any) {
       fontSize: 14,
       color: colors.text,
       flex: 1,
-    },
-    // Priority styles
-    priorityDisplay: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 16,
-    },
-    priorityBadgeLarge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      paddingVertical: 16,
-      paddingHorizontal: 24,
-      borderRadius: 16,
-    },
-    priorityBadgeText: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: '#fff',
-    },
-    prioritySelector: {
-      flexDirection: 'row',
-      gap: 12,
-      marginBottom: 12,
-    },
-    priorityOption: {
-      flex: 1,
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 16,
-      paddingHorizontal: 12,
-      borderRadius: 12,
-      gap: 8,
-    },
-    priorityOptionText: {
-      fontSize: 14,
-      fontWeight: '600',
     },
   });
 }
