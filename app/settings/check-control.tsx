@@ -212,6 +212,7 @@ export default function CheckControlScreen() {
   const convertAmountToWords = (value: number): string => {
     const units = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve'];
     const teens = ['diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve'];
+    const twenties = ['veinte', 'veintiuno', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis', 'veintisiete', 'veintiocho', 'veintinueve'];
     const tens = ['', '', 'veinte', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
     const hundreds = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos', 'setecientos', 'ochocientos', 'novecientos'];
 
@@ -224,21 +225,29 @@ export default function CheckControlScreen() {
       let result = '';
       
       const h = Math.floor(n / 100);
-      const t = Math.floor((n % 100) / 10);
-      const u = n % 10;
+      const remainder = n % 100;
+      const t = Math.floor(remainder / 10);
+      const u = remainder % 10;
       
+      // Handle hundreds
       if (h > 0) {
         result += hundreds[h];
-        if (t > 0 || u > 0) result += ' ';
+        if (remainder > 0) result += ' ';
       }
       
-      if (t === 1) {
+      // Handle tens and units
+      if (remainder >= 10 && remainder <= 19) {
+        // 10-19
         result += teens[u];
+      } else if (remainder >= 20 && remainder <= 29) {
+        // 20-29 (special case)
+        result += twenties[remainder - 20];
       } else {
+        // 30-99 or 1-9
         if (t > 0) {
           result += tens[t];
           if (u > 0) {
-            result += (t === 2 ? '' : ' y ') + units[u];
+            result += ' y ' + units[u];
           }
         } else if (u > 0) {
           result += units[u];
@@ -253,6 +262,7 @@ export default function CheckControlScreen() {
 
     let result = '';
 
+    // Handle millions
     if (integerPart >= 1000000) {
       const millions = Math.floor(integerPart / 1000000);
       if (millions === 1) {
@@ -264,6 +274,7 @@ export default function CheckControlScreen() {
       if (integerPart > 0) result += ' ';
     }
 
+    // Handle thousands
     if (integerPart >= 1000) {
       const thousands = Math.floor(integerPart / 1000);
       if (thousands === 1) {
@@ -275,12 +286,15 @@ export default function CheckControlScreen() {
       if (integerPart > 0) result += ' ';
     }
 
+    // Handle remaining hundreds, tens, and units
     if (integerPart > 0) {
       result += convertLessThanThousand(integerPart);
     }
 
+    // Add "pesos" at the end
     result += ' pesos';
 
+    // Handle decimal part (centavos)
     if (decimalPart > 0) {
       result += ' con ' + decimalPart + ' centavos';
     }
@@ -289,7 +303,7 @@ export default function CheckControlScreen() {
   };
 
   const handleConvertAmount = () => {
-    const value = parseFloat(amountInput);
+    const value = parseFloat(amountInput.replace(/\./g, '').replace(/,/g, '.'));
     if (isNaN(value) || value <= 0) {
       setAmountInWords('Por favor ingrese un monto válido');
       return;
@@ -540,7 +554,7 @@ export default function CheckControlScreen() {
         <CustomDialog
           visible={showAmountToWordsDialog}
           title="Convertir Monto a Palabras"
-          message="Ingrese el monto del cheque"
+          message="Ingrese el monto del cheque (puede usar puntos como separadores de miles)"
           type="info"
           onClose={() => {
             setShowAmountToWordsDialog(false);
@@ -551,7 +565,7 @@ export default function CheckControlScreen() {
           <View style={styles.formContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Ingrese el monto"
+              placeholder="Ej: 1.000.000 o 2.295.000"
               placeholderTextColor={colors.textSecondary}
               value={amountInput}
               onChangeText={setAmountInput}
