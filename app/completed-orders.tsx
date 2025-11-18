@@ -79,7 +79,7 @@ export default function CompletedOrdersScreen() {
 
   const renderOrderCard = ({ item }: { item: Order }) => {
     const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
-    const statusColor = getStatusColor(item.status, currentTheme);
+    const statusColor = getStatusColor(item.status);
 
     return (
       <TouchableOpacity
