@@ -232,6 +232,24 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        {/* Developer Only Section */}
+        {user?.role === 'desarrollador' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Herramientas de Desarrollador</Text>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => router.push('/settings/check-control')}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol name="doc.text.fill" size={24} color="#F59E0B" />
+                <Text style={styles.menuItemText}>Control de Cheques</Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Manuals Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Manuales</Text>

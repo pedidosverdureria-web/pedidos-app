@@ -13,6 +13,8 @@ export type PrintQueueItemType = 'order' | 'query' | 'payment' | 'customer_order
 
 export type ReceiptStyle = 'classic' | 'modern' | 'minimal' | 'detailed' | 'compact';
 
+export type CheckStatus = 'pendiente' | 'pagado' | 'movido' | 'pausado' | 'anulado';
+
 export interface Profile {
   id: string;
   user_id: string;
@@ -188,6 +190,19 @@ export interface Notification {
   related_order_id?: string;
   is_read: boolean;
   created_at: string;
+}
+
+export interface Check {
+  id: string;
+  check_number: string;
+  amount: number;
+  check_date: string;
+  payable_to: string;
+  status: CheckStatus;
+  notes?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SupabaseConfig {
