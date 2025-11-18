@@ -22,8 +22,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { parseWhatsAppMessage, ParsedOrderItem } from '@/utils/whatsappParser';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Customer, OrderPriority } from '@/types';
-import { getPriorityColor, getPriorityLabel, getPriorityIcon } from '@/utils/orderHelpers';
+import { Customer } from '@/types';
 
 // Format currency as Chilean Pesos
 const formatCLP = (amount: number): string => {
@@ -60,7 +59,6 @@ export default function NewOrderScreen() {
   
   const [orderText, setOrderText] = useState('');
   const [parsedItems, setParsedItems] = useState<ParsedOrderItem[]>([]);
-  const [priority, setPriority] = useState<OrderPriority>('normal');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{
     customerName?: string;
@@ -588,25 +586,6 @@ export default function NewOrderScreen() {
       color: colors.primary,
       textAlign: 'center',
     },
-    // Priority selector styles
-    prioritySelector: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    priorityOption: {
-      flex: 1,
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 16,
-      paddingHorizontal: 12,
-      borderRadius: 12,
-      gap: 8,
-    },
-    priorityOptionText: {
-      fontSize: 14,
-      fontWeight: '600',
-    },
   }), [colors]);
 
   // Memoize header options to ensure they update with theme
@@ -729,7 +708,6 @@ export default function NewOrderScreen() {
     setSelectedCustomerId(null);
     setOrderText('');
     setParsedItems([]);
-    setPriority('normal');
     setErrors({});
   };
 
@@ -780,7 +758,6 @@ export default function NewOrderScreen() {
         customer_address: customerAddress.trim() || null,
         customer_id: selectedCustomerId,
         status: 'pending' as const,
-        priority: priority,
         source: 'manual' as const,
         is_read: true,
       };
@@ -830,7 +807,7 @@ export default function NewOrderScreen() {
 
       // Create order items from parsed items
       const orderItems = parsedItems.map((item) => {
-        const notes = item.unit ? `Unidad: ${item.unit}` : '';
+        const notes = item.unit ? `unidad: ${item.unit}` : '';
         return {
           order_id: order.id,
           product_name: item.product,
@@ -1110,50 +1087,6 @@ export default function NewOrderScreen() {
               )}
             </>
           )}
-        </View>
-
-        {/* Priority Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <IconSymbol ios_icon_name="flag.fill" android_material_icon_name="flag" size={24} color={colors.primary} />
-            <Text style={styles.cardTitle}>Prioridad del Pedido</Text>
-          </View>
-
-          <View style={styles.prioritySelector}>
-            {(['high', 'normal', 'low'] as OrderPriority[]).map((p) => {
-              const isSelected = priority === p;
-              const priorityColor = getPriorityColor(p);
-              const priorityIcon = getPriorityIcon(p);
-              
-              return (
-                <TouchableOpacity
-                  key={p}
-                  style={[
-                    styles.priorityOption,
-                    { 
-                      backgroundColor: isSelected ? priorityColor : colors.background,
-                      borderColor: priorityColor,
-                      borderWidth: 2,
-                    }
-                  ]}
-                  onPress={() => setPriority(p)}
-                >
-                  <IconSymbol 
-                    ios_icon_name={priorityIcon.ios}
-                    android_material_icon_name={priorityIcon.android}
-                    size={24} 
-                    color={isSelected ? '#fff' : priorityColor} 
-                  />
-                  <Text style={[
-                    styles.priorityOptionText,
-                    { color: isSelected ? '#fff' : colors.text }
-                  ]}>
-                    {getPriorityLabel(p)}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         </View>
 
         {/* Order Text Card */}

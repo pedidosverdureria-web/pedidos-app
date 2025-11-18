@@ -1,5 +1,5 @@
 
-import { OrderStatus, OrderPriority } from '@/types';
+import { OrderStatus } from '@/types';
 
 // Get color for order status
 export function getStatusColor(status: OrderStatus, theme: any): string {
@@ -52,48 +52,6 @@ export function getStatusLabel(status: OrderStatus): string {
       return 'Finalizado';
     default:
       return status;
-  }
-}
-
-// Get color for order priority
-export function getPriorityColor(priority: OrderPriority): string {
-  switch (priority) {
-    case 'high':
-      return '#EF4444'; // Red
-    case 'normal':
-      return '#6B7280'; // Gray
-    case 'low':
-      return '#3B82F6'; // Blue
-    default:
-      return '#6B7280';
-  }
-}
-
-// Get label for order priority
-export function getPriorityLabel(priority: OrderPriority): string {
-  switch (priority) {
-    case 'high':
-      return 'Alta';
-    case 'normal':
-      return 'Normal';
-    case 'low':
-      return 'Baja';
-    default:
-      return priority;
-  }
-}
-
-// Get icon for order priority
-export function getPriorityIcon(priority: OrderPriority): { ios: string; android: string } {
-  switch (priority) {
-    case 'high':
-      return { ios: 'exclamationmark.3', android: 'priority_high' };
-    case 'normal':
-      return { ios: 'equal.circle', android: 'remove' };
-    case 'low':
-      return { ios: 'arrow.down.circle', android: 'arrow_downward' };
-    default:
-      return { ios: 'equal.circle', android: 'remove' };
   }
 }
 
