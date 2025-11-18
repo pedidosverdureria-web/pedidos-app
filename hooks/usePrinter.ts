@@ -14,8 +14,10 @@ let globalPrinterCharacteristic: {
 } | null = null;
 let keepAliveInterval: NodeJS.Timeout | null = null;
 
-// Track if a print is in progress to prevent duplicate prints
-let printInProgress = false;
+// FIXED: Track print requests with a Set to prevent duplicates
+// Using a Set with order IDs and timestamps to prevent duplicate prints
+const recentPrintRequests = new Set<string>();
+const PRINT_DEBOUNCE_TIME = 3000; // 3 seconds debounce
 
 const getBleManager = () => {
   if (!bleManager) {
@@ -480,7 +482,8 @@ export const usePrinter = () => {
   const printReceipt = async (
     content: string, 
     autoCut: boolean = true, 
-    textSize: 'small' | 'medium' | 'large' = 'medium'
+    textSize: 'small' | 'medium' | 'large' = 'medium',
+    orderId?: string
   ) => {
     const device = connectedDevice || globalConnectedDevice;
     
@@ -488,16 +491,25 @@ export const usePrinter = () => {
       throw new Error('No hay impresora conectada');
     }
 
-    // FIXED: Prevent duplicate printing by checking if a print is already in progress
-    if (printInProgress) {
-      console.log('[usePrinter] Print already in progress, skipping duplicate print request');
+    // FIXED: Improved duplicate prevention using Set with order ID and timestamp
+    const printKey = orderId ? `${orderId}-${Date.now()}` : `print-${Date.now()}`;
+    
+    // Check if this exact print request was made recently
+    if (orderId && recentPrintRequests.has(orderId)) {
+      console.log('[usePrinter] Duplicate print request detected for order:', orderId);
+      console.log('[usePrinter] Skipping duplicate print to prevent double printing');
       return;
     }
 
     try {
-      printInProgress = true;
+      // Add to recent print requests
+      if (orderId) {
+        recentPrintRequests.add(orderId);
+        console.log('[usePrinter] Added order to recent print requests:', orderId);
+      }
+      
       console.log('[usePrinter] Printing receipt');
-      console.log('[usePrinter] Settings:', { textSize, autoCut });
+      console.log('[usePrinter] Settings:', { textSize, autoCut, orderId });
       console.log('[usePrinter] Content length:', content.length);
       
       // Build the complete print command
@@ -522,13 +534,19 @@ export const usePrinter = () => {
       console.log('[usePrinter] Print completed successfully');
     } catch (error) {
       console.error('[usePrinter] Print error:', error);
+      // Remove from recent requests on error so it can be retried
+      if (orderId) {
+        recentPrintRequests.delete(orderId);
+      }
       throw error;
     } finally {
-      // Reset the flag after a short delay to allow the print to complete
-      setTimeout(() => {
-        printInProgress = false;
-        console.log('[usePrinter] Print flag reset, ready for next print');
-      }, 1000);
+      // Remove from recent print requests after debounce time
+      if (orderId) {
+        setTimeout(() => {
+          recentPrintRequests.delete(orderId);
+          console.log('[usePrinter] Removed order from recent print requests:', orderId);
+        }, PRINT_DEBOUNCE_TIME);
+      }
     }
   };
 

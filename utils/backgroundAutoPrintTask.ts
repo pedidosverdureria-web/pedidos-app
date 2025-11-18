@@ -23,6 +23,7 @@ interface PrinterConfig {
   include_totals?: boolean;
   use_webhook_format?: boolean;
   encoding?: Encoding;
+  print_special_chars?: boolean;
 }
 
 interface Order {
@@ -40,6 +41,45 @@ interface Order {
     unit_price: number;
     notes?: string;
   }[];
+}
+
+/**
+ * Remove special characters (ñ, accents) from text
+ * This is useful when the printer doesn't support these characters
+ * FIXED: Now properly applied based on config
+ */
+function removeSpecialChars(text: string): string {
+  const replacements: { [key: string]: string } = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+    'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+    'ñ': 'n', 'Ñ': 'N',
+    'ü': 'u', 'Ü': 'U',
+    'à': 'a', 'è': 'e', 'ì': 'i', 'ò': 'o', 'ù': 'u',
+    'À': 'A', 'È': 'E', 'Ì': 'I', 'Ò': 'O', 'Ù': 'U',
+    'â': 'a', 'ê': 'e', 'î': 'i', 'ô': 'o', 'û': 'u',
+    'Â': 'A', 'Ê': 'E', 'Î': 'I', 'Ô': 'O', 'Û': 'U',
+    'ã': 'a', 'õ': 'o',
+    'Ã': 'A', 'Õ': 'O',
+  };
+
+  let result = text;
+  for (const [special, replacement] of Object.entries(replacements)) {
+    result = result.replace(new RegExp(special, 'g'), replacement);
+  }
+  return result;
+}
+
+/**
+ * Process text based on printer configuration
+ * FIXED: If print_special_chars is false, remove special characters
+ */
+function processText(text: string, config?: PrinterConfig): string {
+  // FIXED: Check if print_special_chars is explicitly set to false
+  // Default behavior is to print special characters (true)
+  if (config && config.print_special_chars === false) {
+    return removeSpecialChars(text);
+  }
+  return text;
 }
 
 /**
@@ -67,8 +107,12 @@ function getUnitFromNotes(notes: string | null | undefined): string {
 /**
  * Format product display in webhook format: "1 kilo de tomates"
  * This matches the format used in order detail screen and WhatsApp webhook
+ * FIXED: Now applies processText to handle special characters
  */
-function formatProductDisplay(item: { product_name: string; quantity: number; notes?: string }): string {
+function formatProductDisplay(
+  item: { product_name: string; quantity: number; notes?: string },
+  config?: PrinterConfig
+): string {
   const unit = getUnitFromNotes(item.notes);
   
   // Determine the unit text
@@ -96,44 +140,29 @@ function formatProductDisplay(item: { product_name: string; quantity: number; no
     unitText = item.quantity === 1 ? 'unidad' : 'unidades';
   }
   
-  return `${item.quantity} ${unitText} de ${item.product_name}`;
+  // FIXED: Apply processText to product name
+  const productName = processText(item.product_name, config);
+  return `${item.quantity} ${unitText} de ${productName}`;
 }
 
 /**
  * Get additional notes excluding unit information
+ * FIXED: Now applies processText to handle special characters
  */
-function getAdditionalNotes(notes: string | null | undefined): string {
+function getAdditionalNotes(notes: string | null | undefined, config?: PrinterConfig): string {
   if (!notes) return '';
   
   // Remove the "Unidad: xxx" part from notes
   const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
   
-  return cleanNotes;
+  // FIXED: Apply processText to notes
+  return processText(cleanNotes, config);
 }
-
-// ===== CP850 ENCODING HELPER VARIABLES =====
-// Import from receiptGenerator would be ideal, but for background tasks
-// we need to keep dependencies minimal, so we define key words here
-const SPANISH_WORDS_BG = {
-  PEDIDO: 'Pedido',
-  CLIENTE: 'Cliente',
-  TELEFONO: 'Teléfono',
-  DIRECCION: 'Dirección',
-  FECHA: 'Fecha',
-  TOTAL: 'Total',
-  PAGADO: 'Pagado',
-  PENDIENTE: 'Pendiente',
-  PRODUCTOS: 'PRODUCTOS',
-};
-
-const SPANISH_PHRASES_BG = {
-  GRACIAS_POR_SU_COMPRA: 'Gracias por su compra!',
-};
 
 /**
  * Generate receipt text for an order
  * Uses the same format as the order detail screen
- * Uses CP850-safe Spanish words to ensure proper character encoding
+ * FIXED: All text now processed through processText to handle special characters
  */
 function generateReceiptText(order: Order, printerConfig: PrinterConfig): string {
   const width = printerConfig?.paper_size === '58mm' ? 32 : 48;
@@ -142,14 +171,21 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   
   // Header
   if (printerConfig?.include_logo !== false) {
-    receipt += centerText(SPANISH_WORDS_BG.PEDIDO.toUpperCase(), width) + '\n';
+    const headerText = processText('NUEVO PEDIDO', printerConfig);
+    receipt += centerText(headerText, width) + '\n';
     receipt += '='.repeat(width) + '\n\n';
   }
   
   // Order info
-  receipt += `${SPANISH_WORDS_BG.PEDIDO}: ${order.order_number}\n`;
-  receipt += `Estado: ${getStatusLabel(order.status)}\n`;
-  receipt += `${SPANISH_WORDS_BG.FECHA}: ${new Date(order.created_at).toLocaleString('es-CL', {
+  const pedidoLabel = processText('Pedido', printerConfig);
+  receipt += `${pedidoLabel}: ${order.order_number}\n`;
+  
+  const estadoLabel = processText('Estado', printerConfig);
+  const statusText = processText(getStatusLabel(order.status), printerConfig);
+  receipt += `${estadoLabel}: ${statusText}\n`;
+  
+  const fechaLabel = processText('Fecha', printerConfig);
+  receipt += `${fechaLabel}: ${new Date(order.created_at).toLocaleString('es-CL', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -160,24 +196,31 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   
   // Customer info
   if (printerConfig?.include_customer_info !== false) {
-    receipt += `${SPANISH_WORDS_BG.CLIENTE}: ${order.customer_name}\n`;
+    const clienteLabel = processText('Cliente', printerConfig);
+    const customerName = processText(order.customer_name, printerConfig);
+    receipt += `${clienteLabel}: ${customerName}\n`;
+    
     if (order.customer_phone) {
-      receipt += `${SPANISH_WORDS_BG.TELEFONO}: ${order.customer_phone}\n`;
+      const telefonoLabel = processText('Telefono', printerConfig);
+      receipt += `${telefonoLabel}: ${order.customer_phone}\n`;
     }
     if (order.customer_address) {
-      receipt += `${SPANISH_WORDS_BG.DIRECCION}: ${order.customer_address}\n`;
+      const direccionLabel = processText('Direccion', printerConfig);
+      const customerAddress = processText(order.customer_address, printerConfig);
+      receipt += `${direccionLabel}: ${customerAddress}\n`;
     }
     receipt += '-'.repeat(width) + '\n\n';
   }
   
-  // Items - using webhook format
-  receipt += `${SPANISH_WORDS_BG.PRODUCTOS}:\n\n`;
+  // Items - using webhook format with special character handling
+  const productosLabel = processText('PRODUCTOS', printerConfig);
+  receipt += `${productosLabel}:\n\n`;
   for (const item of order.items || []) {
-    // Use formatProductDisplay to get the webhook format
-    receipt += `${formatProductDisplay(item)}\n`;
+    // Use formatProductDisplay to get the webhook format with special char handling
+    receipt += `${formatProductDisplay(item, printerConfig)}\n`;
     
     // Add additional notes if they exist (excluding unit information)
-    const additionalNotes = getAdditionalNotes(item.notes);
+    const additionalNotes = getAdditionalNotes(item.notes, printerConfig);
     if (additionalNotes) {
       receipt += `  ${additionalNotes}\n`;
     }
@@ -192,19 +235,24 @@ function generateReceiptText(order: Order, printerConfig: PrinterConfig): string
   if (printerConfig?.include_totals !== false) {
     receipt += '-'.repeat(width) + '\n';
     const total = order.items?.reduce((sum, item) => sum + item.unit_price, 0) || 0;
-    receipt += `${SPANISH_WORDS_BG.TOTAL.toUpperCase()}: ${formatCLP(total)}\n`;
+    
+    const totalLabel = processText('TOTAL', printerConfig);
+    receipt += `${totalLabel}: ${formatCLP(total)}\n`;
     
     if (order.amount_paid > 0) {
-      receipt += `${SPANISH_WORDS_BG.PAGADO}: ${formatCLP(order.amount_paid)}\n`;
+      const pagadoLabel = processText('Pagado', printerConfig);
+      receipt += `${pagadoLabel}: ${formatCLP(order.amount_paid)}\n`;
       const pending = total - order.amount_paid;
       if (pending > 0) {
-        receipt += `${SPANISH_WORDS_BG.PENDIENTE}: ${formatCLP(pending)}\n`;
+        const pendienteLabel = processText('Pendiente', printerConfig);
+        receipt += `${pendienteLabel}: ${formatCLP(pending)}\n`;
       }
     }
   }
   
   receipt += '\n' + '='.repeat(width) + '\n';
-  receipt += centerText(SPANISH_PHRASES_BG.GRACIAS_POR_SU_COMPRA, width) + '\n\n\n';
+  const footerText = processText('Gracias por su compra!', printerConfig);
+  receipt += centerText(footerText, width) + '\n\n\n';
   
   return receipt;
 }

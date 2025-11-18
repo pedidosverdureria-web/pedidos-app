@@ -252,7 +252,8 @@ export default function OrderDetailScreen() {
       const textSize = printerConfig?.text_size || 'medium';
       const encoding = printerConfig?.encoding || 'CP850';
 
-      await printReceipt(receiptText, autoCut, textSize, encoding);
+      // FIXED: Pass order ID to prevent duplicate printing
+      await printReceipt(receiptText, autoCut, textSize, order.id);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setDialog({
