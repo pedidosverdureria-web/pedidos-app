@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { BleManager, Device } from 'react-native-ble-plx';
 import { PermissionsAndroid, Platform, Alert } from 'react-native';
@@ -12,6 +13,9 @@ let globalPrinterCharacteristic: {
   characteristicUUID: string;
 } | null = null;
 let keepAliveInterval: NodeJS.Timeout | null = null;
+
+// Track if a print is in progress to prevent duplicate prints
+let printInProgress = false;
 
 const getBleManager = () => {
   if (!bleManager) {
@@ -484,7 +488,14 @@ export const usePrinter = () => {
       throw new Error('No hay impresora conectada');
     }
 
+    // FIXED: Prevent duplicate printing by checking if a print is already in progress
+    if (printInProgress) {
+      console.log('[usePrinter] Print already in progress, skipping duplicate print request');
+      return;
+    }
+
     try {
+      printInProgress = true;
       console.log('[usePrinter] Printing receipt');
       console.log('[usePrinter] Settings:', { textSize, autoCut });
       console.log('[usePrinter] Content length:', content.length);
@@ -512,6 +523,12 @@ export const usePrinter = () => {
     } catch (error) {
       console.error('[usePrinter] Print error:', error);
       throw error;
+    } finally {
+      // Reset the flag after a short delay to allow the print to complete
+      setTimeout(() => {
+        printInProgress = false;
+        console.log('[usePrinter] Print flag reset, ready for next print');
+      }, 1000);
     }
   };
 

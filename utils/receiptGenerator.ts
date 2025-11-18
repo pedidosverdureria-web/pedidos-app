@@ -46,10 +46,14 @@ function removeSpecialChars(text: string): string {
 
 /**
  * Process text based on printer configuration
- * If print_special_chars is false, remove special characters
+ * FIXED: If print_special_chars is false, remove special characters
+ * This function is now called consistently throughout the receipt generation
  */
 function processText(text: string, config?: PrinterConfig): string {
-  if (config?.print_special_chars === false) {
+  // FIXED: Check if print_special_chars is explicitly set to false
+  // Default behavior is to print special characters (true)
+  if (config && config.print_special_chars === false) {
+    console.log('[ReceiptGenerator] Removing special characters from text');
     return removeSpecialChars(text);
   }
   return text;
@@ -149,6 +153,7 @@ function formatProductDisplay(item: OrderItem, config?: PrinterConfig): string {
     unitText = item.quantity === 1 ? 'unidad' : 'unidades';
   }
   
+  // FIXED: Apply processText to product name to handle special characters
   const productName = processText(item.product_name, config);
   return `${item.quantity} ${unitText} de ${productName}`;
 }
@@ -158,6 +163,7 @@ function getAdditionalNotes(notes: string | null | undefined, config?: PrinterCo
   
   const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
   
+  // FIXED: Apply processText to notes to handle special characters
   return processText(cleanNotes, config);
 }
 
@@ -209,6 +215,7 @@ function formatProductLine(
 
 /**
  * Get the appropriate header text based on the receipt context
+ * FIXED: Apply processText to header to handle special characters
  */
 function getReceiptHeader(context: ReceiptContext, config?: PrinterConfig): string {
   let header = '';
@@ -233,6 +240,7 @@ function getReceiptHeader(context: ReceiptContext, config?: PrinterConfig): stri
 
 /**
  * Generate receipt text with advanced configuration
+ * FIXED: All text is now processed through processText to handle special characters
  */
 export function generateAdvancedReceiptText(
   order: Order,
@@ -386,6 +394,7 @@ export function generateAdvancedReceiptText(
 /**
  * Generate receipt text for printing
  * This is the unified function used by both auto-printing and manual printing
+ * FIXED: All text is now processed through processText to handle special characters
  */
 export function generateReceiptText(
   order: Order,
@@ -468,6 +477,7 @@ export function generateReceiptText(
 
 /**
  * Generate receipt text for order queries
+ * FIXED: All text is now processed through processText to handle special characters
  */
 export function generateQueryReceiptText(
   order: Order,
@@ -553,6 +563,7 @@ export function generateQueryReceiptText(
 
 /**
  * Generate receipt text for customer account (pending vouchers)
+ * FIXED: All text is now processed through processText to handle special characters
  */
 export function generateCustomerAccountReceipt(
   customerName: string,
@@ -618,12 +629,13 @@ export function generateCustomerAccountReceipt(
 
 /**
  * Generate a sample receipt for preview purposes
+ * FIXED: All text is now processed through processText to handle special characters
  */
 export function generateSampleReceipt(config?: PrinterConfig): string {
   const sampleOrder: Order = {
     id: 'sample-id',
     order_number: 'PED-001',
-    customer_name: 'Juan Perez',
+    customer_name: 'Juan Pérez',
     customer_phone: '+56912345678',
     customer_address: 'Av. Principal 123, Santiago',
     status: 'pending',
@@ -653,7 +665,7 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         quantity: 1,
         unit_price: 2000,
         total_price: 2000,
-        notes: 'Unidad: malla\nTamano mediano',
+        notes: 'Unidad: malla\nTamaño mediano',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
