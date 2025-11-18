@@ -35,9 +35,9 @@ import { IconSymbol } from '@/components/IconSymbol';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import { useAuth } from '@/contexts/AuthContext';
-import { Order, OrderStatus } from '@/types';
+import { Order, OrderStatus, OrderPriority } from '@/types';
 import { useOrders } from '@/hooks/useOrders';
-import { getStatusColor, getStatusLabel } from '@/utils/orderHelpers';
+import { getStatusColor, getStatusLabel, getPriorityColor, getPriorityLabel, getPriorityIcon } from '@/utils/orderHelpers';
 
 const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'Todos', value: 'all' },
@@ -46,6 +46,13 @@ const STATUS_FILTERS: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'Listo', value: 'ready' },
   { label: 'Entregado', value: 'delivered' },
   { label: 'Cancelado', value: 'cancelled' },
+];
+
+const PRIORITY_FILTERS: { label: string; value: OrderPriority | 'all' }[] = [
+  { label: 'Todas', value: 'all' },
+  { label: 'Alta', value: 'high' },
+  { label: 'Normal', value: 'normal' },
+  { label: 'Baja', value: 'low' },
 ];
 
 const PRINTER_CONFIG_KEY = '@printer_config';
@@ -87,6 +94,7 @@ export default function HomeScreen() {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'all'>('all');
+  const [priorityFilter, setPriorityFilter] = useState<OrderPriority | 'all'>('all');
   const [printerConfig, setPrinterConfig] = useState<PrinterConfig | null>(null);
   const [printedOrders, setPrintedOrders] = useState<Set<string>>(new Set());
   const [isPrinting, setIsPrinting] = useState(false);
@@ -319,13 +327,16 @@ export default function HomeScreen() {
       order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customer_name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesPriority = priorityFilter === 'all' || order.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesPriority;
   });
 
   const renderOrderCard = ({ item }: { item: Order }) => {
     const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
     const itemCount = item.items?.length || 0;
     const statusColor = getStatusColor(item.status, currentTheme);
+    const priorityColor = getPriorityColor(item.priority || 'normal');
+    const priorityIcon = getPriorityIcon(item.priority || 'normal');
 
     return (
       <TouchableOpacity
@@ -350,6 +361,17 @@ export default function HomeScreen() {
                     color="#fff" 
                   />
                 </View>
+                {/* Priority indicator */}
+                {item.priority && item.priority !== 'normal' && (
+                  <View style={[styles.priorityBadge, { backgroundColor: priorityColor }]}>
+                    <IconSymbol 
+                      ios_icon_name={priorityIcon.ios}
+                      android_material_icon_name={priorityIcon.android}
+                      size={12} 
+                      color="#fff" 
+                    />
+                  </View>
+                )}
               </View>
               <Text style={[styles.orderCustomer, { color: colors.textSecondary }]}>{item.customer_name}</Text>
             </View>
@@ -418,6 +440,7 @@ export default function HomeScreen() {
 
       {/* Status Filters */}
       <View style={styles.filtersContainer}>
+        <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Estado:</Text>
         <FlatList
           horizontal
           data={STATUS_FILTERS}
@@ -437,6 +460,39 @@ export default function HomeScreen() {
                 style={[
                   styles.filterButtonText,
                   { color: statusFilter === item.value ? '#fff' : colors.textSecondary }
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersContent}
+        />
+      </View>
+
+      {/* Priority Filters */}
+      <View style={styles.filtersContainer}>
+        <Text style={[styles.filterLabel, { color: colors.textSecondary }]}>Prioridad:</Text>
+        <FlatList
+          horizontal
+          data={PRIORITY_FILTERS}
+          keyExtractor={(item) => item.value}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                { 
+                  backgroundColor: priorityFilter === item.value ? colors.primary : colors.card,
+                  borderColor: priorityFilter === item.value ? colors.primary : colors.border
+                },
+              ]}
+              onPress={() => setPriorityFilter(item.value)}
+            >
+              <Text
+                style={[
+                  styles.filterButtonText,
+                  { color: priorityFilter === item.value ? '#fff' : colors.textSecondary }
                 ]}
               >
                 {item.label}
@@ -503,6 +559,13 @@ const styles = StyleSheet.create({
   filtersContainer: {
     marginBottom: 8,
   },
+  filterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 16,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+  },
   filtersContent: {
     paddingHorizontal: 16,
     gap: 8,
@@ -558,6 +621,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   sourceIconContainer: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  priorityBadge: {
     width: 22,
     height: 22,
     borderRadius: 11,

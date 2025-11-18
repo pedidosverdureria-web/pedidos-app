@@ -1,59 +1,35 @@
 
-import { OrderStatus, OrderItem } from '@/types';
-import { ColorTheme } from '@/contexts/ThemeContext';
+import { OrderStatus, OrderPriority } from '@/types';
 
-export function getStatusColor(status: OrderStatus, theme?: ColorTheme): string {
-  // If theme is provided, use theme colors
-  if (theme) {
-    switch (status) {
-      case 'pending':
-        return theme.colors.statusPending;
-      case 'preparing':
-        return theme.colors.statusPreparing;
-      case 'ready':
-        return theme.colors.statusReady;
-      case 'delivered':
-        return theme.colors.statusDelivered;
-      case 'cancelled':
-        return theme.colors.statusCancelled;
-      case 'pending_payment':
-        return theme.colors.statusPendingPayment;
-      case 'abonado':
-        return theme.colors.statusAbonado;
-      case 'pagado':
-        return theme.colors.statusPagado;
-      case 'finalizado':
-        return theme.colors.statusFinalizado;
-      default:
-        return theme.colors.textSecondary;
-    }
-  }
+// Get color for order status
+export function getStatusColor(status: OrderStatus, theme: any): string {
+  const colors = theme.colors;
   
-  // Fallback to hardcoded colors if no theme provided
   switch (status) {
     case 'pending':
-      return '#F59E0B';
+      return '#F59E0B'; // Yellow
     case 'preparing':
-      return '#3B82F6';
+      return '#3B82F6'; // Blue
     case 'ready':
-      return '#10B981';
+      return '#10B981'; // Green
     case 'delivered':
-      return '#6B7280';
+      return '#6B7280'; // Gray
     case 'cancelled':
-      return '#EF4444';
+      return '#EF4444'; // Red
     case 'pending_payment':
-      return '#8B5CF6';
+      return '#F59E0B'; // Yellow
     case 'abonado':
-      return '#F59E0B';
+      return '#8B5CF6'; // Purple
     case 'pagado':
-      return '#10B981';
+      return '#10B981'; // Green
     case 'finalizado':
-      return '#059669';
+      return '#6B7280'; // Gray
     default:
-      return '#6B7280';
+      return colors.textSecondary;
   }
 }
 
+// Get label for order status
 export function getStatusLabel(status: OrderStatus): string {
   switch (status) {
     case 'pending':
@@ -79,64 +55,94 @@ export function getStatusLabel(status: OrderStatus): string {
   }
 }
 
-export function getStatusIcon(status: OrderStatus): string {
-  switch (status) {
-    case 'pending':
-      return 'clock';
-    case 'preparing':
-      return 'flame';
-    case 'ready':
-      return 'checkmark.circle';
-    case 'delivered':
-      return 'shippingbox';
-    case 'cancelled':
-      return 'xmark.circle';
-    case 'pending_payment':
-      return 'creditcard';
-    case 'abonado':
-      return 'creditcard.fill';
-    case 'pagado':
-      return 'checkmark.circle.fill';
-    case 'finalizado':
-      return 'checkmark.seal.fill';
+// Get color for order priority
+export function getPriorityColor(priority: OrderPriority): string {
+  switch (priority) {
+    case 'high':
+      return '#EF4444'; // Red
+    case 'normal':
+      return '#6B7280'; // Gray
+    case 'low':
+      return '#3B82F6'; // Blue
     default:
-      return 'circle';
+      return '#6B7280';
   }
 }
 
-export function getAvailableStatusTransitions(currentStatus: OrderStatus, userRole?: string): OrderStatus[] {
-  // Developer profile can change to any status
+// Get label for order priority
+export function getPriorityLabel(priority: OrderPriority): string {
+  switch (priority) {
+    case 'high':
+      return 'Alta';
+    case 'normal':
+      return 'Normal';
+    case 'low':
+      return 'Baja';
+    default:
+      return priority;
+  }
+}
+
+// Get icon for order priority
+export function getPriorityIcon(priority: OrderPriority): { ios: string; android: string } {
+  switch (priority) {
+    case 'high':
+      return { ios: 'exclamationmark.3', android: 'priority_high' };
+    case 'normal':
+      return { ios: 'equal.circle', android: 'remove' };
+    case 'low':
+      return { ios: 'arrow.down.circle', android: 'arrow_downward' };
+    default:
+      return { ios: 'equal.circle', android: 'remove' };
+  }
+}
+
+// Get available status transitions based on current status and user role
+export function getAvailableStatusTransitions(
+  currentStatus: OrderStatus,
+  userRole?: string
+): OrderStatus[] {
+  // Developers can transition to any status
   if (userRole === 'desarrollador') {
-    return ['pending', 'preparing', 'ready', 'delivered', 'pending_payment', 'abonado', 'pagado', 'finalizado', 'cancelled'].filter(
-      status => status !== currentStatus
-    ) as OrderStatus[];
+    return [
+      'pending',
+      'preparing',
+      'ready',
+      'delivered',
+      'cancelled',
+      'pending_payment',
+      'abonado',
+      'pagado',
+      'finalizado',
+    ];
   }
 
-  // Normal restrictions for other roles
+  // Normal workflow transitions
   switch (currentStatus) {
     case 'pending':
-      return ['preparing', 'cancelled'];
+      return ['preparing', 'cancelled', 'pending_payment'];
     case 'preparing':
-      return ['ready', 'cancelled'];
+      return ['ready', 'pending', 'cancelled'];
     case 'ready':
-      return ['delivered', 'pending_payment', 'cancelled'];
+      return ['delivered', 'preparing', 'pending_payment'];
     case 'delivered':
-      return [];
-    case 'pending_payment':
-      return [];
-    case 'abonado':
-      return [];
-    case 'pagado':
-      return [];
-    case 'finalizado':
-      return [];
+      return ['pending_payment', 'pagado', 'finalizado'];
     case 'cancelled':
+      return ['pending'];
+    case 'pending_payment':
+      return ['abonado', 'pagado', 'cancelled'];
+    case 'abonado':
+      return ['pagado', 'pending_payment'];
+    case 'pagado':
+      return ['finalizado', 'abonado'];
+    case 'finalizado':
       return [];
     default:
       return [];
   }
 }
 
+// Format currency as Chilean Pesos
 export function formatCLP(amount: number): string {
   return new Intl.NumberFormat('es-CL', {
     style: 'currency',
@@ -144,75 +150,43 @@ export function formatCLP(amount: number): string {
   }).format(amount);
 }
 
-export function getUnitFromNotes(notes: string | null | undefined): string {
-  if (!notes) return '';
-  const lowerNotes = notes.toLowerCase();
-  
-  const unitMatch = lowerNotes.match(/unidad:\s*(\w+)/);
-  if (unitMatch) {
-    return unitMatch[1];
-  }
-  
-  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
-  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
-  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
-  if (lowerNotes.includes('ml')) return 'ml';
-  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
-  return '';
-}
-
-export function formatProductDisplay(item: OrderItem): string {
-  const unit = getUnitFromNotes(item.notes);
+// Format product display with quantity and unit
+export function formatProductDisplay(item: any): string {
+  const unit = item.notes?.match(/unidad:\s*(\w+)/)?.[1] || '';
   
   if (item.quantity === '#') {
-    return `# ${item.product_name} ⚠️`;
+    return `# ${item.product_name}`;
   }
   
-  const quantityNum = typeof item.quantity === 'string' ? parseFloat(item.quantity) : item.quantity;
-  
-  let unitText = '';
-  if (unit === 'kg' || unit === 'kilo' || unit === 'kilos') {
-    unitText = quantityNum === 1 ? 'kilo' : 'kilos';
-  } else if (unit === 'gr' || unit === 'gramo' || unit === 'gramos') {
-    unitText = quantityNum === 1 ? 'gramo' : 'gramos';
-  } else if (unit === 'lt' || unit === 'litro' || unit === 'litros') {
-    unitText = quantityNum === 1 ? 'litro' : 'litros';
-  } else if (unit === 'ml') {
-    unitText = 'ml';
-  } else if (unit === 'un' || unit === 'unidad' || unit === 'unidades') {
-    unitText = quantityNum === 1 ? 'unidad' : 'unidades';
-  } else if (unit) {
-    if (quantityNum === 1) {
-      unitText = unit;
-    } else {
-      unitText = unit.endsWith('s') ? unit : unit + 's';
-    }
-  } else {
-    unitText = quantityNum === 1 ? 'unidad' : 'unidades';
+  if (unit) {
+    return `${item.quantity} ${unit} de ${item.product_name}`;
   }
   
-  return `${item.quantity} ${unitText} de ${item.product_name}`;
+  return `${item.quantity} ${item.product_name}`;
 }
 
-export function getAdditionalNotes(notes: string | null | undefined): string {
+// Get additional notes (excluding unit information)
+export function getAdditionalNotes(notes?: string): string {
   if (!notes) return '';
   
-  const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
-  
-  return cleanNotes;
+  // Remove "unidad: xxx" from notes
+  const cleanedNotes = notes.replace(/unidad:\s*\w+\s*/i, '').trim();
+  return cleanedNotes;
 }
 
+// Format date
 export function formatDate(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleString('es-CL', {
-    year: 'numeric',
-    month: '2-digit',
+  return date.toLocaleDateString('es-CL', {
     day: '2-digit',
+    month: 'long',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   });
 }
 
+// Format short date
 export function formatShortDate(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();

@@ -1,5 +1,8 @@
 
+
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' | 'pending_payment' | 'abonado' | 'pagado' | 'finalizado';
+
+export type OrderPriority = 'low' | 'normal' | 'high';
 
 export type UserRole = 'admin' | 'worker' | 'printer' | 'desarrollador';
 
@@ -54,6 +57,7 @@ export interface Order {
   customer_phone?: string;
   customer_address?: string;
   status: OrderStatus;
+  priority: OrderPriority;
   total_amount: number;
   paid_amount: number;
   notes?: string;
@@ -201,6 +205,7 @@ export interface CreateOrderInput {
   customer_phone?: string;
   customer_address?: string;
   notes?: string;
+  priority?: OrderPriority;
   items: {
     product_name: string;
     quantity: number | string; // Can be a number or "#" for unparseable items
@@ -215,6 +220,7 @@ export interface UpdateOrderInput {
   customer_phone?: string;
   customer_address?: string;
   status?: OrderStatus;
+  priority?: OrderPriority;
   paid_amount?: number;
   notes?: string;
 }
