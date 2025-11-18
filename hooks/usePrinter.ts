@@ -64,6 +64,7 @@ const ALTERNATIVE_CHARACTERISTIC_UUIDS = [
 const SAVED_PRINTER_KEY = '@saved_printer_device';
 const KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
 const MAX_CHUNK_SIZE = 180; // Maximum bytes per write operation (safe for most printers)
+const RECONNECT_TIMEOUT = 5000; // 5 seconds timeout for auto-reconnect
 
 // Keep-alive mechanism to prevent Bluetooth disconnection
 const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; characteristicUUID: string }) => {
@@ -242,7 +243,7 @@ export const usePrinter = () => {
         }
       }
 
-      // Try to reconnect to saved printer
+      // Try to reconnect to saved printer with timeout
       const savedPrinter = await AsyncStorage.getItem(SAVED_PRINTER_KEY);
       if (savedPrinter && !reconnectAttemptedRef.current) {
         const printerData = JSON.parse(savedPrinter);
@@ -259,12 +260,22 @@ export const usePrinter = () => {
 
         const manager = getBleManager();
         
-        // Try to connect directly to the saved device
+        // Try to connect directly to the saved device with timeout
         try {
           console.log('[usePrinter] Attempting to connect to saved device ID:', printerData.id);
-          const device = await manager.connectToDevice(printerData.id, {
-            timeout: 10000,
+          
+          // Create a promise that rejects after timeout
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Connection timeout')), RECONNECT_TIMEOUT);
           });
+          
+          // Race between connection and timeout
+          const device = await Promise.race([
+            manager.connectToDevice(printerData.id, {
+              timeout: RECONNECT_TIMEOUT,
+            }),
+            timeoutPromise
+          ]) as Device;
           
           console.log('[usePrinter] Successfully connected to saved device');
           
@@ -289,7 +300,7 @@ export const usePrinter = () => {
             await device.cancelConnection();
           }
         } catch (error) {
-          console.log('[usePrinter] Could not auto-reconnect to saved printer:', error);
+          console.log('[usePrinter] Could not auto-reconnect to saved printer (timeout or error):', error);
           console.log('[usePrinter] User can manually reconnect from printer settings');
           // Do not show alert here, just log the error
           // User can manually reconnect if needed
@@ -301,15 +312,22 @@ export const usePrinter = () => {
   }, [requestPermissions]);
 
   // Load saved printer on mount and try to reconnect
+  // FIXED: Defer initialization to prevent blocking app startup
   useEffect(() => {
     console.log('[usePrinter] Initializing printer hook');
     console.log('[usePrinter] Will attempt to auto-reconnect to saved printer');
     isMounted.current = true;
-    requestPermissions();
-    loadAndReconnectSavedPrinter();
+    
+    // Defer initialization to prevent blocking splash screen
+    const initTimer = setTimeout(() => {
+      console.log('[usePrinter] Starting deferred initialization');
+      requestPermissions();
+      loadAndReconnectSavedPrinter();
+    }, 1000); // Wait 1 second before initializing
     
     return () => {
       console.log('[usePrinter] Component unmounting, but keeping connection alive');
+      clearTimeout(initTimer);
       isMounted.current = false;
       // DO NOT disconnect here - keep the connection alive
       // DO NOT stop keep-alive here - let it continue

@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -10,6 +10,12 @@ import { getSupabase } from '@/lib/supabase';
 import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import { Order } from '@/types';
 import { AppState, AppStateStatus } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync().catch(() => {
+  console.log('[SplashScreen] Failed to prevent auto hide');
+});
 
 const PRINTER_CONFIG_KEY = '@printer_config';
 const PRINTED_ORDERS_KEY = '@printed_orders';
@@ -18,11 +24,30 @@ const PRINTED_ORDERS_KEY = '@printed_orders';
  * Background Print Processor Component
  * This component runs in the foreground and processes print jobs queued by the background task
  * FIXED: This enables printing with screen off by processing queued jobs when app comes to foreground
+ * 
+ * IMPORTANT: This component is now deferred to load AFTER the app has initialized
+ * to prevent blocking the splash screen
  */
 function BackgroundPrintProcessor() {
+  const [isReady, setIsReady] = useState(false);
   const { printReceipt, isConnected } = usePrinter();
 
+  // Defer initialization to prevent blocking splash screen
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      console.log('[BackgroundPrintProcessor] Initializing after delay');
+      setIsReady(true);
+    }, 2000); // Wait 2 seconds after app loads
+
+    return () => clearTimeout(timer);
+  }, []);
+
   const processQueuedPrints = useCallback(async () => {
+    if (!isReady) {
+      console.log('[BackgroundPrintProcessor] Not ready yet, skipping queue processing');
+      return;
+    }
+
     try {
       // Check if there are orders queued for printing
       const queuedOrdersStr = await AsyncStorage.getItem('@orders_to_print');
@@ -127,10 +152,12 @@ function BackgroundPrintProcessor() {
     } catch (error) {
       console.error('[BackgroundPrintProcessor] Error processing queue:', error);
     }
-  }, [printReceipt, isConnected]);
+  }, [printReceipt, isConnected, isReady]);
 
   // Process queue when app comes to foreground
   useEffect(() => {
+    if (!isReady) return;
+
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         console.log('[BackgroundPrintProcessor] App became active, checking for queued prints');
@@ -147,10 +174,12 @@ function BackgroundPrintProcessor() {
     return () => {
       subscription.remove();
     };
-  }, [processQueuedPrints]);
+  }, [processQueuedPrints, isReady]);
 
   // Also check periodically while app is in foreground
   useEffect(() => {
+    if (!isReady) return;
+
     const interval = setInterval(() => {
       if (AppState.currentState === 'active') {
         processQueuedPrints();
@@ -158,13 +187,63 @@ function BackgroundPrintProcessor() {
     }, 30000); // Check every 30 seconds
 
     return () => clearInterval(interval);
-  }, [processQueuedPrints]);
+  }, [processQueuedPrints, isReady]);
 
   return null;
 }
 
 function RootLayoutContent() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  const [appIsReady, setAppIsReady] = useState(false);
+
+  useEffect(() => {
+    async function prepare() {
+      try {
+        console.log('[RootLayout] Preparing app...');
+        
+        // Wait for auth to load
+        if (isLoading) {
+          console.log('[RootLayout] Waiting for auth to load...');
+          return;
+        }
+
+        console.log('[RootLayout] Auth loaded, user:', user ? user.role : 'none');
+        
+        // Small delay to ensure everything is ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log('[RootLayout] App is ready');
+        setAppIsReady(true);
+      } catch (e) {
+        console.error('[RootLayout] Error preparing app:', e);
+        // Still mark as ready to prevent infinite loading
+        setAppIsReady(true);
+      }
+    }
+
+    prepare();
+  }, [isLoading, user]);
+
+  useEffect(() => {
+    async function hideSplash() {
+      if (appIsReady) {
+        console.log('[RootLayout] Hiding splash screen');
+        try {
+          await SplashScreen.hideAsync();
+          console.log('[RootLayout] Splash screen hidden');
+        } catch (e) {
+          console.error('[RootLayout] Error hiding splash screen:', e);
+        }
+      }
+    }
+
+    hideSplash();
+  }, [appIsReady]);
+
+  if (!appIsReady) {
+    console.log('[RootLayout] App not ready yet, keeping splash screen visible');
+    return null;
+  }
 
   return (
     <>
