@@ -252,6 +252,23 @@ export function useOrderDetail(orderId: string | undefined, userId: string | und
         } else {
           console.log('[useOrderDetail] Using existing customer_id:', customerId);
         }
+        
+        // FIXED: If customer exists, ensure they are not finalized
+        // This ensures the order will appear in "Vales Pendientes" view
+        if (customerId) {
+          console.log('[useOrderDetail] Ensuring customer is not finalized:', customerId);
+          const { error: unfinalizeError } = await supabase
+            .from('customers')
+            .update({ finalized: false })
+            .eq('id', customerId);
+          
+          if (unfinalizeError) {
+            console.error('[useOrderDetail] Error unfinalizing customer:', unfinalizeError);
+            // Don't throw error, just log it - this is not critical
+          } else {
+            console.log('[useOrderDetail] Customer unfinalized successfully');
+          }
+        }
       }
       
       // Update order status and customer_id
