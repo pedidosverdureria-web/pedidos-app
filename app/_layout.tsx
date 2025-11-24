@@ -9,7 +9,7 @@ import { usePrinter } from '@/hooks/usePrinter';
 import { getSupabase } from '@/lib/supabase';
 import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import { Order } from '@/types';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Keep the splash screen visible while we fetch resources
@@ -194,38 +194,33 @@ function BackgroundPrintProcessor() {
 
 function RootLayoutContent() {
   const { user, isLoading: authLoading } = useAuth();
-  const [appReady, setAppReady] = useState(false);
+  const [splashHidden, setSplashHidden] = useState(false);
 
-  // Wait for auth to finish loading before hiding splash
+  // Hide splash screen once auth is loaded
   useEffect(() => {
-    if (!authLoading && !appReady) {
-      console.log('[RootLayout] Auth finished loading, preparing to hide splash');
+    if (!authLoading) {
+      console.log('[RootLayout] Auth finished loading, hiding splash screen');
       
       // Small delay to ensure everything is mounted
       const timer = setTimeout(async () => {
         try {
-          console.log('[RootLayout] Hiding splash screen');
+          console.log('[RootLayout] Hiding splash screen now');
           await SplashScreen.hideAsync();
-          setAppReady(true);
+          setSplashHidden(true);
           console.log('[RootLayout] Splash screen hidden successfully');
         } catch (e) {
           console.error('[RootLayout] Error hiding splash screen:', e);
-          setAppReady(true); // Set ready anyway to prevent infinite loop
+          setSplashHidden(true); // Set hidden anyway to prevent infinite loop
         }
-      }, 300);
+      }, 100);
 
       return () => clearTimeout(timer);
     }
-  }, [authLoading, appReady]);
+  }, [authLoading]);
 
-  // Don't render anything until auth is loaded
-  if (!appReady) {
-    console.log('[RootLayout] Waiting for app to be ready...');
-    return null;
-  }
+  console.log('[RootLayout] Rendering - authLoading:', authLoading, 'splashHidden:', splashHidden);
 
-  console.log('[RootLayout] App is ready, rendering Stack');
-
+  // Always render the Stack, but show a loading indicator if auth is still loading
   return (
     <>
       {user && <BackgroundPrintProcessor />}
