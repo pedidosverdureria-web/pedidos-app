@@ -37,7 +37,7 @@ function BackgroundPrintProcessor() {
     const timer = setTimeout(() => {
       console.log('[BackgroundPrintProcessor] Initializing after delay');
       setIsReady(true);
-    }, 2000); // Wait 2 seconds after app loads
+    }, 3000); // Wait 3 seconds after app loads
 
     return () => clearTimeout(timer);
   }, []);
@@ -201,16 +201,30 @@ function RootLayoutContent() {
       try {
         console.log('[RootLayout] Preparing app...');
         
-        // Wait for auth to load
-        if (isLoading) {
-          console.log('[RootLayout] Waiting for auth to load...');
-          return;
-        }
-
+        // CRITICAL FIX: Don't wait for auth to load completely
+        // Just wait a maximum of 2 seconds, then proceed
+        const startTime = Date.now();
+        const maxWaitTime = 2000; // 2 seconds max
+        
+        // Wait for auth with timeout
+        const waitForAuth = new Promise<void>((resolve) => {
+          const checkAuth = () => {
+            if (!isLoading || Date.now() - startTime > maxWaitTime) {
+              console.log('[RootLayout] Auth check complete or timed out');
+              resolve();
+            } else {
+              setTimeout(checkAuth, 100);
+            }
+          };
+          checkAuth();
+        });
+        
+        await waitForAuth;
+        
         console.log('[RootLayout] Auth loaded, user:', user ? user.role : 'none');
         
         // Small delay to ensure everything is ready
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
         
         console.log('[RootLayout] App is ready');
         setAppIsReady(true);
@@ -230,7 +244,7 @@ function RootLayoutContent() {
         console.log('[RootLayout] Hiding splash screen');
         try {
           await SplashScreen.hideAsync();
-          console.log('[RootLayout] Splash screen hidden');
+          console.log('[RootLayout] Splash screen hidden successfully');
         } catch (e) {
           console.error('[RootLayout] Error hiding splash screen:', e);
         }

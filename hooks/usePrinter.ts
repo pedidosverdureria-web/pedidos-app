@@ -64,7 +64,7 @@ const ALTERNATIVE_CHARACTERISTIC_UUIDS = [
 const SAVED_PRINTER_KEY = '@saved_printer_device';
 const KEEP_ALIVE_INTERVAL = 30000; // 30 seconds
 const MAX_CHUNK_SIZE = 180; // Maximum bytes per write operation (safe for most printers)
-const RECONNECT_TIMEOUT = 5000; // 5 seconds timeout for auto-reconnect
+const RECONNECT_TIMEOUT = 3000; // 3 seconds timeout for auto-reconnect (reduced from 5)
 
 // Keep-alive mechanism to prevent Bluetooth disconnection
 const startKeepAlive = (device: Device, characteristic: { serviceUUID: string; characteristicUUID: string }) => {
@@ -118,6 +118,7 @@ export const usePrinter = () => {
   } | null>(globalPrinterCharacteristic);
   const isMounted = useRef(true);
   const reconnectAttemptedRef = useRef(false);
+  const initializationStartedRef = useRef(false);
 
   const requestPermissions = useCallback(async () => {
     if (Platform.OS === 'android') {
@@ -300,7 +301,7 @@ export const usePrinter = () => {
             await device.cancelConnection();
           }
         } catch (error) {
-          console.log('[usePrinter] Could not auto-reconnect to saved printer (timeout or error):', error);
+          console.log('[usePrinter] Could not auto-reconnect to saved printer (timeout or error)');
           console.log('[usePrinter] User can manually reconnect from printer settings');
           // Do not show alert here, just log the error
           // User can manually reconnect if needed
@@ -312,18 +313,27 @@ export const usePrinter = () => {
   }, [requestPermissions]);
 
   // Load saved printer on mount and try to reconnect
-  // FIXED: Defer initialization to prevent blocking app startup
+  // FIXED: Defer initialization significantly to prevent blocking app startup
   useEffect(() => {
+    if (initializationStartedRef.current) {
+      return; // Already initialized
+    }
+    
     console.log('[usePrinter] Initializing printer hook');
     console.log('[usePrinter] Will attempt to auto-reconnect to saved printer');
     isMounted.current = true;
+    initializationStartedRef.current = true;
     
-    // Defer initialization to prevent blocking splash screen
+    // Defer initialization significantly to prevent blocking splash screen
     const initTimer = setTimeout(() => {
       console.log('[usePrinter] Starting deferred initialization');
-      requestPermissions();
-      loadAndReconnectSavedPrinter();
-    }, 1000); // Wait 1 second before initializing
+      requestPermissions().catch(err => {
+        console.error('[usePrinter] Error requesting permissions:', err);
+      });
+      loadAndReconnectSavedPrinter().catch(err => {
+        console.error('[usePrinter] Error loading saved printer:', err);
+      });
+    }, 5000); // Wait 5 seconds before initializing (increased from 1)
     
     return () => {
       console.log('[usePrinter] Component unmounting, but keeping connection alive');
@@ -332,7 +342,7 @@ export const usePrinter = () => {
       // DO NOT disconnect here - keep the connection alive
       // DO NOT stop keep-alive here - let it continue
     };
-  }, [requestPermissions, loadAndReconnectSavedPrinter]);
+  }, []); // Empty dependency array - only run once
 
   const savePrinter = async (device: Device) => {
     try {

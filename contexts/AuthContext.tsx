@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Load saved user from AsyncStorage on mount
+   * FIXED: Made non-blocking to prevent splash screen hang
    */
   useEffect(() => {
     const loadSavedUser = async () => {
@@ -41,24 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const savedUser = JSON.parse(savedUserJson);
           console.log('[Auth] Found saved user:', savedUser.role);
           setUser(savedUser);
-          
-          // Register for push notifications if on native platform
-          // Defer this to prevent blocking app startup
-          if (Platform.OS !== 'web') {
-            setTimeout(async () => {
-              console.log('[Auth] Registering for push notifications (deferred)...');
-              try {
-                await registerForPushNotificationsAsync(savedUser.role);
-                console.log('[Auth] Push notifications registered successfully');
-                
-                // Update device activity
-                await updateDeviceActivity();
-              } catch (error) {
-                console.error('[Auth] Error registering push notifications:', error);
-                // Don't throw - this is not critical for app startup
-              }
-            }, 2000); // Wait 2 seconds after app loads
-          }
         } else {
           console.log('[Auth] No saved user found');
         }
@@ -66,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[Auth] Error loading saved user:', error);
         // Don't throw - allow app to continue
       } finally {
+        // Mark as loaded immediately to unblock splash screen
         setIsLoading(false);
       }
     };
@@ -74,15 +58,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
+   * Register for push notifications after user is loaded
+   * FIXED: Deferred to prevent blocking app startup
+   */
+  useEffect(() => {
+    if (!user || Platform.OS === 'web') {
+      return;
+    }
+
+    // Defer push notification registration significantly
+    const pushTimer = setTimeout(async () => {
+      console.log('[Auth] Registering for push notifications (deferred)...');
+      try {
+        await registerForPushNotificationsAsync(user.role);
+        console.log('[Auth] Push notifications registered successfully');
+        
+        // Update device activity
+        await updateDeviceActivity();
+      } catch (error) {
+        console.error('[Auth] Error registering push notifications:', error);
+        // Don't throw - this is not critical for app startup
+      }
+    }, 5000); // Wait 5 seconds after user is loaded
+
+    return () => {
+      clearTimeout(pushTimer);
+    };
+  }, [user]);
+
+  /**
    * Set up notification handlers
-   * Deferred to prevent blocking app startup
+   * FIXED: Deferred significantly to prevent blocking app startup
    */
   useEffect(() => {
     if (Platform.OS === 'web') {
       return;
     }
 
-    // Defer notification handler setup
+    // Defer notification handler setup significantly
     const setupTimer = setTimeout(() => {
       console.log('[Auth] Setting up notification handlers (deferred)...');
 
@@ -118,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[Auth] Error setting up notification handlers:', error);
         // Don't throw - this is not critical
       }
-    }, 1500); // Wait 1.5 seconds after app loads
+    }, 3000); // Wait 3 seconds after app loads
 
     return () => {
       clearTimeout(setupTimer);
@@ -192,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('[Auth] Error registering push notifications:', error);
           // Don't throw - this is not critical
         }
-      }, 1000); // Wait 1 second after login
+      }, 2000); // Wait 2 seconds after login
     }
   };
 

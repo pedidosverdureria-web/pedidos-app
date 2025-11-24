@@ -265,17 +265,18 @@ interface ThemeContextType {
   currentTheme: ColorTheme;
   setTheme: (themeId: string) => Promise<void>;
   isLoading: boolean;
-  themeVersion: number; // Add version to force re-renders
+  themeVersion: number;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [currentTheme, setCurrentTheme] = useState<ColorTheme>(COLOR_THEMES[0]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Changed to false by default
   const [themeVersion, setThemeVersion] = useState(0);
 
   useEffect(() => {
+    // Load theme in background without blocking
     loadTheme();
   }, []);
 
@@ -292,8 +293,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('[ThemeContext] Error loading theme:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
