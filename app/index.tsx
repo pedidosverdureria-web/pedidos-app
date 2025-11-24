@@ -7,7 +7,8 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 export default function Index() {
   const { user, isLoading } = useAuth();
-  const { colors } = useTheme();
+  const { currentTheme } = useTheme();
+  const colors = currentTheme.colors;
 
   // Show loading indicator while auth is loading
   // CRITICAL FIX: Always render something, never return null
