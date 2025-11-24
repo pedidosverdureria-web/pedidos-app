@@ -8,10 +8,14 @@ import { useTheme } from '@/contexts/ThemeContext';
 export default function Index() {
   const { user, isLoading } = useAuth();
   const { currentTheme } = useTheme();
-  const colors = currentTheme.colors;
+  const colors = currentTheme?.colors || {
+    background: '#F5F5F5',
+    primary: '#3F51B5',
+  };
+
+  console.log('[Index] Rendering - isLoading:', isLoading, 'user:', user ? user.role : 'none');
 
   // Show loading indicator while auth is loading
-  // CRITICAL FIX: Always render something, never return null
   if (isLoading) {
     console.log('[Index] Auth is loading, showing loading indicator');
     return (

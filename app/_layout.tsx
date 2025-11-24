@@ -193,31 +193,39 @@ function BackgroundPrintProcessor() {
 }
 
 function RootLayoutContent() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const [appReady, setAppReady] = useState(false);
 
-  // CRITICAL FIX: Don't wait for anything - hide splash immediately after auth context is ready
+  // Wait for auth to finish loading before hiding splash
   useEffect(() => {
-    // Hide splash screen as soon as auth context provides initial state
-    // Even if isLoading is true, we should proceed to let the index.tsx handle routing
-    const hideSplash = async () => {
-      try {
-        console.log('[RootLayout] Auth state received, hiding splash screen');
-        await SplashScreen.hideAsync();
-        console.log('[RootLayout] Splash screen hidden successfully');
-      } catch (e) {
-        console.error('[RootLayout] Error hiding splash screen:', e);
-      }
-    };
+    if (!authLoading && !appReady) {
+      console.log('[RootLayout] Auth finished loading, preparing to hide splash');
+      
+      // Small delay to ensure everything is mounted
+      const timer = setTimeout(async () => {
+        try {
+          console.log('[RootLayout] Hiding splash screen');
+          await SplashScreen.hideAsync();
+          setAppReady(true);
+          console.log('[RootLayout] Splash screen hidden successfully');
+        } catch (e) {
+          console.error('[RootLayout] Error hiding splash screen:', e);
+          setAppReady(true); // Set ready anyway to prevent infinite loop
+        }
+      }, 300);
 
-    // Small delay to ensure the layout is mounted
-    const timer = setTimeout(() => {
-      hideSplash();
-    }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, appReady]);
 
-    return () => clearTimeout(timer);
-  }, []); // Only run once on mount
+  // Don't render anything until auth is loaded
+  if (!appReady) {
+    console.log('[RootLayout] Waiting for app to be ready...');
+    return null;
+  }
 
-  // ALWAYS render the Stack - never return null
+  console.log('[RootLayout] App is ready, rendering Stack');
+
   return (
     <>
       {user && <BackgroundPrintProcessor />}

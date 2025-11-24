@@ -30,44 +30,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Load saved user from AsyncStorage on mount
-   * FIXED: Made non-blocking with aggressive timeout to prevent splash screen hang
+   * FIXED: Simplified with better error handling
    */
   useEffect(() => {
     const loadSavedUser = async () => {
       try {
-        console.log('[Auth] Loading saved user...');
+        console.log('[Auth] Starting to load saved user...');
+        const savedUserJson = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
         
-        // Set a hard timeout - if loading takes more than 1 second, give up
-        const timeoutPromise = new Promise<null>((resolve) => {
-          setTimeout(() => {
-            console.log('[Auth] Loading timed out after 1 second');
-            resolve(null);
-          }, 1000);
-        });
-
-        const loadPromise = AsyncStorage.getItem(AUTH_STORAGE_KEY).then(savedUserJson => {
-          if (savedUserJson) {
-            const savedUser = JSON.parse(savedUserJson);
-            console.log('[Auth] Found saved user:', savedUser.role);
-            return savedUser;
-          } else {
-            console.log('[Auth] No saved user found');
-            return null;
-          }
-        });
-
-        // Race between loading and timeout
-        const savedUser = await Promise.race([loadPromise, timeoutPromise]);
-        
-        if (savedUser) {
+        if (savedUserJson) {
+          const savedUser = JSON.parse(savedUserJson);
+          console.log('[Auth] Found saved user:', savedUser.role);
           setUser(savedUser);
+        } else {
+          console.log('[Auth] No saved user found');
         }
       } catch (error) {
         console.error('[Auth] Error loading saved user:', error);
-        // Don't throw - allow app to continue
       } finally {
-        // ALWAYS mark as loaded to unblock the app
-        console.log('[Auth] Marking auth as loaded');
+        console.log('[Auth] Finished loading auth state');
         setIsLoading(false);
       }
     };
