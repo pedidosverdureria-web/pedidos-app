@@ -37,7 +37,7 @@ function BackgroundPrintProcessor() {
     const timer = setTimeout(() => {
       console.log('[BackgroundPrintProcessor] Initializing after delay');
       setIsReady(true);
-    }, 3000); // Wait 3 seconds after app loads
+    }, 5000); // Wait 5 seconds after app loads
 
     return () => clearTimeout(timer);
   }, []);
@@ -194,71 +194,30 @@ function BackgroundPrintProcessor() {
 
 function RootLayoutContent() {
   const { user, isLoading } = useAuth();
-  const [appIsReady, setAppIsReady] = useState(false);
 
+  // CRITICAL FIX: Don't wait for anything - hide splash immediately after auth context is ready
   useEffect(() => {
-    async function prepare() {
+    // Hide splash screen as soon as auth context provides initial state
+    // Even if isLoading is true, we should proceed to let the index.tsx handle routing
+    const hideSplash = async () => {
       try {
-        console.log('[RootLayout] Preparing app...');
-        
-        // CRITICAL FIX: Don't wait for auth to load completely
-        // Just wait a maximum of 2 seconds, then proceed
-        const startTime = Date.now();
-        const maxWaitTime = 2000; // 2 seconds max
-        
-        // Wait for auth with timeout
-        const waitForAuth = new Promise<void>((resolve) => {
-          const checkAuth = () => {
-            if (!isLoading || Date.now() - startTime > maxWaitTime) {
-              console.log('[RootLayout] Auth check complete or timed out');
-              resolve();
-            } else {
-              setTimeout(checkAuth, 100);
-            }
-          };
-          checkAuth();
-        });
-        
-        await waitForAuth;
-        
-        console.log('[RootLayout] Auth loaded, user:', user ? user.role : 'none');
-        
-        // Small delay to ensure everything is ready
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        console.log('[RootLayout] App is ready');
-        setAppIsReady(true);
+        console.log('[RootLayout] Auth state received, hiding splash screen');
+        await SplashScreen.hideAsync();
+        console.log('[RootLayout] Splash screen hidden successfully');
       } catch (e) {
-        console.error('[RootLayout] Error preparing app:', e);
-        // Still mark as ready to prevent infinite loading
-        setAppIsReady(true);
+        console.error('[RootLayout] Error hiding splash screen:', e);
       }
-    }
+    };
 
-    prepare();
-  }, [isLoading, user]);
+    // Small delay to ensure the layout is mounted
+    const timer = setTimeout(() => {
+      hideSplash();
+    }, 100);
 
-  useEffect(() => {
-    async function hideSplash() {
-      if (appIsReady) {
-        console.log('[RootLayout] Hiding splash screen');
-        try {
-          await SplashScreen.hideAsync();
-          console.log('[RootLayout] Splash screen hidden successfully');
-        } catch (e) {
-          console.error('[RootLayout] Error hiding splash screen:', e);
-        }
-      }
-    }
+    return () => clearTimeout(timer);
+  }, []); // Only run once on mount
 
-    hideSplash();
-  }, [appIsReady]);
-
-  if (!appIsReady) {
-    console.log('[RootLayout] App not ready yet, keeping splash screen visible');
-    return null;
-  }
-
+  // ALWAYS render the Stack - never return null
   return (
     <>
       {user && <BackgroundPrintProcessor />}

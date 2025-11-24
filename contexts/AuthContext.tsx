@@ -30,26 +30,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Load saved user from AsyncStorage on mount
-   * FIXED: Made non-blocking to prevent splash screen hang
+   * FIXED: Made non-blocking with aggressive timeout to prevent splash screen hang
    */
   useEffect(() => {
     const loadSavedUser = async () => {
       try {
         console.log('[Auth] Loading saved user...');
-        const savedUserJson = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
         
-        if (savedUserJson) {
-          const savedUser = JSON.parse(savedUserJson);
-          console.log('[Auth] Found saved user:', savedUser.role);
+        // Set a hard timeout - if loading takes more than 1 second, give up
+        const timeoutPromise = new Promise<null>((resolve) => {
+          setTimeout(() => {
+            console.log('[Auth] Loading timed out after 1 second');
+            resolve(null);
+          }, 1000);
+        });
+
+        const loadPromise = AsyncStorage.getItem(AUTH_STORAGE_KEY).then(savedUserJson => {
+          if (savedUserJson) {
+            const savedUser = JSON.parse(savedUserJson);
+            console.log('[Auth] Found saved user:', savedUser.role);
+            return savedUser;
+          } else {
+            console.log('[Auth] No saved user found');
+            return null;
+          }
+        });
+
+        // Race between loading and timeout
+        const savedUser = await Promise.race([loadPromise, timeoutPromise]);
+        
+        if (savedUser) {
           setUser(savedUser);
-        } else {
-          console.log('[Auth] No saved user found');
         }
       } catch (error) {
         console.error('[Auth] Error loading saved user:', error);
         // Don't throw - allow app to continue
       } finally {
-        // Mark as loaded immediately to unblock splash screen
+        // ALWAYS mark as loaded to unblock the app
+        console.log('[Auth] Marking auth as loaded');
         setIsLoading(false);
       }
     };
@@ -59,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Register for push notifications after user is loaded
-   * FIXED: Deferred to prevent blocking app startup
+   * FIXED: Deferred significantly to prevent blocking app startup
    */
   useEffect(() => {
     if (!user || Platform.OS === 'web') {
@@ -79,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[Auth] Error registering push notifications:', error);
         // Don't throw - this is not critical for app startup
       }
-    }, 5000); // Wait 5 seconds after user is loaded
+    }, 8000); // Wait 8 seconds after user is loaded
 
     return () => {
       clearTimeout(pushTimer);
@@ -131,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('[Auth] Error setting up notification handlers:', error);
         // Don't throw - this is not critical
       }
-    }, 3000); // Wait 3 seconds after app loads
+    }, 5000); // Wait 5 seconds after app loads
 
     return () => {
       clearTimeout(setupTimer);
@@ -186,7 +204,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Save to state and AsyncStorage
     setUser(userProfile);
-    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userProfile));
+    
+    // Save to AsyncStorage in background (don't await)
+    AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userProfile)).catch(error => {
+      console.error('[Auth] Error saving user to AsyncStorage:', error);
+    });
     
     console.log('[Auth] Sign in successful');
 
@@ -205,7 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('[Auth] Error registering push notifications:', error);
           // Don't throw - this is not critical
         }
-      }, 2000); // Wait 2 seconds after login
+      }, 3000); // Wait 3 seconds after login
     }
   };
 
@@ -216,7 +238,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('[Auth] Signing out');
     
     setUser(null);
-    await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+    
+    // Remove from AsyncStorage in background (don't await)
+    AsyncStorage.removeItem(AUTH_STORAGE_KEY).catch(error => {
+      console.error('[Auth] Error removing user from AsyncStorage:', error);
+    });
     
     console.log('[Auth] Sign out successful');
   };
