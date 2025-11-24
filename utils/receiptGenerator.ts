@@ -95,11 +95,13 @@ function formatDate(dateString: string, format: 'short' | 'long' | 'time' = 'lon
       year: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   } else if (format === 'time') {
     return date.toLocaleString('es-CL', {
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   } else {
     return date.toLocaleString('es-CL', {
@@ -108,6 +110,7 @@ function formatDate(dateString: string, format: 'short' | 'long' | 'time' = 'lon
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: false,
     });
   }
 }
