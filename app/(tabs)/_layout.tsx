@@ -6,6 +6,16 @@ import { Stack } from 'expo-router';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 import { colors } from '@/styles/commonStyles';
 
+/**
+ * Tab Layout Component
+ * 
+ * This layout handles the main tab navigation structure.
+ * On iOS, it uses NativeTabs for native tab bar.
+ * On Android/Web, it uses a custom FloatingTabBar with Stack navigation.
+ * 
+ * DO NOT explicitly declare <Stack.Screen> components here.
+ * Expo Router will automatically discover routes based on the file structure.
+ */
 export default function TabLayout() {
   const tabs: TabBarItem[] = [
     {
@@ -57,9 +67,7 @@ export default function TabLayout() {
     );
   }
 
-  // CRITICAL FIX: Remove explicit Stack.Screen declarations
-  // Let Expo Router auto-discover routes from the file system
-  // This prevents duplicate screen registration errors
+  // Android and Web: Use Stack with FloatingTabBar
   return (
     <>
       <Stack

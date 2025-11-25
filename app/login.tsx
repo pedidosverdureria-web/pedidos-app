@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -25,6 +25,13 @@ interface DialogState {
   buttons?: DialogButton[];
 }
 
+/**
+ * Login Screen Component
+ * 
+ * CRITICAL FIX: Removed <Stack.Screen> component from inside the screen.
+ * Expo Router manages screen configuration automatically through file-based routing.
+ * Adding <Stack.Screen> inside a screen component causes duplicate screen registration errors.
+ */
 export default function LoginScreen() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
@@ -248,11 +255,6 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <Stack.Screen
-        options={{
-          headerShown: false,
-        }}
-      />
       <View style={styles.content}>
         <View style={styles.header}>
           <Image
@@ -308,7 +310,7 @@ export default function LoginScreen() {
               </View>
             ) : (
               <>
-                <IconSymbol name="arrow.right.circle.fill" size={24} color="#FFFFFF" />
+                <IconSymbol ios_icon_name="arrow.right.circle.fill" android_material_icon_name="arrow_circle_right" size={24} color="#FFFFFF" />
                 <Text style={styles.buttonText}>Ingresar</Text>
               </>
             )}
@@ -326,7 +328,7 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.footer}>
-          <IconSymbol name="lock.fill" size={16} color={currentTheme.colors.textSecondary} />
+          <IconSymbol ios_icon_name="lock.fill" android_material_icon_name="lock" size={16} color={currentTheme.colors.textSecondary} />
           <Text style={styles.footerText}>Aplicación de uso privado</Text>
         </View>
       </View>

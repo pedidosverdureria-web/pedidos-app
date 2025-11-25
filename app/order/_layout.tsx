@@ -2,23 +2,30 @@
 import { Stack } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 
+/**
+ * Order Layout Component
+ * 
+ * This layout handles all routes under /order/
+ * Expo Router will automatically discover all files in the order folder.
+ * 
+ * DO NOT explicitly declare <Stack.Screen> components here.
+ */
 export default function OrderLayout() {
   const { currentTheme } = useTheme();
 
   console.log('[OrderLayout] Rendering order layout');
 
-  // CRITICAL FIX: Don't explicitly declare Stack.Screen components
-  // Let Expo Router auto-discover routes from the file system
-  // This prevents duplicate screen registration errors
   return (
     <Stack
       screenOptions={{
+        headerShown: true,
         headerStyle: {
           backgroundColor: currentTheme.colors.primary,
         },
         headerTintColor: '#FFFFFF',
         headerShadowVisible: true,
         headerBackTitle: 'Atrás',
+        animation: 'slide_from_right',
       }}
     />
   );

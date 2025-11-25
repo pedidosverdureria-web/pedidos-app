@@ -2,15 +2,20 @@
 import { Stack } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 
+/**
+ * Settings Layout Component
+ * 
+ * This layout handles all routes under /settings/
+ * Expo Router will automatically discover all files in the settings folder
+ * and create routes for them.
+ * 
+ * DO NOT explicitly declare <Stack.Screen> components here.
+ */
 export default function SettingsLayout() {
   const { currentTheme } = useTheme();
 
   console.log('[SettingsLayout] Rendering settings layout');
 
-  // CRITICAL FIX: Don't explicitly declare Stack.Screen components
-  // Let Expo Router auto-discover routes from the file system
-  // This prevents duplicate screen registration errors
-  // The Stack component will automatically discover all files in the settings folder
   return (
     <Stack
       screenOptions={{
@@ -20,6 +25,7 @@ export default function SettingsLayout() {
         },
         headerTintColor: '#FFFFFF',
         headerBackTitle: 'Atrás',
+        animation: 'slide_from_right',
       }}
     />
   );
