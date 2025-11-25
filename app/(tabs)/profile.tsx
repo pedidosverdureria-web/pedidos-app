@@ -76,7 +76,10 @@ export default function ProfileScreen() {
 
   const renderHeaderRight = () => (
     <TouchableOpacity
-      onPress={() => router.push('/settings/')}
+      onPress={() => {
+        console.log('[Profile] Navigating to settings');
+        router.push('/settings/');
+      }}
       style={{ marginRight: 16 }}
     >
       <IconSymbol name="gearshape.fill" size={24} color={colors.primary} />
@@ -185,7 +188,10 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.push('/settings/')}
+            onPress={() => {
+              console.log('[Profile] Navigating to settings from quick actions');
+              router.push('/settings/');
+            }}
           >
             <View style={styles.menuItemLeft}>
               <IconSymbol name="gearshape.fill" size={24} color={colors.primary} />

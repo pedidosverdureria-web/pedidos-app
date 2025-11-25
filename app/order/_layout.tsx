@@ -7,7 +7,9 @@ export default function OrderLayout() {
 
   console.log('[OrderLayout] Rendering order layout');
 
-  // Let Expo Router auto-discover routes
+  // CRITICAL FIX: Don't explicitly declare Stack.Screen components
+  // Let Expo Router auto-discover routes from the file system
+  // This prevents duplicate screen registration errors
   return (
     <Stack
       screenOptions={{

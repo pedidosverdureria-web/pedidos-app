@@ -10,6 +10,7 @@ export default function SettingsLayout() {
   // CRITICAL FIX: Don't explicitly declare Stack.Screen components
   // Let Expo Router auto-discover routes from the file system
   // This prevents duplicate screen registration errors
+  // The Stack component will automatically discover all files in the settings folder
   return (
     <Stack
       screenOptions={{

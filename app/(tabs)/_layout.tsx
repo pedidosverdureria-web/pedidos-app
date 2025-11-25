@@ -57,6 +57,9 @@ export default function TabLayout() {
     );
   }
 
+  // CRITICAL FIX: Remove explicit Stack.Screen declarations
+  // Let Expo Router auto-discover routes from the file system
+  // This prevents duplicate screen registration errors
   return (
     <>
       <Stack
@@ -64,12 +67,7 @@ export default function TabLayout() {
           headerShown: false,
           animation: 'none',
         }}
-      >
-        <Stack.Screen name="(home)" />
-        <Stack.Screen name="pending-payments" />
-        <Stack.Screen name="customers" />
-        <Stack.Screen name="profile" />
-      </Stack>
+      />
       <FloatingTabBar tabs={tabs} />
     </>
   );

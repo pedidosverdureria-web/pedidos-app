@@ -220,6 +220,7 @@ function RootLayoutContent() {
   // CRITICAL FIX: Use Slot to render matched child routes
   // This prevents duplicate screen registration errors
   // Each nested _layout.tsx will handle its own navigation structure
+  // DO NOT use Stack here - it will cause duplicate screen errors
   return (
     <>
       {user && <BackgroundPrintProcessor />}
