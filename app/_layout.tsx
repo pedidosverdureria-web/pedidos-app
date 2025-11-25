@@ -217,9 +217,8 @@ function RootLayoutContent() {
 
   console.log('[RootLayout] Rendering - authLoading:', authLoading);
 
-  // Always render the Stack
-  // FIXED: Removed duplicate "settings" screen declaration and "customer-orders" 
-  // since they are handled by their respective _layout.tsx files
+  // FIXED: Explicitly register all route groups to prevent auto-discovery conflicts
+  // This prevents duplicate screen name errors
   return (
     <>
       {user && <BackgroundPrintProcessor />}
@@ -228,16 +227,31 @@ function RootLayoutContent() {
           headerShown: false,
         }}
       >
+        {/* Main tabs group */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        
+        {/* Auth screens */}
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        
+        {/* Order screens - handled by order/_layout.tsx */}
         <Stack.Screen name="order" options={{ headerShown: false }} />
+        
+        {/* Settings screens - handled by settings/_layout.tsx */}
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
+        
+        {/* Customer orders - dynamic route */}
+        <Stack.Screen name="customer-orders/[customerId]" options={{ headerShown: false }} />
+        
+        {/* Other screens */}
         <Stack.Screen name="activity" options={{ headerShown: false }} />
         <Stack.Screen name="stats" options={{ headerShown: false }} />
         <Stack.Screen name="completed-orders" options={{ headerShown: false }} />
         <Stack.Screen name="printer-queue" options={{ headerShown: false }} />
+        
+        {/* Modal screens */}
         <Stack.Screen
           name="modal"
           options={{
