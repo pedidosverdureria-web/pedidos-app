@@ -136,6 +136,18 @@ export default function SettingsLayout() {
           title: 'Guía para Resolver Problemas',
         }}
       />
+      <Stack.Screen
+        name="check-control"
+        options={{
+          title: 'Control de Cheques',
+        }}
+      />
+      <Stack.Screen
+        name="check-detail/[checkId]"
+        options={{
+          title: 'Detalle de Cheque',
+        }}
+      />
     </Stack>
   );
 }

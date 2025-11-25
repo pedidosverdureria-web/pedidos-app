@@ -226,6 +226,34 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* Financial Management */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Gestión Financiera</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => handleNavigation('/settings/check-control')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#06B6D4' }]}>
+                <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="receipt_long" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Control de Cheques</Text>
+                <Text style={styles.menuDescription}>
+                  Gestionar cheques pendientes y pagados
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Reports */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Reportes</Text>

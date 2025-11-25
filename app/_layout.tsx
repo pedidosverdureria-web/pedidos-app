@@ -218,6 +218,8 @@ function RootLayoutContent() {
   console.log('[RootLayout] Rendering - authLoading:', authLoading);
 
   // Always render the Stack
+  // FIXED: Removed duplicate "settings" screen declaration and "customer-orders" 
+  // since they are handled by their respective _layout.tsx files
   return (
     <>
       {user && <BackgroundPrintProcessor />}
@@ -231,13 +233,11 @@ function RootLayoutContent() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
-        <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="order" options={{ headerShown: false }} />
         <Stack.Screen name="activity" options={{ headerShown: false }} />
         <Stack.Screen name="stats" options={{ headerShown: false }} />
         <Stack.Screen name="completed-orders" options={{ headerShown: false }} />
         <Stack.Screen name="printer-queue" options={{ headerShown: false }} />
-        <Stack.Screen name="customer-orders" options={{ headerShown: false }} />
         <Stack.Screen
           name="modal"
           options={{
