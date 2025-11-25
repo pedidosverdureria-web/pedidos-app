@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   signInWithPin: (pin: string) => Promise<void>;
   signOut: () => Promise<void>;
+  loadingStatus: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,29 +28,40 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingStatus, setLoadingStatus] = useState('Iniciando...');
 
   /**
    * Load saved user from AsyncStorage on mount
-   * FIXED: Simplified with better error handling
+   * FIXED: Simplified with better error handling and status updates
    */
   useEffect(() => {
     const loadSavedUser = async () => {
       try {
         console.log('[Auth] Starting to load saved user...');
+        setLoadingStatus('Cargando usuario guardado...');
+        
         const savedUserJson = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
         
         if (savedUserJson) {
           const savedUser = JSON.parse(savedUserJson);
           console.log('[Auth] Found saved user:', savedUser.role);
+          setLoadingStatus('Usuario encontrado: ' + savedUser.full_name);
           setUser(savedUser);
         } else {
           console.log('[Auth] No saved user found');
+          setLoadingStatus('Sin usuario guardado');
         }
       } catch (error) {
         console.error('[Auth] Error loading saved user:', error);
+        setLoadingStatus('Error al cargar usuario');
       } finally {
         console.log('[Auth] Finished loading auth state');
-        setIsLoading(false);
+        setLoadingStatus('Autenticación completada');
+        
+        // Small delay to ensure UI is ready
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 100);
       }
     };
 
@@ -236,6 +248,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         signInWithPin,
         signOut,
+        loadingStatus,
       }}
     >
       {children}

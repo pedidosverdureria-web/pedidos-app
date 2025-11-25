@@ -194,7 +194,6 @@ function BackgroundPrintProcessor() {
 
 function RootLayoutContent() {
   const { user, isLoading: authLoading } = useAuth();
-  const [splashHidden, setSplashHidden] = useState(false);
 
   // Hide splash screen once auth is loaded
   useEffect(() => {
@@ -206,11 +205,9 @@ function RootLayoutContent() {
         try {
           console.log('[RootLayout] Hiding splash screen now');
           await SplashScreen.hideAsync();
-          setSplashHidden(true);
           console.log('[RootLayout] Splash screen hidden successfully');
         } catch (e) {
           console.error('[RootLayout] Error hiding splash screen:', e);
-          setSplashHidden(true); // Set hidden anyway to prevent infinite loop
         }
       }, 100);
 
@@ -218,9 +215,9 @@ function RootLayoutContent() {
     }
   }, [authLoading]);
 
-  console.log('[RootLayout] Rendering - authLoading:', authLoading, 'splashHidden:', splashHidden);
+  console.log('[RootLayout] Rendering - authLoading:', authLoading);
 
-  // Always render the Stack, but show a loading indicator if auth is still loading
+  // Always render the Stack
   return (
     <>
       {user && <BackgroundPrintProcessor />}
