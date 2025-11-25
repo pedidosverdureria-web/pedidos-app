@@ -37,6 +37,8 @@ export default function RootLayout() {
     return () => clearTimeout(timer);
   }, []);
 
+  console.log('[RootLayout] Rendering with Slot');
+
   return (
     <ThemeProvider>
       <AuthProvider>

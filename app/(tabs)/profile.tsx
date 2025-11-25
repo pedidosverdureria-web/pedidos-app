@@ -41,7 +41,7 @@ export default function ProfileScreen() {
         <TouchableOpacity
           onPress={() => {
             console.log('[Profile] Navigating to settings');
-            router.push('/settings/');
+            router.push('/settings');
           }}
           style={{ marginRight: 16 }}
         >
@@ -191,7 +191,7 @@ export default function ProfileScreen() {
             style={styles.menuItem}
             onPress={() => {
               console.log('[Profile] Navigating to settings from quick actions');
-              router.push('/settings/');
+              router.push('/settings');
             }}
           >
             <View style={styles.menuItemLeft}>

@@ -10,6 +10,7 @@ import { useTheme } from '@/contexts/ThemeContext';
  * and create routes for them.
  * 
  * DO NOT explicitly declare <Stack.Screen> components here.
+ * The file-based routing system will handle screen registration automatically.
  */
 export default function SettingsLayout() {
   const { currentTheme } = useTheme();
@@ -27,6 +28,8 @@ export default function SettingsLayout() {
         headerBackTitle: 'Atrás',
         animation: 'slide_from_right',
       }}
-    />
+    >
+      {/* DO NOT add Stack.Screen components here - Expo Router handles this automatically */}
+    </Stack>
   );
 }

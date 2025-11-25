@@ -4,7 +4,6 @@ import { Platform } from 'react-native';
 import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 import { Stack } from 'expo-router';
 import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
-import { colors } from '@/styles/commonStyles';
 
 /**
  * Tab Layout Component
@@ -17,6 +16,8 @@ import { colors } from '@/styles/commonStyles';
  * Expo Router will automatically discover routes based on the file structure.
  */
 export default function TabLayout() {
+  console.log('[TabLayout] Rendering tab layout');
+
   const tabs: TabBarItem[] = [
     {
       name: '(home)',
@@ -75,7 +76,9 @@ export default function TabLayout() {
           headerShown: false,
           animation: 'none',
         }}
-      />
+      >
+        {/* DO NOT add Stack.Screen components here - Expo Router handles this automatically */}
+      </Stack>
       <FloatingTabBar tabs={tabs} />
     </>
   );
