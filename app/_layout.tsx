@@ -218,7 +218,7 @@ function RootLayoutContent() {
   console.log('[RootLayout] Rendering - authLoading:', authLoading);
 
   // FIXED: Explicitly register all route groups to prevent auto-discovery conflicts
-  // This prevents duplicate screen name errors
+  // This prevents duplicate screen name errors by using initialRouteName to control routing
   return (
     <>
       {user && <BackgroundPrintProcessor />}
@@ -227,50 +227,47 @@ function RootLayoutContent() {
           headerShown: false,
         }}
       >
-        {/* Main tabs group */}
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        
         {/* Auth screens */}
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="welcome" />
         
-        {/* Order screens - handled by order/_layout.tsx */}
-        <Stack.Screen name="order" options={{ headerShown: false }} />
+        {/* Main tabs group */}
+        <Stack.Screen name="(tabs)" />
         
-        {/* Settings screens - handled by settings/_layout.tsx */}
-        <Stack.Screen name="settings" options={{ headerShown: false }} />
+        {/* Order screens group - handled by order/_layout.tsx */}
+        <Stack.Screen name="order" />
+        
+        {/* Settings screens group - handled by settings/_layout.tsx */}
+        <Stack.Screen name="settings" />
         
         {/* Customer orders - dynamic route */}
-        <Stack.Screen name="customer-orders/[customerId]" options={{ headerShown: false }} />
+        <Stack.Screen name="customer-orders/[customerId]" />
         
-        {/* Other screens */}
-        <Stack.Screen name="activity" options={{ headerShown: false }} />
-        <Stack.Screen name="stats" options={{ headerShown: false }} />
-        <Stack.Screen name="completed-orders" options={{ headerShown: false }} />
-        <Stack.Screen name="printer-queue" options={{ headerShown: false }} />
+        {/* Other standalone screens */}
+        <Stack.Screen name="activity" />
+        <Stack.Screen name="stats" />
+        <Stack.Screen name="completed-orders" />
+        <Stack.Screen name="printer-queue" />
         
         {/* Modal screens */}
         <Stack.Screen
           name="modal"
           options={{
             presentation: 'modal',
-            headerShown: false,
           }}
         />
         <Stack.Screen
           name="formsheet"
           options={{
             presentation: 'formSheet',
-            headerShown: false,
           }}
         />
         <Stack.Screen
           name="transparent-modal"
           options={{
             presentation: 'transparentModal',
-            headerShown: false,
             animation: 'fade',
           }}
         />
