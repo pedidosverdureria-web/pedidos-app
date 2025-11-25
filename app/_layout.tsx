@@ -217,9 +217,9 @@ function RootLayoutContent() {
 
   console.log('[RootLayout] Rendering - authLoading:', authLoading);
 
-  // FIXED: Removed explicit screen declarations to prevent duplicate screen name errors
-  // Expo Router will automatically discover routes from the file system
-  // Only declare screens that need special configuration
+  // FIXED: Removed ALL explicit screen declarations to prevent duplicate screen name errors
+  // Expo Router will automatically discover ALL routes from the file system
+  // This fixes the "duplicate screen named 'settings'" error
   return (
     <>
       {user && <BackgroundPrintProcessor />}
@@ -227,49 +227,7 @@ function RootLayoutContent() {
         screenOptions={{
           headerShown: false,
         }}
-      >
-        {/* Auth screens */}
-        <Stack.Screen name="index" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="register" />
-        <Stack.Screen name="welcome" />
-        
-        {/* Main tabs group */}
-        <Stack.Screen name="(tabs)" />
-        
-        {/* Order screens group - handled by order/_layout.tsx */}
-        <Stack.Screen name="order" />
-        
-        {/* Settings screens group - handled by settings/_layout.tsx */}
-        {/* REMOVED: <Stack.Screen name="settings" /> to fix duplicate screen name error */}
-        
-        {/* Other standalone screens */}
-        <Stack.Screen name="activity" />
-        <Stack.Screen name="stats" />
-        <Stack.Screen name="completed-orders" />
-        <Stack.Screen name="printer-queue" />
-        
-        {/* Modal screens */}
-        <Stack.Screen
-          name="modal"
-          options={{
-            presentation: 'modal',
-          }}
-        />
-        <Stack.Screen
-          name="formsheet"
-          options={{
-            presentation: 'formSheet',
-          }}
-        />
-        <Stack.Screen
-          name="transparent-modal"
-          options={{
-            presentation: 'transparentModal',
-            animation: 'fade',
-          }}
-        />
-      </Stack>
+      />
     </>
   );
 }
