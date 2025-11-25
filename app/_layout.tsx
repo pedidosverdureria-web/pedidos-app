@@ -1,6 +1,6 @@
 
 import { useEffect, useCallback, useState } from 'react';
-import { Stack } from 'expo-router';
+import { Slot } from 'expo-router';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { WidgetProvider } from '@/contexts/WidgetContext';
@@ -9,7 +9,7 @@ import { usePrinter } from '@/hooks/usePrinter';
 import { getSupabase } from '@/lib/supabase';
 import { generateReceiptText, PrinterConfig } from '@/utils/receiptGenerator';
 import { Order } from '@/types';
-import { AppState, AppStateStatus, View, ActivityIndicator } from 'react-native';
+import { AppState, AppStateStatus } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Keep the splash screen visible while we fetch resources
@@ -217,17 +217,14 @@ function RootLayoutContent() {
 
   console.log('[RootLayout] Rendering - authLoading:', authLoading);
 
-  // FIXED: Removed ALL explicit screen declarations to prevent duplicate screen name errors
-  // Expo Router will automatically discover ALL routes from the file system
-  // This fixes the "duplicate screen named 'settings'" error
+  // FIXED: Use Slot instead of Stack to prevent duplicate screen errors
+  // Slot renders the matched child route without creating a navigator
+  // This allows nested layouts (like settings/_layout.tsx) to define their own navigators
+  // without conflicts
   return (
     <>
       {user && <BackgroundPrintProcessor />}
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      />
+      <Slot />
     </>
   );
 }
