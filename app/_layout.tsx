@@ -231,6 +231,13 @@ function RootLayoutContent() {
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="order" options={{ headerShown: false }} />
+        <Stack.Screen name="activity" options={{ headerShown: false }} />
+        <Stack.Screen name="stats" options={{ headerShown: false }} />
+        <Stack.Screen name="completed-orders" options={{ headerShown: false }} />
+        <Stack.Screen name="printer-queue" options={{ headerShown: false }} />
+        <Stack.Screen name="customer-orders" options={{ headerShown: false }} />
         <Stack.Screen
           name="modal"
           options={{
