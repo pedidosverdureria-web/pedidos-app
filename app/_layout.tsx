@@ -240,6 +240,9 @@ function RootLayoutContent() {
         {/* Order screens group - handled by order/_layout.tsx */}
         <Stack.Screen name="order" />
         
+        {/* Settings screens group - handled by settings/_layout.tsx */}
+        {/* REMOVED: <Stack.Screen name="settings" /> to fix duplicate screen name error */}
+        
         {/* Other standalone screens */}
         <Stack.Screen name="activity" />
         <Stack.Screen name="stats" />
