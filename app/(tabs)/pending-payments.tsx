@@ -12,7 +12,7 @@ import {
   Modal,
   ScrollView,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { getSupabase } from '@/lib/supabase';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Customer, CustomerPayment, Order } from '@/types';
@@ -197,6 +197,7 @@ function generatePaymentReceipt(
 export default function PendingPaymentsScreen() {
   const { user } = useAuth();
   const { colors } = useThemedStyles();
+  const navigation = useNavigation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -218,6 +219,16 @@ export default function PendingPaymentsScreen() {
   });
 
   const { print, isConnected } = usePrinter();
+
+  // Configure header
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Vales Pendientes',
+      headerShown: true,
+      headerStyle: { backgroundColor: colors.primary },
+      headerTintColor: '#fff',
+    });
+  }, [navigation, colors.primary]);
 
   const showDialog = (
     type: 'success' | 'error' | 'warning' | 'info',
@@ -1470,15 +1481,6 @@ export default function PendingPaymentsScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
-        options={{ 
-          title: 'Vales Pendientes',
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
-        }} 
-      />
-      
       <View style={styles.searchContainer}>
         <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={colors.textSecondary} />
         <TextInput

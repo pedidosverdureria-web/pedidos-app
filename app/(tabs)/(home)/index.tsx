@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Stack, router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
   View,
@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const { user, isAuthenticated } = useAuth();
   const { currentTheme } = useTheme();
   const colors = currentTheme.colors;
+  const navigation = useNavigation();
   const { orders, loading, refetch } = useOrders();
   const { printReceipt, isConnected } = usePrinter();
   
@@ -95,6 +96,26 @@ export default function HomeScreen() {
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const notificationResponseListener = useRef<Notifications.Subscription | null>(null);
   const notificationReceivedListener = useRef<Notifications.Subscription | null>(null);
+
+  // Configure header
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Pedidos',
+      headerShown: true,
+      headerStyle: { backgroundColor: colors.primary },
+      headerTintColor: '#fff',
+      headerRight: () => (
+        <View style={{ flexDirection: 'row', gap: 16, marginRight: 16 }}>
+          <TouchableOpacity onPress={() => router.push('/order/new')}>
+            <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={28} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/settings/')}>
+            <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      ),
+    });
+  }, [navigation, colors.primary]);
 
   // Load printer config
   const loadPrinterConfig = useCallback(async () => {
@@ -385,25 +406,6 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen
-        options={{
-          title: 'Pedidos',
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
-          headerRight: () => (
-            <View style={{ flexDirection: 'row', gap: 16, marginRight: 16 }}>
-              <TouchableOpacity onPress={() => router.push('/order/new')}>
-                <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={28} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/settings/')}>
-                <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          ),
-        }}
-      />
-
       {/* Search Bar */}
       <View style={[styles.searchContainer, { backgroundColor: colors.card }]}>
         <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={colors.textSecondary} />

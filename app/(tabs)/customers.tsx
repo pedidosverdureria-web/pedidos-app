@@ -15,7 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { getSupabase } from '@/lib/supabase';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Customer, Order } from '@/types';
@@ -155,6 +155,7 @@ export default function CustomersScreen() {
   const { user } = useAuth();
   const { colors } = useThemedStyles();
   const { print, isConnected } = usePrinter();
+  const navigation = useNavigation();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -175,6 +176,16 @@ export default function CustomersScreen() {
     title: '',
     message: '',
   });
+
+  // Configure header
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Clientes',
+      headerShown: true,
+      headerStyle: { backgroundColor: colors.primary },
+      headerTintColor: '#fff',
+    });
+  }, [navigation, colors.primary]);
 
   const styles = StyleSheet.create({
     container: {
@@ -1200,15 +1211,6 @@ export default function CustomersScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen 
-        options={{ 
-          title: 'Clientes',
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
-        }} 
-      />
-      
       <View style={styles.searchContainer}>
         <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={colors.textSecondary} />
         <TextInput

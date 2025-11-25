@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { router, useNavigation } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -25,12 +25,31 @@ interface DialogState {
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const navigation = useNavigation();
   const [dialog, setDialog] = useState<DialogState>({
     visible: false,
     type: 'info',
     title: '',
     message: '',
   });
+
+  // Configure header
+  useEffect(() => {
+    navigation.setOptions({
+      title: 'Perfil',
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={() => {
+            console.log('[Profile] Navigating to settings');
+            router.push('/settings/');
+          }}
+          style={{ marginRight: 16 }}
+        >
+          <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color={colors.primary} />
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   const showDialog = (
     type: 'success' | 'error' | 'warning' | 'info',
@@ -74,18 +93,6 @@ export default function ProfileScreen() {
     );
   };
 
-  const renderHeaderRight = () => (
-    <TouchableOpacity
-      onPress={() => {
-        console.log('[Profile] Navigating to settings');
-        router.push('/settings/');
-      }}
-      style={{ marginRight: 16 }}
-    >
-      <IconSymbol name="gearshape.fill" size={24} color={colors.primary} />
-    </TouchableOpacity>
-  );
-
   const getRoleDisplayName = (role: string) => {
     switch (role) {
       case 'admin':
@@ -118,12 +125,6 @@ export default function ProfileScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Perfil',
-          headerRight: renderHeaderRight,
-        }}
-      />
       <ScrollView style={styles.container}>
         {/* User Info Card */}
         <View style={styles.card}>
@@ -168,10 +169,10 @@ export default function ProfileScreen() {
               onPress={() => router.push('/printer-queue')}
             >
               <View style={styles.menuItemLeft}>
-                <IconSymbol name="printer.fill" size={24} color="#8B5CF6" />
+                <IconSymbol ios_icon_name="printer.fill" android_material_icon_name="print" size={24} color="#8B5CF6" />
                 <Text style={styles.menuItemText}>Cola de Impresión</Text>
               </View>
-              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -179,10 +180,10 @@ export default function ProfileScreen() {
               onPress={() => router.push('/completed-orders')}
             >
               <View style={styles.menuItemLeft}>
-                <IconSymbol name="checkmark.circle.fill" size={24} color={colors.success} />
+                <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color={colors.success} />
                 <Text style={styles.menuItemText}>Pedidos Completados</Text>
               </View>
-              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
 
@@ -194,10 +195,10 @@ export default function ProfileScreen() {
             }}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="gearshape.fill" size={24} color={colors.primary} />
+              <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color={colors.primary} />
               <Text style={styles.menuItemText}>Configuración</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           {user?.role !== 'printer' && (
@@ -207,10 +208,10 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/activity')}
               >
                 <View style={styles.menuItemLeft}>
-                  <IconSymbol name="clock.fill" size={24} color={colors.primary} />
+                  <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={24} color={colors.primary} />
                   <Text style={styles.menuItemText}>Actividad</Text>
                 </View>
-                <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -218,10 +219,10 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/stats')}
               >
                 <View style={styles.menuItemLeft}>
-                  <IconSymbol name="chart.bar.fill" size={24} color={colors.primary} />
+                  <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar_chart" size={24} color={colors.primary} />
                   <Text style={styles.menuItemText}>Estadísticas</Text>
                 </View>
-                <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -229,10 +230,10 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/settings/pdf-manager')}
               >
                 <View style={styles.menuItemLeft}>
-                  <IconSymbol name="doc.text.fill" size={24} color="#EF4444" />
+                  <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="picture_as_pdf" size={24} color="#EF4444" />
                   <Text style={styles.menuItemText}>Gestor PDF Pedidos</Text>
                 </View>
-                <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </>
           )}
@@ -248,10 +249,10 @@ export default function ProfileScreen() {
               onPress={() => router.push('/settings/check-control')}
             >
               <View style={styles.menuItemLeft}>
-                <IconSymbol name="doc.text.fill" size={24} color="#F59E0B" />
+                <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="receipt_long" size={24} color="#F59E0B" />
                 <Text style={styles.menuItemText}>Control de Cheques</Text>
               </View>
-              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         )}
@@ -265,10 +266,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/settings/user-manual')}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="book.fill" size={24} color="#3B82F6" />
+              <IconSymbol ios_icon_name="book.fill" android_material_icon_name="menu_book" size={24} color="#3B82F6" />
               <Text style={styles.menuItemText}>Guía de Usuario</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -276,10 +277,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/settings/admin-manual')}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="person.badge.key.fill" size={24} color="#10B981" />
+              <IconSymbol ios_icon_name="person.badge.key.fill" android_material_icon_name="admin_panel_settings" size={24} color="#10B981" />
               <Text style={styles.menuItemText}>Guía de Administrador</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -287,10 +288,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/settings/special-functions-manual')}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="sparkles" size={24} color="#F59E0B" />
+              <IconSymbol ios_icon_name="sparkles" android_material_icon_name="auto_awesome" size={24} color="#F59E0B" />
               <Text style={styles.menuItemText}>Guía de Funciones Especiales</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -298,10 +299,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/settings/technical-manual')}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="wrench.and.screwdriver.fill" size={24} color="#8B5CF6" />
+              <IconSymbol ios_icon_name="wrench.and.screwdriver.fill" android_material_icon_name="build" size={24} color="#8B5CF6" />
               <Text style={styles.menuItemText}>Guía Técnica</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -309,10 +310,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/settings/developer-manual')}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="chevron.left.forwardslash.chevron.right" size={24} color="#EF4444" />
+              <IconSymbol ios_icon_name="chevron.left.forwardslash.chevron.right" android_material_icon_name="code" size={24} color="#EF4444" />
               <Text style={styles.menuItemText}>Guía de Desarrollador</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -320,10 +321,10 @@ export default function ProfileScreen() {
             onPress={() => router.push('/settings/troubleshooting-manual')}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="wrench.adjustable.fill" size={24} color="#EC4899" />
+              <IconSymbol ios_icon_name="wrench.adjustable.fill" android_material_icon_name="handyman" size={24} color="#EC4899" />
               <Text style={styles.menuItemText}>Guía para Resolver Problemas</Text>
             </View>
-            <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -337,10 +338,10 @@ export default function ProfileScreen() {
               onPress={() => router.push('/settings/users')}
             >
               <View style={styles.menuItemLeft}>
-                <IconSymbol name="person.2.fill" size={24} color={colors.primary} />
+                <IconSymbol ios_icon_name="person.2.fill" android_material_icon_name="people" size={24} color={colors.primary} />
                 <Text style={styles.menuItemText}>Gestión de Usuarios</Text>
               </View>
-              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -348,10 +349,10 @@ export default function ProfileScreen() {
               onPress={() => router.push('/settings/whatsapp')}
             >
               <View style={styles.menuItemLeft}>
-                <IconSymbol name="message.fill" size={24} color={colors.primary} />
+                <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={24} color={colors.primary} />
                 <Text style={styles.menuItemText}>WhatsApp</Text>
               </View>
-              <IconSymbol name="chevron.right" size={20} color={colors.textSecondary} />
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         )}
@@ -363,7 +364,7 @@ export default function ProfileScreen() {
             onPress={handleSignOut}
           >
             <View style={styles.menuItemLeft}>
-              <IconSymbol name="rectangle.portrait.and.arrow.right" size={24} color={colors.error} />
+              <IconSymbol ios_icon_name="rectangle.portrait.and.arrow.right" android_material_icon_name="logout" size={24} color={colors.error} />
               <Text style={[styles.menuItemText, styles.signOutText]}>Cerrar Sesión</Text>
             </View>
           </TouchableOpacity>
