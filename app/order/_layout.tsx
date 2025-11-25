@@ -5,6 +5,9 @@ import { useTheme } from '@/contexts/ThemeContext';
 export default function OrderLayout() {
   const { currentTheme } = useTheme();
 
+  console.log('[OrderLayout] Rendering order layout');
+
+  // Let Expo Router auto-discover routes
   return (
     <Stack
       screenOptions={{
@@ -15,19 +18,6 @@ export default function OrderLayout() {
         headerShadowVisible: true,
         headerBackTitle: 'Atrás',
       }}
-    >
-      <Stack.Screen
-        name="[orderId]"
-        options={{
-          title: 'Detalle del Pedido',
-        }}
-      />
-      <Stack.Screen
-        name="new"
-        options={{
-          title: 'Nuevo Pedido Manual',
-        }}
-      />
-    </Stack>
+    />
   );
 }

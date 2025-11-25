@@ -396,7 +396,7 @@ export default function HomeScreen() {
               <TouchableOpacity onPress={() => router.push('/order/new')}>
                 <IconSymbol ios_icon_name="plus.circle.fill" android_material_icon_name="add_circle" size={28} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/settings')}>
+              <TouchableOpacity onPress={() => router.push('/settings/')}>
                 <IconSymbol ios_icon_name="gearshape.fill" android_material_icon_name="settings" size={24} color="#fff" />
               </TouchableOpacity>
             </View>

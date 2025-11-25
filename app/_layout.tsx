@@ -215,12 +215,11 @@ function RootLayoutContent() {
     }
   }, [authLoading]);
 
-  console.log('[RootLayout] Rendering - authLoading:', authLoading);
+  console.log('[RootLayout] Rendering - authLoading:', authLoading, 'user:', user ? 'authenticated' : 'not authenticated');
 
-  // FIXED: Use Slot instead of Stack to prevent duplicate screen errors
-  // Slot renders the matched child route without creating a navigator
-  // This allows nested layouts (like settings/_layout.tsx) to define their own navigators
-  // without conflicts
+  // CRITICAL FIX: Use Slot to render matched child routes
+  // This prevents duplicate screen registration errors
+  // Each nested _layout.tsx will handle its own navigation structure
   return (
     <>
       {user && <BackgroundPrintProcessor />}
@@ -230,6 +229,8 @@ function RootLayoutContent() {
 }
 
 export default function RootLayout() {
+  console.log('[RootLayout] Root component mounting');
+  
   return (
     <ThemeProvider>
       <AuthProvider>
