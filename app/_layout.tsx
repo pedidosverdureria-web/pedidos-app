@@ -217,8 +217,9 @@ function RootLayoutContent() {
 
   console.log('[RootLayout] Rendering - authLoading:', authLoading);
 
-  // FIXED: Explicitly register all route groups to prevent auto-discovery conflicts
-  // This prevents duplicate screen name errors by using initialRouteName to control routing
+  // FIXED: Removed explicit screen declarations to prevent duplicate screen name errors
+  // Expo Router will automatically discover routes from the file system
+  // Only declare screens that need special configuration
   return (
     <>
       {user && <BackgroundPrintProcessor />}
@@ -238,12 +239,6 @@ function RootLayoutContent() {
         
         {/* Order screens group - handled by order/_layout.tsx */}
         <Stack.Screen name="order" />
-        
-        {/* Settings screens group - handled by settings/_layout.tsx */}
-        <Stack.Screen name="settings" />
-        
-        {/* Customer orders - dynamic route */}
-        <Stack.Screen name="customer-orders/[customerId]" />
         
         {/* Other standalone screens */}
         <Stack.Screen name="activity" />
