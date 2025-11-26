@@ -1325,7 +1325,7 @@ export default function OrderDetailScreen() {
               <IconSymbol 
                 ios_icon_name="printer.fill"
                 android_material_icon_name="print"
-                size={32} 
+                size={24} 
                 color="#fff" 
               />
               <Text style={styles.gridButtonText}>Imprimir</Text>
@@ -1338,7 +1338,7 @@ export default function OrderDetailScreen() {
               <IconSymbol 
                 ios_icon_name="paperplane.fill"
                 android_material_icon_name="send"
-                size={32} 
+                size={24} 
                 color="#fff" 
               />
               <Text style={styles.gridButtonText}>Enviar a Impresor</Text>
@@ -1354,7 +1354,7 @@ export default function OrderDetailScreen() {
               <IconSymbol 
                 ios_icon_name="message.fill"
                 android_material_icon_name="message"
-                size={32} 
+                size={24} 
                 color="#fff" 
               />
               <Text style={styles.gridButtonText}>WhatsApp</Text>
@@ -1369,7 +1369,7 @@ export default function OrderDetailScreen() {
             <IconSymbol 
               ios_icon_name="trash.fill"
               android_material_icon_name="delete"
-              size={32} 
+              size={24} 
               color="#fff" 
             />
             <Text style={styles.gridButtonText}>Eliminar</Text>
@@ -1385,7 +1385,7 @@ export default function OrderDetailScreen() {
                 <IconSymbol 
                   ios_icon_name="checkmark.circle.fill"
                   android_material_icon_name="check-circle"
-                  size={32} 
+                  size={24} 
                   color="#fff" 
                 />
                 <Text style={styles.gridButtonText}>Desbloquear</Text>
@@ -1398,7 +1398,7 @@ export default function OrderDetailScreen() {
                 <IconSymbol 
                   ios_icon_name="xmark.circle.fill"
                   android_material_icon_name="cancel"
-                  size={32} 
+                  size={24} 
                   color="#fff" 
                 />
                 <Text style={styles.gridButtonText}>Bloquear</Text>
@@ -1991,22 +1991,22 @@ function createStyles(colors: any) {
     actionButtonsGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 12,
+      gap: 10,
       marginBottom: 16,
       paddingHorizontal: 4,
     },
     gridButton: {
       width: '48%',
-      aspectRatio: 1,
-      borderRadius: 12,
-      padding: 16,
+      borderRadius: 10,
+      padding: 12,
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 12,
+      gap: 8,
+      minHeight: 80,
     },
     gridButtonText: {
       color: '#fff',
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
       textAlign: 'center',
     },
