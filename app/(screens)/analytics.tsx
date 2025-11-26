@@ -103,11 +103,15 @@ export default function AnalyticsScreen() {
 
   // Helper function to check if order should be counted for revenue
   const isCompletedOrder = (status: string) => {
-    return status === 'delivered' || status === 'finalizado';
+    return status === 'delivered' || 
+           status === 'entregado' || 
+           status === 'abonado' || 
+           status === 'pagado' || 
+           status === 'finalizado';
   };
 
   const processAnalytics = (orders: Order[], customers: Customer[]) => {
-    // Calculate summary - include both delivered and finalizado orders
+    // Calculate summary - include delivered, entregado, abonado, pagado, and finalizado orders
     const completedOrders = orders.filter(o => isCompletedOrder(o.status));
     const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total_amount, 0);
     const totalOrders = orders.length;
@@ -161,7 +165,7 @@ export default function AnalyticsScreen() {
       .slice(0, 10);
     setTopProducts(sortedProducts);
 
-    // Process daily sales - include both delivered and finalizado orders
+    // Process daily sales - include delivered, entregado, abonado, pagado, and finalizado orders
     const salesMap = new Map<string, DailySales>();
     orders.forEach(order => {
       const date = new Date(order.created_at).toISOString().split('T')[0];
@@ -178,7 +182,7 @@ export default function AnalyticsScreen() {
       .slice(-30); // Last 30 days
     setDailySales(sortedSales);
 
-    // Process top customers - include both delivered and finalizado orders
+    // Process top customers - include delivered, entregado, abonado, pagado, and finalizado orders
     const customerMap = new Map<string, CustomerStats>();
     orders.forEach(order => {
       if (!order.customer_id) return;
