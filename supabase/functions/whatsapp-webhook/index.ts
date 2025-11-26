@@ -636,15 +636,49 @@ async function sendWhatsAppMessage(
 }
 
 /**
- * Extract customer name from contact or phone
+ * Get customer name from database by phone number
  */
-function extractCustomerName(contact: any, phone: string): string {
+async function getCustomerNameFromDatabase(supabase: any, phone: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('customers')
+      .select('name')
+      .eq('phone', phone)
+      .single();
+
+    if (error || !data) {
+      return null;
+    }
+
+    return data.name;
+  } catch (error) {
+    console.error('Error getting customer name from database:', error);
+    return null;
+  }
+}
+
+/**
+ * Extract customer name from contact or phone
+ * Prioritizes database name over WhatsApp contact name
+ */
+async function extractCustomerName(supabase: any, contact: any, phone: string): Promise<string> {
+  // First, try to get name from database
+  const dbName = await getCustomerNameFromDatabase(supabase, phone);
+  if (dbName) {
+    console.log('Using customer name from database:', dbName);
+    return dbName;
+  }
+  
+  // Fallback to WhatsApp contact name
   if (contact?.profile?.name) {
+    console.log('Using customer name from WhatsApp contact:', contact.profile.name);
     return contact.profile.name;
   }
   
   // Use last 4 digits of phone as fallback
-  return `Cliente ${phone.slice(-4)}`;
+  const fallbackName = `Cliente ${phone.slice(-4)}`;
+  console.log('Using fallback customer name:', fallbackName);
+  return fallbackName;
 }
 
 /**
@@ -770,7 +804,7 @@ serve(async (req) => {
       const blocked = await isCustomerBlocked(supabase, normalizedPhone);
       if (blocked) {
         console.log('Customer is blocked');
-        const customerName = extractCustomerName(contact, from);
+        const customerName = await extractCustomerName(supabase, contact, from);
         
         // Send blocked message
         if (config.auto_reply_enabled) {
@@ -795,7 +829,7 @@ serve(async (req) => {
       // Check if message is a greeting only
       if (isGreeting(messageText) && messageText.split(/\s+/).length <= 3) {
         console.log('Message is a greeting only');
-        const customerName = extractCustomerName(contact, from);
+        const customerName = await extractCustomerName(supabase, contact, from);
         
         if (config.auto_reply_enabled) {
           await sendWhatsAppMessage(
@@ -901,7 +935,7 @@ serve(async (req) => {
       // Create order
       console.log('Creating order...');
       
-      const customerName = extractCustomerName(contact, from);
+      const customerName = await extractCustomerName(supabase, contact, from);
       
       // Generate order number
       const { data: lastOrder } = await supabase
