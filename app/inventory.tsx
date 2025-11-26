@@ -475,9 +475,11 @@ export default function InventoryScreen() {
         <Stack.Screen
           options={{
             title: 'Inventario',
+            headerShown: true,
+            headerBackVisible: true,
             headerBackTitle: 'Atrás',
             headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
+            headerTintColor: '#FFFFFF',
           }}
         />
         <ActivityIndicator size="large" color={colors.primary} />
@@ -490,9 +492,11 @@ export default function InventoryScreen() {
       <Stack.Screen
         options={{
           title: 'Inventario',
+          headerShown: true,
+          headerBackVisible: true,
           headerBackTitle: 'Atrás',
           headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
+          headerTintColor: '#FFFFFF',
         }}
       />
       <View style={styles.container}>

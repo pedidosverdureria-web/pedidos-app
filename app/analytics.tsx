@@ -392,10 +392,12 @@ export default function AnalyticsScreen() {
       <View style={styles.loadingContainer}>
         <Stack.Screen
           options={{
-            title: 'Analytics',
+            title: 'Analítica Avanzada',
+            headerShown: true,
+            headerBackVisible: true,
             headerBackTitle: 'Atrás',
             headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
+            headerTintColor: '#FFFFFF',
           }}
         />
         <ActivityIndicator size="large" color={colors.primary} />
@@ -407,10 +409,12 @@ export default function AnalyticsScreen() {
     <>
       <Stack.Screen
         options={{
-          title: 'Analytics',
+          title: 'Analítica Avanzada',
+          headerShown: true,
+          headerBackVisible: true,
           headerBackTitle: 'Atrás',
           headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
+          headerTintColor: '#FFFFFF',
         }}
       />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
