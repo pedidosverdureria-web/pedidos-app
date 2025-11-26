@@ -312,8 +312,17 @@ export default function CheckControlScreen() {
     setAmountInWords(convertAmountToWords(value));
   };
 
-  const pendingChecks = checks.filter(c => c.status === 'pendiente');
-  const paidChecks = checks.filter(c => c.status === 'pagado');
+  // Sort checks by date in descending order (most recent first)
+  const sortChecksByDate = (checksArray: Check[]) => {
+    return [...checksArray].sort((a, b) => {
+      const dateA = new Date(a.check_date + 'T00:00:00').getTime();
+      const dateB = new Date(b.check_date + 'T00:00:00').getTime();
+      return dateB - dateA; // Descending order
+    });
+  };
+
+  const pendingChecks = sortChecksByDate(checks.filter(c => c.status === 'pendiente'));
+  const paidChecks = sortChecksByDate(checks.filter(c => c.status === 'pagado'));
   const totalDebt = pendingChecks.reduce((sum, check) => sum + check.amount, 0);
 
   const styles = StyleSheet.create({
