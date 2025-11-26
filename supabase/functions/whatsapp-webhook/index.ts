@@ -2,9 +2,19 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-// Number words mapping (Spanish)
+// ============================================================================
+// PARSING UTILITIES (Extracted from local whatsappParser.ts)
+// ============================================================================
+
+interface ParsedOrderItem {
+  quantity: number | string;
+  unit: string;
+  product: string;
+}
+
+// Spanish number words mapping
 const NUMBER_WORDS: Record<string, number> = {
-  'un': 1, 'una': 1, 'uno': 1,
+  'un': 1, 'uno': 1, 'una': 1,
   'dos': 2,
   'tres': 3,
   'cuatro': 4,
@@ -19,44 +29,104 @@ const NUMBER_WORDS: Record<string, number> = {
   'trece': 13,
   'catorce': 14,
   'quince': 15,
-  'dieciseis': 16, 'dieciséis': 16,
+  'dieciséis': 16, 'dieciseis': 16,
   'diecisiete': 17,
   'dieciocho': 18,
   'diecinueve': 19,
   'veinte': 20,
+  'veintiuno': 21, 'veintiuna': 21,
+  'veintidós': 22, 'veintidos': 22,
+  'veintitrés': 23, 'veintitres': 23,
+  'veinticuatro': 24,
+  'veinticinco': 25,
+  'treinta': 30,
+  'cuarenta': 40,
+  'cincuenta': 50,
+  'sesenta': 60,
+  'setenta': 70,
+  'ochenta': 80,
+  'noventa': 90,
+  'cien': 100, 'ciento': 100,
 };
 
-// Fraction words mapping (Spanish)
+// Spanish fraction words mapping
 const FRACTION_WORDS: Record<string, number> = {
   'medio': 0.5, 'media': 0.5,
   'cuarto': 0.25,
   'tercio': 0.33,
+  'tres cuartos': 0.75,
 };
 
-// Unit variations mapping
-const UNIT_VARIATIONS: Record<string, string[]> = {};
+// Common unit variations
+const UNIT_VARIATIONS: Record<string, string[]> = {
+  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
+  'gramo': ['gramo', 'gramos', 'gr', 'g'],
+  'unidad': ['unidad', 'unidades', 'u', 'und'],
+  'bolsa': ['bolsa', 'bolsas'],
+  'malla': ['malla', 'mallas'],
+  'saco': ['saco', 'sacos'],
+  'cajón': ['cajón', 'cajon', 'cajones'],
+  'atado': ['atado', 'atados'],
+  'cabeza': ['cabeza', 'cabezas'],
+  'libra': ['libra', 'libras', 'lb', 'lbs'],
+  'docena': ['docena', 'docenas'],
+  'paquete': ['paquete', 'paquetes'],
+  'caja': ['caja', 'cajas'],
+  'litro': ['litro', 'litros', 'lt', 'l'],
+  'metro': ['metro', 'metros', 'm'],
+};
 
-// Greeting patterns
+// Greeting and closing patterns to remove
 const GREETING_PATTERNS = [
-  /^(hola|buenos días|buenas tardes|buenas noches|saludos)/i,
-  /^(hi|hello|hey)/i,
+  /^hola\s*/i,
+  /^buenos?\s+d[ií]as?\s*/i,
+  /^buenas?\s+tardes?\s*/i,
+  /^buenas?\s+noches?\s*/i,
+  /^buen\s+d[ií]a\s*/i,
+  /^buena\s+tarde\s*/i,
+  /^buena\s+noche\s*/i,
+  /^saludos?\s*/i,
+  /^holi+\s*/i,
+  /^hey\s*/i,
+  /^ey\s*/i,
+  /^qu[eé]\s+tal\s*/i,
+  /^c[oó]mo\s+est[aá]s?\s*/i,
+  /^c[oó]mo\s+est[aá]n\s*/i,
+  /^qu[eé]\s+onda\s*/i,
 ];
 
-// Closing patterns
 const CLOSING_PATTERNS = [
-  /(gracias|muchas gracias|saludos|hasta luego|chao|adiós)$/i,
-  /(thanks|thank you|bye|goodbye)$/i,
+  /\s*gracias\.?$/i,
+  /\s*muchas\s+gracias\.?$/i,
+  /\s*mil\s+gracias\.?$/i,
+  /\s*saludos\.?$/i,
+  /\s*bendiciones\.?$/i,
+  /\s*que\s+est[eé]s?\s+bien\.?$/i,
+  /\s*que\s+est[eé]n\s+bien\.?$/i,
+  /\s*hasta\s+luego\.?$/i,
+  /\s*nos\s+vemos\.?$/i,
+  /\s*chao\.?$/i,
+  /\s*adi[oó]s\.?$/i,
+  /\s*buen\s+d[ií]a\.?$/i,
+  /\s*buena\s+tarde\.?$/i,
+  /\s*buena\s+noche\.?$/i,
 ];
 
-// Filler patterns to remove
 const FILLER_PATTERNS = [
-  /por favor/gi,
-  /porfavor/gi,
-  /porfa/gi,
-  /please/gi,
+  /^quiero\s+hacer\s+un\s+pedido\s*/i,
+  /^quisiera\s+hacer\s+un\s+pedido\s*/i,
+  /^necesito\s+hacer\s+un\s+pedido\s*/i,
+  /^me\s+gustar[ií]a\s+hacer\s+un\s+pedido\s*/i,
+  /^quiero\s+pedir\s*/i,
+  /^quisiera\s+pedir\s*/i,
+  /^necesito\s+pedir\s*/i,
+  /^me\s+gustar[ií]a\s+pedir\s*/i,
+  /^mi\s+pedido\s+es\s*/i,
+  /^el\s+pedido\s+es\s*/i,
+  /^voy\s+a\s+pedir\s*/i,
+  /^por\s+favor\s*/i,
 ];
 
-// Question patterns
 const QUESTION_PATTERNS = [
   /\?$/,
   /^(cuánto|cuanto|cuando|dónde|donde|qué|que|cómo|como|por qué|porque)/i,
@@ -64,380 +134,634 @@ const QUESTION_PATTERNS = [
 ];
 
 /**
- * Extract the product list from a message, removing greetings and closings
+ * Extracts only the product list from a message, removing greetings, closings, and filler text
  */
 function extractProductList(message: string): string {
-  let cleanedMessage = message;
+  let cleaned = message.trim();
 
-  // Remove greetings from the start
+  console.log('Original message:', cleaned);
+
+  // Remove greeting patterns from the beginning
   for (const pattern of GREETING_PATTERNS) {
-    cleanedMessage = cleanedMessage.replace(pattern, '').trim();
+    cleaned = cleaned.replace(pattern, '');
   }
 
-  // Remove closings from the end
+  // Remove closing patterns from the end
   for (const pattern of CLOSING_PATTERNS) {
-    cleanedMessage = cleanedMessage.replace(pattern, '').trim();
+    cleaned = cleaned.replace(pattern, '');
   }
 
-  // Remove filler words
+  // Remove filler patterns from the beginning
   for (const pattern of FILLER_PATTERNS) {
-    cleanedMessage = cleanedMessage.replace(pattern, '').trim();
+    cleaned = cleaned.replace(pattern, '');
   }
 
-  return cleanedMessage;
-}
+  // Remove lines that are purely greetings or questions (no product info)
+  const lines = cleaned.split('\n');
+  const productLines: string[] = [];
 
-/**
- * Load known units from database
- */
-async function loadKnownUnits(supabase: any) {
-  try {
-    const { data, error } = await supabase
-      .from('known_units')
-      .select('unit_name, variations');
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines
+    if (!trimmedLine) continue;
 
-    if (error) {
-      console.error('Error loading known units:', error);
-      return;
-    }
-
-    // Clear existing variations
-    for (const key in UNIT_VARIATIONS) {
-      delete UNIT_VARIATIONS[key];
-    }
-
-    // Load variations from database
-    for (const unit of data || []) {
-      UNIT_VARIATIONS[unit.unit_name.toLowerCase()] = unit.variations.map((v: string) => v.toLowerCase());
-    }
-
-    console.log('Loaded known units:', Object.keys(UNIT_VARIATIONS).length);
-  } catch (error) {
-    console.error('Error loading known units:', error);
-  }
-}
-
-/**
- * Normalize phone number to international format
- */
-function normalizePhoneNumber(phone: string): string {
-  // Remove all non-digit characters
-  let cleaned = phone.replace(/\D/g, '');
-  
-  // If it starts with 56 (Chile country code), keep it
-  if (cleaned.startsWith('56')) {
-    return '+' + cleaned;
-  }
-  
-  // If it starts with 9 (Chilean mobile), add country code
-  if (cleaned.startsWith('9') && cleaned.length === 9) {
-    return '+56' + cleaned;
-  }
-  
-  // Otherwise, assume it already has country code
-  return '+' + cleaned;
-}
-
-/**
- * Check if phone number is in authorized list
- */
-async function loadAuthorizedPhones(supabase: any): Promise<Set<string>> {
-  try {
-    const { data, error } = await supabase
-      .from('authorized_phones')
-      .select('phone_number');
-
-    if (error) {
-      console.error('Error loading authorized phones:', error);
-      return new Set();
-    }
-
-    const authorizedSet = new Set<string>();
-    for (const record of data || []) {
-      const normalized = normalizePhoneNumber(record.phone_number);
-      authorizedSet.add(normalized);
-    }
-
-    console.log('Loaded authorized phones:', authorizedSet.size);
-    return authorizedSet;
-  } catch (error) {
-    console.error('Error loading authorized phones:', error);
-    return new Set();
-  }
-}
-
-/**
- * Add a new unit variation to the database
- */
-async function addNewUnit(supabase: any, unitName: string, variation: string) {
-  try {
-    // Check if unit already exists
-    const { data: existing } = await supabase
-      .from('known_units')
-      .select('id, variations')
-      .eq('unit_name', unitName)
-      .single();
-
-    if (existing) {
-      // Add variation if it doesn't exist
-      if (!existing.variations.includes(variation)) {
-        const updatedVariations = [...existing.variations, variation];
-        await supabase
-          .from('known_units')
-          .update({ variations: updatedVariations, updated_at: new Date().toISOString() })
-          .eq('id', existing.id);
-        console.log(`Added variation "${variation}" to unit "${unitName}"`);
-      }
-    } else {
-      // Create new unit
-      await supabase
-        .from('known_units')
-        .insert({
-          unit_name: unitName,
-          variations: [variation],
-          is_custom: true,
-        });
-      console.log(`Created new unit "${unitName}" with variation "${variation}"`);
-    }
-  } catch (error) {
-    console.error('Error adding new unit:', error);
-  }
-}
-
-/**
- * Convert number word to numeric value
- */
-function convertNumberWord(word: string): number | null {
-  const lowerWord = word.toLowerCase();
-  return NUMBER_WORDS[lowerWord] || null;
-}
-
-/**
- * Convert fraction word to numeric value
- */
-function convertFractionWord(word: string): number | null {
-  const lowerWord = word.toLowerCase();
-  return FRACTION_WORDS[lowerWord] || null;
-}
-
-/**
- * Parse quantity value (handles numbers, fractions, and words)
- */
-function parseQuantityValue(quantityStr: string): string {
-  const lowerQuantity = quantityStr.toLowerCase().trim();
-
-  // Check for fraction words
-  const fractionValue = convertFractionWord(lowerQuantity);
-  if (fractionValue !== null) {
-    return fractionValue.toString();
-  }
-
-  // Check for number words
-  const numberValue = convertNumberWord(lowerQuantity);
-  if (numberValue !== null) {
-    return numberValue.toString();
-  }
-
-  // Check for numeric fractions (e.g., "1/2")
-  if (lowerQuantity.includes('/')) {
-    const parts = lowerQuantity.split('/');
-    if (parts.length === 2) {
-      const numerator = parseFloat(parts[0]);
-      const denominator = parseFloat(parts[1]);
-      if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
-        return (numerator / denominator).toString();
+    // Skip lines that are only greetings
+    let isGreeting = false;
+    for (const pattern of GREETING_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isGreeting = true;
+        break;
       }
     }
+    if (isGreeting) continue;
+
+    // Skip lines that are only closings
+    let isClosing = false;
+    for (const pattern of CLOSING_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isClosing = true;
+        break;
+      }
+    }
+    if (isClosing) continue;
+
+    // Skip lines that are only filler text
+    let isFiller = false;
+    for (const pattern of FILLER_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isFiller = true;
+        break;
+      }
+    }
+    if (isFiller) continue;
+
+    // Skip lines that are questions (contain ?)
+    if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
+
+    // Check if line contains product-like patterns
+    const hasProductPattern = 
+      /\d+/.test(trimmedLine) ||
+      /\b(kilo|kg|gramo|gr|unidad|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
+      /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) ||
+      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine);
+
+    if (hasProductPattern) {
+      productLines.push(trimmedLine);
+    }
   }
 
-  // Check for decimal numbers
-  const numericValue = parseFloat(lowerQuantity);
-  if (!isNaN(numericValue)) {
-    return numericValue.toString();
-  }
+  const result = productLines.length > 0 ? productLines.join('\n') : cleaned.trim();
 
-  // If we can't parse it, return '#' to indicate unknown quantity
-  return '#';
+  console.log('Extracted product list:', result);
+
+  return result;
 }
 
 /**
- * Check if a word is a known unit
+ * Checks if a word is a known unit
  */
 function isKnownUnit(word: string): boolean {
-  const lowerWord = word.toLowerCase();
-  
-  // Check if it's a base unit name
-  if (UNIT_VARIATIONS[lowerWord]) {
-    return true;
-  }
-  
-  // Check if it's a variation of any unit
+  if (!word) return false;
+
+  const normalized = word.toLowerCase().trim().replace(/[.,;:!?]$/, '');
+
   for (const variations of Object.values(UNIT_VARIATIONS)) {
-    if (variations.includes(lowerWord)) {
+    if (variations.includes(normalized)) {
       return true;
     }
   }
-  
+
   return false;
 }
 
 /**
- * Normalize unit to its base form
+ * Normalizes a unit to its standard form
  */
-function normalizeUnit(unit: string, quantity: number): string {
-  const lowerUnit = unit.toLowerCase();
-  
-  // Find the base unit name
-  for (const [baseName, variations] of Object.entries(UNIT_VARIATIONS)) {
-    if (baseName === lowerUnit || variations.includes(lowerUnit)) {
-      // Return singular or plural form based on quantity
+function normalizeUnit(unit: string, quantity: number = 1): string {
+  if (!unit || !unit.trim()) {
+    return quantity === 1 ? 'unidad' : 'unidades';
+  }
+
+  const normalized = unit.toLowerCase().trim().replace(/[.,;:!?]$/, '');
+
+  for (const [standardUnit, variations] of Object.entries(UNIT_VARIATIONS)) {
+    if (variations.includes(normalized)) {
       if (quantity === 1) {
-        return baseName;
+        return standardUnit;
       } else {
-        // Simple pluralization (works for most Spanish units)
-        if (baseName.endsWith('s') || baseName.endsWith('z')) {
-          return baseName;
-        }
-        return baseName + 's';
+        // Handle pluralization
+        if (standardUnit === 'cajón') return 'cajones';
+        if (standardUnit.endsWith('z')) return standardUnit.slice(0, -1) + 'ces';
+        return standardUnit + 's';
       }
     }
   }
-  
-  return unit;
+
+  return normalized;
 }
 
 /**
- * Clean a segment by removing extra whitespace and punctuation
+ * Converts a number word to its numeric value
+ */
+function convertNumberWord(word: string): number | null {
+  const normalized = word.toLowerCase().trim();
+  return NUMBER_WORDS[normalized] ?? null;
+}
+
+/**
+ * Converts a fraction word to its numeric value
+ */
+function convertFractionWord(word: string): number | null {
+  const normalized = word.toLowerCase().trim();
+  return FRACTION_WORDS[normalized] ?? null;
+}
+
+/**
+ * Parses a quantity value from a string with enhanced intelligence
+ */
+function parseQuantityValue(quantityStr: string): number {
+  if (!quantityStr || !quantityStr.trim()) {
+    return 0;
+  }
+
+  const trimmed = quantityStr.trim().toLowerCase();
+
+  // Handle "y medio" or "y media" patterns
+  const yMedioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media)$/);
+  if (yMedioMatch) {
+    const integer = parseFloat(yMedioMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.5;
+    }
+  }
+
+  // Handle "y cuarto" patterns
+  const yCuartoMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*cuarto$/);
+  if (yCuartoMatch) {
+    const integer = parseFloat(yCuartoMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.25;
+    }
+  }
+
+  // Handle "y tres cuartos" patterns
+  const yTresCuartosMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*tres\s+cuartos$/);
+  if (yTresCuartosMatch) {
+    const integer = parseFloat(yTresCuartosMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.75;
+    }
+  }
+
+  // Handle "y tercio" patterns
+  const yTercioMatch = trimmed.match(/^(\d+(?:\.\d+)?)\s*y\s*tercio$/);
+  if (yTercioMatch) {
+    const integer = parseFloat(yTercioMatch[1]);
+    if (!isNaN(integer)) {
+      return integer + 0.33;
+    }
+  }
+
+  // Combined integer and fraction with space (e.g., "1 1/2")
+  const combinedSpaceMatch = trimmed.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (combinedSpaceMatch) {
+    const integer = parseFloat(combinedSpaceMatch[1]);
+    const numerator = parseFloat(combinedSpaceMatch[2]);
+    const denominator = parseFloat(combinedSpaceMatch[3]);
+    
+    if (!isNaN(integer) && !isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+      return integer + (numerator / denominator);
+    }
+  }
+
+  // Simple fraction (e.g., "1/2", "3/4")
+  if (trimmed.includes('/')) {
+    const parts = trimmed.split('/');
+    if (parts.length === 2) {
+      const numerator = parseFloat(parts[0].trim());
+      const denominator = parseFloat(parts[1].trim());
+
+      if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+        return numerator / denominator;
+      }
+    }
+  }
+
+  // Number (decimal or integer) - handle both comma and period
+  const numValue = parseFloat(trimmed.replace(',', '.'));
+  if (!isNaN(numValue)) {
+    return numValue;
+  }
+
+  // Text number
+  const textValue = convertNumberWord(trimmed);
+  if (textValue !== null) {
+    return textValue;
+  }
+
+  // Fraction word
+  const fractionValue = convertFractionWord(trimmed);
+  if (fractionValue !== null) {
+    return fractionValue;
+  }
+
+  console.warn(`Could not parse quantity: "${quantityStr}"`);
+  return 0;
+}
+
+/**
+ * Cleans a segment for parsing by removing bullet points, numbering, and other list formatting
  */
 function cleanSegment(segment: string): string {
-  return segment
-    .replace(/[,;]/g, '') // Remove commas and semicolons
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim();
+  let cleaned = segment.trim();
+  
+  // Remove common bullet point characters at the start
+  cleaned = cleaned.replace(/^[•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→⟶⟹⟼⤏⤐⤑⤔⤕⤖⤗⤘⤙⤚⤛⤜⤝⤞⤟⤠⤡⤢⤣⤤⤥⤦⤧⤨⤩⤪⤫⤬⤭⤮⤯⤰⤱⤲⤳⤴⤵⤶⤷⤸⤹⤺⤻⤼⤽⤾⤿⥀⥁⥂⥃⥄⥅⥆⥇⥈⥉⥊⥋⥌⥍⥎⥏⥐⥑⥒⥓⥔⥕⥖⥗⥘⥙⥚⥛⥜⥝⥞⥟⥠⥡⥢⥣⥤⥥⥦⥧⥨⥩⥪⥫⥬⥭⥮⥯⥰⥱⥲⥳⥴⥵⥶⥷⥸⥹⥺⥻⥼⥽⥾⥿·*+~]\s*/, '');
+  
+  // Remove numbered list markers
+  cleaned = cleaned.replace(/^\d+[.):]\s*/, '');
+  
+  // Remove lettered list markers
+  cleaned = cleaned.replace(/^[a-zA-Z][.):]\s*/, '');
+  
+  // Remove Roman numeral list markers
+  cleaned = cleaned.replace(/^(?:i{1,3}|iv|v|vi{0,3}|ix|x|xi{0,3}|xiv|xv)[.):]\s*/i, '');
+  
+  // Remove parenthesized numbers or letters at the start
+  cleaned = cleaned.replace(/^\([0-9a-zA-Z]+\)\s*/, '');
+  
+  // Remove square bracketed numbers or letters at the start
+  cleaned = cleaned.replace(/^\[[0-9a-zA-Z]+\]\s*/, '');
+  
+  // Remove dashes, asterisks, or plus signs that might be used as bullets
+  cleaned = cleaned.replace(/^[*+~]\s+/, '');
+  
+  // Remove any remaining leading whitespace
+  cleaned = cleaned.trim();
+  
+  return cleaned;
 }
 
 /**
- * Parse a single segment (product line)
+ * Advanced segment parser with multiple intelligent strategies
  */
-function parseSegment(segment: string): { product: string; quantity: string; unit: string } | null {
-  const cleaned = cleanSegment(segment);
-  if (!cleaned) return null;
+function parseSegment(segment: string): ParsedOrderItem {
+  const trimmed = segment.trim();
 
-  const words = cleaned.split(/\s+/);
-  
-  // Try to find quantity and unit
-  let quantity = '#';
-  let unit = '';
-  let productWords: string[] = [];
-  let foundQuantity = false;
+  if (!trimmed) {
+    return { quantity: '#', unit: '', product: trimmed };
+  }
 
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i];
+  const cleaned = cleanSegment(trimmed);
+
+  if (!cleaned) {
+    return { quantity: '#', unit: '', product: trimmed };
+  }
+
+  // Strategy 1: Integer + Space + Fraction + Unit + "de" + Product
+  let match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1];
+    const quantity = parseQuantityValue(quantityStr);
+    const unitStr = match[2];
+    const product = match[3].trim();
     
-    // Check if this word is a quantity
-    if (!foundQuantity) {
-      const parsedQuantity = parseQuantityValue(word);
-      if (parsedQuantity !== '#') {
-        quantity = parsedQuantity;
-        foundQuantity = true;
-        
-        // Check if next word is a unit
-        if (i + 1 < words.length && isKnownUnit(words[i + 1])) {
-          unit = normalizeUnit(words[i + 1], parseFloat(quantity));
-          i++; // Skip the unit word
-        }
-        continue;
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 2: Integer + Space + Fraction + "de" + Product (no explicit unit)
+  match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1];
+    const quantity = parseQuantityValue(quantityStr);
+    const product = match[2].trim();
+    
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit('kilo', quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 3: Integer + Space + Fraction + Product (no "de", no explicit unit)
+  match = cleaned.match(/^(\d+\s+\d+\/\d+)\s+([a-zA-ZáéíóúñÁÉÍÓÚÑ].+)$/i);
+  if (match) {
+    const quantityStr = match[1];
+    const quantity = parseQuantityValue(quantityStr);
+    const restOfText = match[2].trim();
+    
+    const firstWord = restOfText.split(/\s+/)[0];
+    if (isKnownUnit(firstWord)) {
+      const unitStr = firstWord;
+      const product = restOfText.substring(firstWord.length).trim();
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit(unitStr, quantity);
+        return { quantity, unit, product };
+      }
+    } else {
+      if (quantity > 0 && restOfText) {
+        const unit = normalizeUnit('kilo', quantity);
+        return { quantity, unit, product: restOfText };
       }
     }
-    
-    // Check if this word is a unit (without explicit quantity)
-    if (!foundQuantity && isKnownUnit(word)) {
-      quantity = '1';
-      unit = normalizeUnit(word, 1);
-      foundQuantity = true;
-      continue;
+  }
+
+  // Strategy 4: Number word + "y" + fraction word + Unit + "de" + Product
+  match = cleaned.match(/^(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*y\s*(medio|media|cuarto|tercio)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const numberWord = match[1].toLowerCase();
+    const fractionWord = match[2].toLowerCase();
+    const unitStr = match[3];
+    const product = match[4].trim();
+
+    const baseQuantity = convertNumberWord(numberWord) || 1;
+    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    const quantity = baseQuantity + fractionValue;
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
     }
+  }
+
+  // Strategy 5: Number word + "y" + fraction word + "de" + Product (no explicit unit)
+  match = cleaned.match(/^(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s*y\s*(medio|media|cuarto|tercio)\s+de\s+(.+)$/i);
+  if (match) {
+    const numberWord = match[1].toLowerCase();
+    const fractionWord = match[2].toLowerCase();
+    const product = match[3].trim();
+
+    const baseQuantity = convertNumberWord(numberWord) || 1;
+    const fractionValue = fractionWord === 'cuarto' ? 0.25 : fractionWord === 'tercio' ? 0.33 : 0.5;
+    const quantity = baseQuantity + fractionValue;
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit('kilo', quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 6: Quantity + "y medio/media/cuarto/tercio" + Unit + "de" + Product
+  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio|tres\s+cuartos)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const baseQuantity = parseFloat(match[1]);
+    const fractionWord = match[2].toLowerCase();
+    let fractionValue = 0.5;
+    if (fractionWord === 'cuarto') fractionValue = 0.25;
+    else if (fractionWord === 'tercio') fractionValue = 0.33;
+    else if (fractionWord.includes('tres') && fractionWord.includes('cuartos')) fractionValue = 0.75;
     
-    // Otherwise, it's part of the product name
-    productWords.push(word);
+    const quantity = baseQuantity + fractionValue;
+    const unitStr = match[3];
+    const product = match[4].trim();
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
   }
 
-  // If we didn't find a quantity, the whole thing is the product name
-  if (!foundQuantity) {
-    productWords = words;
+  // Strategy 7: Quantity + "y medio/media/cuarto/tercio" + "de" + Product (no explicit unit)
+  match = cleaned.match(/^(\d+(?:\.\d+)?)\s*y\s*(medio|media|cuarto|tercio|tres\s+cuartos)\s+de\s+(.+)$/i);
+  if (match) {
+    const baseQuantity = parseFloat(match[1]);
+    const fractionWord = match[2].toLowerCase();
+    let fractionValue = 0.5;
+    if (fractionWord === 'cuarto') fractionValue = 0.25;
+    else if (fractionWord === 'tercio') fractionValue = 0.33;
+    else if (fractionWord.includes('tres') && fractionWord.includes('cuartos')) fractionValue = 0.75;
+    
+    const quantity = baseQuantity + fractionValue;
+    const product = match[3].trim();
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit('kilo', quantity);
+      return { quantity, unit, product };
+    }
   }
 
-  const product = productWords.join(' ').trim();
-  
-  if (!product) return null;
+  // Strategy 8: Fraction word + Unit + "de" + Product
+  match = cleaned.match(/^(medio|media|cuarto|tercio|tres\s+cuartos|un|uno|una)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityWord = match[1].toLowerCase();
+    const unitStr = match[2];
+    const product = match[3].trim();
 
-  return {
-    product,
-    quantity,
-    unit: unit || '',
-  };
+    let quantity = 1;
+    if (quantityWord === 'medio' || quantityWord === 'media') {
+      quantity = 0.5;
+    } else if (quantityWord === 'cuarto') {
+      quantity = 0.25;
+    } else if (quantityWord === 'tercio') {
+      quantity = 0.33;
+    } else if (quantityWord.includes('tres') && quantityWord.includes('cuartos')) {
+      quantity = 0.75;
+    }
+
+    if (product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 9: Fraction word + "de" + Product (no explicit unit)
+  match = cleaned.match(/^(medio|media|cuarto|tercio|tres\s+cuartos)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityWord = match[1].toLowerCase();
+    const product = match[2].trim();
+
+    let quantity = 0.5;
+    if (quantityWord === 'cuarto') {
+      quantity = 0.25;
+    } else if (quantityWord === 'tercio') {
+      quantity = 0.33;
+    } else if (quantityWord.includes('tres') && quantityWord.includes('cuartos')) {
+      quantity = 0.75;
+    }
+
+    if (product) {
+      const unit = normalizeUnit('kilo', quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 10: Quantity + Unit + "de" + Product
+  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1].replace(',', '.');
+    const quantity = parseQuantityValue(quantityStr);
+    const unitStr = match[2];
+    const product = match[3].trim();
+
+    if (quantity > 0 && product) {
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 11: Quantity + Unit + Product (no "de")
+  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1].replace(',', '.');
+    const potentialUnit = match[2];
+
+    if (isKnownUnit(potentialUnit)) {
+      const quantity = parseQuantityValue(quantityStr);
+      const product = match[3].trim();
+
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit(potentialUnit, quantity);
+        return { quantity, unit, product };
+      }
+    }
+  }
+
+  // Strategy 12: Quantity + Product (no explicit unit)
+  match = cleaned.match(/^(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(.+)$/i);
+  if (match) {
+    const quantityStr = match[1].replace(',', '.');
+    const quantity = parseQuantityValue(quantityStr);
+    const restOfText = match[2].trim();
+
+    const firstWord = restOfText.split(/\s+/)[0];
+    if (quantity > 0 && restOfText && !isKnownUnit(firstWord)) {
+      const unit = normalizeUnit('', quantity);
+      return { quantity, unit, product: restOfText };
+    }
+  }
+
+  // Strategy 13: Product + Quantity + Unit (reversed order)
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)$/i);
+  if (match) {
+    const product = match[1].trim();
+    const quantityStr = match[2].replace(',', '.');
+    const unitStr = match[3];
+
+    if (isKnownUnit(unitStr)) {
+      const quantity = parseQuantityValue(quantityStr);
+
+      if (quantity > 0 && product) {
+        const unit = normalizeUnit(unitStr, quantity);
+        return { quantity, unit, product };
+      }
+    }
+  }
+
+  // Strategy 14: Product + Quantity (no unit, reversed order)
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)$/i);
+  if (match) {
+    const product = match[1].trim();
+    const quantityStr = match[2].replace(',', '.');
+    const quantity = parseQuantityValue(quantityStr);
+
+    if (quantity > 0 && product && !isKnownUnit(product.split(/\s+/).pop() || '')) {
+      const unit = normalizeUnit('', quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 15: Unit + "de" + Product (no explicit quantity, assume 1)
+  match = cleaned.match(/^(\w+)\s+de\s+(.+)$/i);
+  if (match) {
+    const unitStr = match[1];
+    const product = match[2].trim();
+
+    if (isKnownUnit(unitStr) && product) {
+      const quantity = 1;
+      const unit = normalizeUnit(unitStr, quantity);
+      return { quantity, unit, product };
+    }
+  }
+
+  // Strategy 16: Just Product (default to 1 unit)
+  if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
+    return { quantity: 1, unit: 'unidad', product: cleaned };
+  }
+
+  // Fallback: unparseable item with "#" quantity
+  console.warn(`Could not parse: "${cleaned}"`);
+  return { quantity: '#', unit: '', product: cleaned };
 }
 
 /**
- * Split a line into segments (handles various separators)
+ * Splits a line into multiple segments
  */
 function splitLineIntoSegments(line: string): string[] {
-  // Split by common separators: newlines, commas, semicolons, "y", "and"
-  const segments = line.split(/[\n,;]|(?:\s+y\s+)|(?:\s+and\s+)/i);
-  return segments.filter(s => s.trim().length > 0);
-}
+  const trimmed = line.trim();
 
-/**
- * Check if message is in horizontal format (multiple items on one line)
- */
-function isHorizontalFormat(message: string): boolean {
-  const lines = message.split('\n').filter(l => l.trim().length > 0);
-  if (lines.length > 1) return false;
-  
-  // Check for separators that indicate horizontal format
-  return /[,;]|(?:\s+y\s+)|(?:\s+and\s+)/i.test(message);
-}
-
-/**
- * Parse WhatsApp message into order items
- */
-function parseWhatsAppMessage(message: string): any[] {
-  const items: any[] = [];
-  
-  // Extract product list (remove greetings and closings)
-  const productList = extractProductList(message);
-  
-  if (!productList) {
-    console.log('No product list found after cleaning');
-    return items;
+  if (!trimmed) {
+    return [];
   }
 
-  // Determine format (horizontal or vertical)
-  const isHorizontal = isHorizontalFormat(productList);
-  console.log('Message format:', isHorizontal ? 'horizontal' : 'vertical');
+  // Split by commas, semicolons, or pipe characters
+  if (trimmed.match(/[,;|]/)) {
+    return trimmed.split(/[,;|]/).map(s => s.trim()).filter(s => s.length > 0);
+  }
 
-  if (isHorizontal) {
-    // Parse horizontal format (single line with separators)
-    const segments = splitLineIntoSegments(productList);
+  // Check for multiple items on same line with "y" separator
+  const yPattern = /\s+y\s+(?=\d|medio|media|cuarto|tercio|un|uno|una|dos|tres|cuatro|cinco)/i;
+  if (yPattern.test(trimmed)) {
+    return trimmed.split(yPattern).map(s => s.trim()).filter(s => s.length > 0);
+  }
+
+  return [trimmed];
+}
+
+/**
+ * Parses a WhatsApp message into a list of order items
+ */
+function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
+  if (!message || !message.trim()) {
+    console.log('Empty message provided');
+    return [];
+  }
+
+  const productListOnly = extractProductList(message);
+
+  if (!productListOnly || !productListOnly.trim()) {
+    console.log('No product list found after extraction');
+    return [];
+  }
+
+  const lines = productListOnly.split('\n');
+  const orderItems: ParsedOrderItem[] = [];
+
+  console.log(`\n========== INTELLIGENT PARSING (${lines.length} lines) ==========`);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (!line) {
+      continue;
+    }
+
+    console.log(`\n--- Line ${i + 1}: "${line}"`);
+
+    const segments = splitLineIntoSegments(line);
+    console.log(`  Segments: ${segments.length}`);
+
     for (const segment of segments) {
-      const parsed = parseSegment(segment);
-      if (parsed) {
-        items.push(parsed);
-      }
-    }
-  } else {
-    // Parse vertical format (one item per line)
-    const lines = productList.split('\n').filter(l => l.trim().length > 0);
-    for (const line of lines) {
-      const parsed = parseSegment(line);
-      if (parsed) {
-        items.push(parsed);
+      try {
+        const parsedItem = parseSegment(segment);
+        orderItems.push(parsedItem);
+
+        if (parsedItem.quantity === '#') {
+          console.log(`  ⚠ Unparseable: "${segment}"`);
+        } else {
+          console.log(`  ✓ Success: "${segment}" → ${parsedItem.quantity} ${parsedItem.unit} de ${parsedItem.product}`);
+        }
+      } catch (error) {
+        console.error(`  ✗ Error parsing segment "${segment}":`, error);
+        orderItems.push({ quantity: '#', unit: '', product: segment });
       }
     }
   }
 
-  console.log('Parsed items:', items.length);
-  return items;
+  console.log(`\n========== PARSING COMPLETE: ${orderItems.length} items ==========\n`);
+  return orderItems;
 }
 
 /**
@@ -449,19 +773,15 @@ function isGreeting(message: string): boolean {
 }
 
 /**
- * Check if message contains "new order" keywords
+ * Check if message is a question
  */
-function isNewOrderKeyword(message: string): boolean {
-  const lowerMessage = message.toLowerCase();
-  return /\b(nuevo pedido|new order|pedido nuevo)\b/i.test(lowerMessage);
+function isQuestion(message: string): boolean {
+  return QUESTION_PATTERNS.some(pattern => pattern.test(message));
 }
 
-/**
- * Remove "new order" keywords from message
- */
-function removeNewOrderKeywords(message: string): string {
-  return message.replace(/\b(nuevo pedido|new order|pedido nuevo)\b/gi, '').trim();
-}
+// ============================================================================
+// MESSAGE FORMATTING UTILITIES
+// ============================================================================
 
 /**
  * Format currency (Chilean Peso)
@@ -476,20 +796,19 @@ function formatCLP(amount: number): string {
 /**
  * Format items list for WhatsApp message
  */
-function formatItemsList(items: any[], showPrices: boolean = false): string {
+function formatItemsList(items: ParsedOrderItem[], showPrices: boolean = false): string {
   return items.map((item) => {
     const quantity = item.quantity === '#' ? '' : `${item.quantity} `;
     const unit = item.unit ? `${item.unit} ` : '';
-    const productName = item.product || item.product_name || 'Producto';
-    const price = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    return `• ${quantity}${unit}${productName}${price}`;
+    const productName = item.product || 'Producto';
+    return `• ${quantity}${unit}${productName}`;
   }).join('\n');
 }
 
 /**
  * Create confirmation message for new order
  */
-function createConfirmationMessage(customerName: string, orderNumber: string, items: any[]): string {
+function createConfirmationMessage(customerName: string, orderNumber: string, items: ParsedOrderItem[]): string {
   return `✅ *¡Pedido Recibido!*\n\n` +
     `Hola ${customerName}, hemos recibido tu pedido correctamente.\n\n` +
     `📋 *Número de pedido:* ${orderNumber}\n\n` +
@@ -559,75 +878,9 @@ function createWelcomeMessage(customerName: string): string {
     `¿En qué podemos ayudarte hoy? 😊`;
 }
 
-/**
- * Create status update message
- */
-function createStatusUpdateMessage(customerName: string, orderNumber: string, status: string, items: any[]): string {
-  let statusEmoji = '📦';
-  let statusText = 'actualizado';
-  let additionalInfo = '';
-  
-  switch (status) {
-    case 'preparing':
-      statusEmoji = '👨‍🍳';
-      statusText = 'en preparación';
-      additionalInfo = '\n\nEstamos asignando los precios y preparando tu pedido.';
-      break;
-    case 'ready':
-      statusEmoji = '✅';
-      statusText = 'listo para recoger';
-      additionalInfo = '\n\nTu pedido está listo. ¡Puedes pasar a recogerlo!';
-      break;
-    case 'delivered':
-      statusEmoji = '🎉';
-      statusText = 'entregado';
-      additionalInfo = '\n\n¡Esperamos que disfrutes tus productos! Gracias por tu compra.';
-      break;
-    case 'cancelled':
-      statusEmoji = '❌';
-      statusText = 'cancelado';
-      additionalInfo = '\n\nSi tienes alguna pregunta, no dudes en contactarnos.';
-      break;
-  }
-  
-  return `${statusEmoji} *Actualización de Pedido*\n\n` +
-    `Hola ${customerName}, tu pedido ha sido actualizado.\n\n` +
-    `📋 *Número de pedido:* ${orderNumber}\n` +
-    `🔄 *Nuevo estado:* ${statusText}\n\n` +
-    `📦 *Productos:*\n${formatItemsList(items)}${additionalInfo}\n\n` +
-    `¡Gracias por tu preferencia! 😊`;
-}
-
-/**
- * Create product added message
- */
-function createProductAddedMessage(customerName: string, orderNumber: string, addedProduct: any, allItems: any[]): string {
-  const quantity = addedProduct.quantity === '#' ? '' : `${addedProduct.quantity} `;
-  const unit = addedProduct.unit ? `${addedProduct.unit} ` : '';
-  const productName = addedProduct.product || addedProduct.product_name || 'Producto';
-  
-  return `➕ *Producto Agregado*\n\n` +
-    `Hola ${customerName}, se ha agregado un producto a tu pedido.\n\n` +
-    `📋 *Número de pedido:* ${orderNumber}\n\n` +
-    `✨ *Producto agregado:*\n` +
-    `${quantity}${unit}${productName}\n\n` +
-    `📦 *Lista completa de productos:*\n${formatItemsList(allItems)}\n\n` +
-    `¡Gracias por tu preferencia! 😊`;
-}
-
-/**
- * Get status label in Spanish
- */
-function getStatusLabel(status: string): string {
-  const labels: Record<string, string> = {
-    'pending': 'Pendiente',
-    'preparing': 'Preparando',
-    'ready': 'Listo',
-    'delivered': 'Entregado',
-    'cancelled': 'Cancelado',
-  };
-  return labels[status] || status;
-}
+// ============================================================================
+// WHATSAPP API UTILITIES
+// ============================================================================
 
 /**
  * Send WhatsApp message
@@ -670,6 +923,55 @@ async function sendWhatsAppMessage(
   }
 }
 
+// ============================================================================
+// DATABASE UTILITIES
+// ============================================================================
+
+/**
+ * Normalize phone number to international format
+ */
+function normalizePhoneNumber(phone: string): string {
+  let cleaned = phone.replace(/\D/g, '');
+  
+  if (cleaned.startsWith('56')) {
+    return '+' + cleaned;
+  }
+  
+  if (cleaned.startsWith('9') && cleaned.length === 9) {
+    return '+56' + cleaned;
+  }
+  
+  return '+' + cleaned;
+}
+
+/**
+ * Check if phone number is in authorized list
+ */
+async function loadAuthorizedPhones(supabase: any): Promise<Set<string>> {
+  try {
+    const { data, error } = await supabase
+      .from('authorized_phones')
+      .select('phone_number');
+
+    if (error) {
+      console.error('Error loading authorized phones:', error);
+      return new Set();
+    }
+
+    const authorizedSet = new Set<string>();
+    for (const record of data || []) {
+      const normalized = normalizePhoneNumber(record.phone_number);
+      authorizedSet.add(normalized);
+    }
+
+    console.log('Loaded authorized phones:', authorizedSet.size);
+    return authorizedSet;
+  } catch (error) {
+    console.error('Error loading authorized phones:', error);
+    return new Set();
+  }
+}
+
 /**
  * Get customer name from database by phone number
  */
@@ -697,20 +999,17 @@ async function getCustomerNameFromDatabase(supabase: any, phone: string): Promis
  * Prioritizes database name over WhatsApp contact name
  */
 async function extractCustomerName(supabase: any, contact: any, phone: string): Promise<string> {
-  // First, try to get name from database
   const dbName = await getCustomerNameFromDatabase(supabase, phone);
   if (dbName) {
     console.log('Using customer name from database:', dbName);
     return dbName;
   }
   
-  // Fallback to WhatsApp contact name
   if (contact?.profile?.name) {
     console.log('Using customer name from WhatsApp contact:', contact.profile.name);
     return contact.profile.name;
   }
   
-  // Use last 4 digits of phone as fallback
   const fallbackName = `Cliente ${phone.slice(-4)}`;
   console.log('Using fallback customer name:', fallbackName);
   return fallbackName;
@@ -754,13 +1053,14 @@ async function isCustomerBlocked(supabase: any, phone: string): Promise<boolean>
   }
 }
 
+// ============================================================================
+// MAIN WEBHOOK HANDLER
+// ============================================================================
+
 serve(async (req) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
-
-  // Load known units at startup
-  await loadKnownUnits(supabase);
 
   // Handle GET request (webhook verification)
   if (req.method === 'GET') {
@@ -769,7 +1069,6 @@ serve(async (req) => {
     const token = url.searchParams.get('hub.verify_token');
     const challenge = url.searchParams.get('hub.challenge');
 
-    // Get verify token from config
     const { data: config } = await supabase
       .from('whatsapp_config')
       .select('verify_token')
@@ -789,7 +1088,6 @@ serve(async (req) => {
       const body = await req.json();
       console.log('Received webhook:', JSON.stringify(body, null, 2));
 
-      // Extract message data
       const entry = body.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
@@ -818,7 +1116,6 @@ serve(async (req) => {
       console.log('Processing message from:', from);
       console.log('Message text:', messageText);
 
-      // Get WhatsApp config
       const { data: config } = await supabase
         .from('whatsapp_config')
         .select('*')
@@ -831,17 +1128,14 @@ serve(async (req) => {
         });
       }
 
-      // Normalize phone number
       const normalizedPhone = normalizePhoneNumber(from);
       console.log('Normalized phone:', normalizedPhone);
 
-      // Check if customer is blocked
       const blocked = await isCustomerBlocked(supabase, normalizedPhone);
       if (blocked) {
         console.log('Customer is blocked');
         const customerName = await extractCustomerName(supabase, contact, from);
         
-        // Send blocked message
         if (config.auto_reply_enabled) {
           await sendWhatsAppMessage(
             config.phone_number_id,
@@ -856,12 +1150,10 @@ serve(async (req) => {
         });
       }
 
-      // Load authorized phones
       const authorizedPhones = await loadAuthorizedPhones(supabase);
       const isAuthorized = authorizedPhones.has(normalizedPhone);
       console.log('Is authorized:', isAuthorized);
 
-      // Check if message is a greeting only
       if (isGreeting(messageText) && messageText.split(/\s+/).length <= 3) {
         console.log('Message is a greeting only');
         const customerName = await extractCustomerName(supabase, contact, from);
@@ -880,31 +1172,15 @@ serve(async (req) => {
         });
       }
 
-      // Check if message is a question
-      const isQuestion = QUESTION_PATTERNS.some(pattern => pattern.test(messageText));
-      console.log('Is question:', isQuestion);
-
-      // Parse message
-      let cleanedMessage = messageText;
-      const hasNewOrderKeyword = isNewOrderKeyword(messageText);
-      
-      if (hasNewOrderKeyword) {
-        cleanedMessage = removeNewOrderKeywords(messageText);
-        console.log('Removed new order keywords:', cleanedMessage);
-      }
-
-      const parsedItems = parseWhatsAppMessage(cleanedMessage);
+      const parsedItems = parseWhatsAppMessage(messageText);
       console.log('Parsed items:', parsedItems.length);
 
-      // Determine if this should be a query or an order
-      const shouldCreateQuery = !isAuthorized && (isQuestion || parsedItems.length === 0);
+      const shouldCreateQuery = !isAuthorized && (isQuestion(messageText) || parsedItems.length === 0);
       console.log('Should create query:', shouldCreateQuery);
 
       if (shouldCreateQuery) {
-        // Create query
         console.log('Creating query...');
         
-        // Find existing pending order for this customer
         const { data: existingOrders } = await supabase
           .from('orders')
           .select('id, order_number, customer_name')
@@ -916,7 +1192,6 @@ serve(async (req) => {
         const existingOrder = existingOrders?.[0];
         
         if (existingOrder) {
-          // Add query to existing order
           const { data: query, error: queryError } = await supabase
             .from('order_queries')
             .insert({
@@ -934,18 +1209,14 @@ serve(async (req) => {
           } else {
             console.log('Query created for existing order:', existingOrder.order_number);
             
-            // Add to print queue
             await addQueryToPrintQueue(supabase, query.id);
             
-            // Send notification to all devices
             try {
-              // Create local notification for all devices
               const notificationTitle = `💬 Consulta: ${existingOrder.order_number}`;
               const notificationBody = `${existingOrder.customer_name}: ${messageText.substring(0, 100)}`;
               
-              // Create in-app notification
               await supabase.from('notifications').insert({
-                user_id: null, // Not tied to specific user (PIN-based auth)
+                user_id: null,
                 title: notificationTitle,
                 message: notificationBody,
                 type: 'info',
@@ -961,7 +1232,6 @@ serve(async (req) => {
         } else {
           console.log('No existing pending order found for query');
           
-          // Send help message if no products found
           const customerName = await extractCustomerName(supabase, contact, from);
           if (config.auto_reply_enabled && parsedItems.length === 0) {
             await sendWhatsAppMessage(
@@ -978,12 +1248,10 @@ serve(async (req) => {
         });
       }
 
-      // Create order
       console.log('Creating order...');
       
       const customerName = await extractCustomerName(supabase, contact, from);
       
-      // Generate order number
       const { data: lastOrder } = await supabase
         .from('orders')
         .select('order_number')
@@ -997,7 +1265,6 @@ serve(async (req) => {
         orderNumber = (lastNumber + 1).toString().padStart(3, '0');
       }
 
-      // Create order
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -1022,9 +1289,7 @@ serve(async (req) => {
 
       console.log('Order created:', orderNumber);
 
-      // Create order items
       for (const item of parsedItems) {
-        // FIXED: Store unit with "unidad:" prefix for consistency
         const notes = item.unit ? `unidad: ${item.unit}` : null;
         
         await supabase.from('order_items').insert({
@@ -1038,7 +1303,6 @@ serve(async (req) => {
 
       console.log('Order items created:', parsedItems.length);
 
-      // Send confirmation message
       if (config.auto_reply_enabled) {
         const confirmationMessage = createConfirmationMessage(customerName, orderNumber, parsedItems);
         await sendWhatsAppMessage(
@@ -1049,14 +1313,12 @@ serve(async (req) => {
         );
       }
 
-      // Send notification to all devices
       try {
         const notificationTitle = `🛒 Nuevo Pedido: ${orderNumber}`;
         const notificationBody = `${customerName} - ${parsedItems.length} producto(s)`;
         
-        // Create in-app notification
         await supabase.from('notifications').insert({
-          user_id: null, // Not tied to specific user (PIN-based auth)
+          user_id: null,
           title: notificationTitle,
           message: notificationBody,
           type: 'order',
