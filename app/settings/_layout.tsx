@@ -31,9 +31,8 @@ export default function SettingsLayout() {
           backgroundColor: currentTheme.colors.primary,
         },
         headerTintColor: '#FFFFFF',
-        headerBackTitle: 'Atrás',
+        headerBackTitle: '',
         headerBackVisible: true,
-        headerBackTitleVisible: false,
         animation: 'slide_from_right',
       }}
     >
@@ -45,6 +44,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -55,6 +56,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -65,6 +68,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -75,6 +80,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -85,6 +92,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -95,6 +104,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -105,6 +116,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -115,6 +128,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -125,6 +140,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -135,6 +152,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -145,6 +164,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -155,6 +176,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -165,6 +188,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -175,6 +200,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -185,6 +212,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -195,6 +224,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -205,6 +236,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -215,6 +248,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -225,6 +260,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -235,6 +272,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -245,6 +284,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
@@ -255,6 +296,8 @@ export default function SettingsLayout() {
             backgroundColor: currentTheme.colors.primary,
           },
           headerTintColor: '#FFFFFF',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
     </Stack>

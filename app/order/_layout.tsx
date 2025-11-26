@@ -22,9 +22,8 @@ export default function OrderLayout() {
         },
         headerTintColor: '#FFFFFF',
         headerShadowVisible: true,
-        headerBackTitle: 'Atrás',
+        headerBackTitle: '',
         headerBackVisible: true,
-        headerBackTitleVisible: false,
         animation: 'slide_from_right',
       }}
     >
@@ -32,12 +31,16 @@ export default function OrderLayout() {
         name="[orderId]"
         options={{
           title: 'Detalle del Pedido',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen
         name="new"
         options={{
           title: 'Nuevo Pedido',
+          headerBackVisible: true,
+          headerBackTitle: '',
         }}
       />
     </Stack>
