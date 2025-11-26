@@ -1314,92 +1314,98 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {/* Action Buttons */}
-        {isConnected ? (
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.printButton]} 
-            onPress={handlePrint}
-          >
-            <IconSymbol 
-              ios_icon_name="printer"
-              android_material_icon_name="print"
-              size={22} 
-              color="#fff" 
-            />
-            <Text style={styles.actionButtonText}>Imprimir Pedido</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: '#8B5CF6' }]} 
-            onPress={handleSendToPrinter}
-          >
-            <IconSymbol 
-              ios_icon_name="paperplane.fill"
-              android_material_icon_name="send"
-              size={22} 
-              color="#fff" 
-            />
-            <Text style={styles.actionButtonText}>Enviar a Impresor</Text>
-          </TouchableOpacity>
-        )}
-
-        {order.customer_phone && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.whatsappButton]}
-            onPress={handleWhatsApp}
-          >
-            <IconSymbol 
-              ios_icon_name="message.fill"
-              android_material_icon_name="message"
-              size={22} 
-              color="#fff" 
-            />
-            <Text style={styles.actionButtonText}>Enviar WhatsApp</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={[styles.actionButton, styles.deleteButton]}
-          onPress={handleDelete}
-        >
-          <IconSymbol 
-            ios_icon_name="trash"
-            android_material_icon_name="delete"
-            size={22} 
-            color="#fff" 
-          />
-          <Text style={styles.actionButtonText}>Eliminar Pedido</Text>
-        </TouchableOpacity>
-
-        {order.customer_phone && (
-          customerBlocked ? (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.unblockButton]}
-              onPress={handleUnblockCustomer}
+        {/* Action Buttons Grid */}
+        <View style={styles.actionButtonsGrid}>
+          {/* Print/Send to Printer Button */}
+          {isConnected ? (
+            <TouchableOpacity 
+              style={[styles.gridButton, styles.printButton]} 
+              onPress={handlePrint}
             >
               <IconSymbol 
-                ios_icon_name="checkmark.circle"
-                android_material_icon_name="check-circle"
-                size={22} 
+                ios_icon_name="printer.fill"
+                android_material_icon_name="print"
+                size={32} 
                 color="#fff" 
               />
-              <Text style={styles.actionButtonText}>Desbloquear Cliente</Text>
+              <Text style={styles.gridButtonText}>Imprimir</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.blockButton]}
-              onPress={handleBlockCustomer}
+            <TouchableOpacity 
+              style={[styles.gridButton, { backgroundColor: '#8B5CF6' }]} 
+              onPress={handleSendToPrinter}
             >
               <IconSymbol 
-                ios_icon_name="xmark.circle"
-                android_material_icon_name="cancel"
-                size={22} 
+                ios_icon_name="paperplane.fill"
+                android_material_icon_name="send"
+                size={32} 
                 color="#fff" 
               />
-              <Text style={styles.actionButtonText}>Bloquear Cliente</Text>
+              <Text style={styles.gridButtonText}>Enviar a Impresor</Text>
             </TouchableOpacity>
-          )
-        )}
+          )}
+
+          {/* WhatsApp Button */}
+          {order.customer_phone && (
+            <TouchableOpacity
+              style={[styles.gridButton, styles.whatsappButton]}
+              onPress={handleWhatsApp}
+            >
+              <IconSymbol 
+                ios_icon_name="message.fill"
+                android_material_icon_name="message"
+                size={32} 
+                color="#fff" 
+              />
+              <Text style={styles.gridButtonText}>WhatsApp</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Delete Button */}
+          <TouchableOpacity
+            style={[styles.gridButton, styles.deleteButton]}
+            onPress={handleDelete}
+          >
+            <IconSymbol 
+              ios_icon_name="trash.fill"
+              android_material_icon_name="delete"
+              size={32} 
+              color="#fff" 
+            />
+            <Text style={styles.gridButtonText}>Eliminar</Text>
+          </TouchableOpacity>
+
+          {/* Block/Unblock Button */}
+          {order.customer_phone && (
+            customerBlocked ? (
+              <TouchableOpacity
+                style={[styles.gridButton, styles.unblockButton]}
+                onPress={handleUnblockCustomer}
+              >
+                <IconSymbol 
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check-circle"
+                  size={32} 
+                  color="#fff" 
+                />
+                <Text style={styles.gridButtonText}>Desbloquear</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.gridButton, styles.blockButton]}
+                onPress={handleBlockCustomer}
+              >
+                <IconSymbol 
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="cancel"
+                  size={32} 
+                  color="#fff" 
+                />
+                <Text style={styles.gridButtonText}>Bloquear</Text>
+              </TouchableOpacity>
+            )
+          )}
+        </View>
       </ScrollView>
 
       {/* Custom Dialog */}
@@ -1982,14 +1988,27 @@ function createStyles(colors: any) {
       fontStyle: 'italic',
       marginTop: 4,
     },
-    actionButton: {
-      borderRadius: 8,
+    actionButtonsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 12,
+      marginBottom: 16,
+      paddingHorizontal: 4,
+    },
+    gridButton: {
+      width: '48%',
+      aspectRatio: 1,
+      borderRadius: 12,
       padding: 16,
       alignItems: 'center',
-      marginBottom: 12,
-      flexDirection: 'row',
       justifyContent: 'center',
-      gap: 10,
+      gap: 12,
+    },
+    gridButtonText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600',
+      textAlign: 'center',
     },
     printButton: {
       backgroundColor: '#3B82F6',
@@ -2005,11 +2024,6 @@ function createStyles(colors: any) {
     },
     unblockButton: {
       backgroundColor: '#10B981',
-    },
-    actionButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
     },
     modalOverlay: {
       flex: 1,
