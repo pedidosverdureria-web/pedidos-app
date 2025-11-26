@@ -68,7 +68,7 @@ export default function CheckControlScreen() {
       const { data, error } = await supabase
         .from('checks')
         .select('*')
-        .order('check_date', { ascending: false });
+        .order('check_date', { ascending: true });
 
       if (error) throw error;
 
@@ -312,12 +312,12 @@ export default function CheckControlScreen() {
     setAmountInWords(convertAmountToWords(value));
   };
 
-  // Sort checks by date in descending order (most recent first)
+  // Sort checks by date in ascending order (oldest first)
   const sortChecksByDate = (checksArray: Check[]) => {
     return [...checksArray].sort((a, b) => {
       const dateA = new Date(a.check_date + 'T00:00:00').getTime();
       const dateB = new Date(b.check_date + 'T00:00:00').getTime();
-      return dateB - dateA; // Descending order
+      return dateA - dateB; // Ascending order
     });
   };
 
