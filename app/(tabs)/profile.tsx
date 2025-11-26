@@ -177,7 +177,7 @@ export default function ProfileScreen() {
             <>
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => router.push('/analytics')}
+                onPress={() => router.push('/(screens)/analytics')}
               >
                 <View style={styles.menuItemLeft}>
                   <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="analytics" size={24} color="#8B5CF6" />
@@ -188,7 +188,7 @@ export default function ProfileScreen() {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => router.push('/inventory')}
+                onPress={() => router.push('/(screens)/inventory')}
               >
                 <View style={styles.menuItemLeft}>
                   <IconSymbol ios_icon_name="cube.box.fill" android_material_icon_name="inventory_2" size={24} color="#10B981" />
@@ -199,7 +199,7 @@ export default function ProfileScreen() {
 
               <TouchableOpacity
                 style={styles.menuItem}
-                onPress={() => router.push('/activity-log')}
+                onPress={() => router.push('/(screens)/activity-log')}
               >
                 <View style={styles.menuItemLeft}>
                   <IconSymbol ios_icon_name="clock.arrow.circlepath" android_material_icon_name="history" size={24} color="#06B6D4" />

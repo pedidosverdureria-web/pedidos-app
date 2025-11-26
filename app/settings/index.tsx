@@ -88,7 +88,7 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             <TouchableOpacity
               style={styles.menuItem}
-              onPress={() => handleNavigation('/analytics')}
+              onPress={() => handleNavigation('/(screens)/analytics')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#8B5CF6' }]}>
                 <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="analytics" size={20} color="#FFFFFF" />
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
 
             <TouchableOpacity
               style={[styles.menuItem, styles.menuItemLast]}
-              onPress={() => handleNavigation('/inventory')}
+              onPress={() => handleNavigation('/(screens)/inventory')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#10B981' }]}>
                 <IconSymbol ios_icon_name="cube.box.fill" android_material_icon_name="inventory_2" size={20} color="#FFFFFF" />
