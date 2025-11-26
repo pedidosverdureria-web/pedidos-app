@@ -479,9 +479,10 @@ function formatCLP(amount: number): string {
 function formatItemsList(items: any[], showPrices: boolean = false): string {
   return items.map((item, index) => {
     const quantity = item.quantity === '#' ? '' : `${item.quantity} `;
-    const unit = item.notes ? item.notes.split(' - ')[0] + ' ' : '';
+    const unit = item.unit ? `${item.unit} ` : '';
+    const productName = item.product || item.product_name || 'Producto';
     const price = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    return `${index + 1}. ${quantity}${unit}${item.product_name}${price}`;
+    return `${index + 1}. ${quantity}${unit}${productName}${price}`;
   }).join('\n');
 }
 
@@ -489,11 +490,13 @@ function formatItemsList(items: any[], showPrices: boolean = false): string {
  * Create confirmation message for new order
  */
 function createConfirmationMessage(customerName: string, orderNumber: string, items: any[]): string {
-  return `¡Hola ${customerName}! 👋\n\n` +
-    `✅ Tu pedido *${orderNumber}* ha sido recibido correctamente.\n\n` +
-    `📋 *Resumen del pedido:*\n${formatItemsList(items)}\n\n` +
-    `⏰ Lo procesaremos lo antes posible.\n\n` +
-    `¡Gracias por tu preferencia! 🙏`;
+  return `✅ *¡Pedido Recibido!*\n\n` +
+    `Hola ${customerName}, hemos recibido tu pedido correctamente.\n\n` +
+    `📋 *Número de pedido:* ${orderNumber}\n\n` +
+    `📦 *Productos solicitados:*\n${formatItemsList(items)}\n\n` +
+    `💰 Los precios se asignarán y te confirmaremos el total cuando tu pedido esté en preparación.\n\n` +
+    `Te mantendremos informado sobre el estado de tu pedido. ⏰\n\n` +
+    `¡Gracias por tu preferencia! 😊`;
 }
 
 /**
@@ -510,29 +513,50 @@ function createBlockedCustomerMessage(customerName: string): string {
  * Create help message
  */
 function createHelpMessage(customerName: string): string {
-  return `¡Hola ${customerName}! 👋\n\n` +
-    `Para hacer un pedido, simplemente envía la lista de productos que necesitas.\n\n` +
-    `*Ejemplos:*\n` +
-    `• 2 kg tomates\n` +
-    `• 1 lechuga\n` +
-    `• medio kilo cebollas\n\n` +
-    `También puedes enviar varios productos en un solo mensaje:\n` +
-    `2 kg tomates, 1 lechuga, medio kilo cebollas\n\n` +
-    `¡Estamos aquí para ayudarte! 😊`;
+  return `❌ *No pudimos identificar productos*\n\n` +
+    `Hola ${customerName}! No pude identificar productos en tu mensaje.\n\n` +
+    `📝 *Formato sugerido:*\n` +
+    `• 3 kilos de tomates\n` +
+    `• 2 kilos de palta\n` +
+    `• 1 kg de papas\n` +
+    `• 5 pepinos\n` +
+    `• 1 cilantro\n\n` +
+    `También puedes escribir:\n` +
+    `• tomates 3 kilos\n` +
+    `• 3k de tomates\n` +
+    `• tres kilos de tomates\n` +
+    `• 3kilos de papas\n` +
+    `• papas 3k\n` +
+    `• 1/4 de ají\n` +
+    `• 1/2 kilo de papas\n` +
+    `• 2 saco de papa, un cajón de tomate\n` +
+    `• 2 kilos de tomates 1 kilo de papa\n` +
+    `• 3kilos tomates 2kilos paltas 3 pepinos\n\n` +
+    `¡Gracias por tu comprensión! 😊`;
 }
 
 /**
  * Create welcome message for new customers
  */
 function createWelcomeMessage(customerName: string): string {
-  return `¡Hola ${customerName}! 👋\n\n` +
-    `Bienvenido/a a nuestro servicio de pedidos por WhatsApp.\n\n` +
-    `Para hacer un pedido, simplemente envía la lista de productos que necesitas.\n\n` +
-    `*Ejemplo:*\n` +
-    `2 kg tomates\n` +
-    `1 lechuga\n` +
-    `medio kilo cebollas\n\n` +
-    `¡Estamos aquí para ayudarte! 😊`;
+  return `👋 *¡Hola ${customerName}!*\n\n` +
+    `Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de productos que necesitas.\n\n` +
+    `📝 *Ejemplos de cómo hacer tu pedido:*\n\n` +
+    `*Formato vertical:*\n` +
+    `• 3 kilos de tomates\n` +
+    `• 2 kilos de paltas\n` +
+    `• 5 pepinos\n` +
+    `• 1 cilantro\n\n` +
+    `*Formato horizontal:*\n` +
+    `• 3 kilos de tomates, 2 kilos de paltas, 5 pepinos\n\n` +
+    `*Otros formatos válidos:*\n` +
+    `• 3k de tomates\n` +
+    `• tomates 3 kilos\n` +
+    `• 1/4 de ají\n` +
+    `• 2 saco de papa\n` +
+    `• 3kilos tomates 2kilos paltas\n\n` +
+    `💡 *Tip:* Puedes escribir los productos como prefieras, nosotros entenderemos tu pedido.\n\n` +
+    `¿En qué podemos ayudarte hoy? 😊`;
 }
 
 /**
@@ -541,30 +565,37 @@ function createWelcomeMessage(customerName: string): string {
 function createStatusUpdateMessage(customerName: string, orderNumber: string, status: string, items: any[]): string {
   let statusEmoji = '📦';
   let statusText = 'actualizado';
+  let additionalInfo = '';
   
   switch (status) {
     case 'preparing':
       statusEmoji = '👨‍🍳';
       statusText = 'en preparación';
+      additionalInfo = '\n\nEstamos asignando los precios y preparando tu pedido.';
       break;
     case 'ready':
       statusEmoji = '✅';
       statusText = 'listo para recoger';
+      additionalInfo = '\n\nTu pedido está listo. ¡Puedes pasar a recogerlo!';
       break;
     case 'delivered':
       statusEmoji = '🎉';
       statusText = 'entregado';
+      additionalInfo = '\n\n¡Esperamos que disfrutes tus productos! Gracias por tu compra.';
       break;
     case 'cancelled':
       statusEmoji = '❌';
       statusText = 'cancelado';
+      additionalInfo = '\n\nSi tienes alguna pregunta, no dudes en contactarnos.';
       break;
   }
   
-  return `¡Hola ${customerName}! 👋\n\n` +
-    `${statusEmoji} Tu pedido *${orderNumber}* está ${statusText}.\n\n` +
-    `📋 *Resumen del pedido:*\n${formatItemsList(items)}\n\n` +
-    `¡Gracias por tu preferencia! 🙏`;
+  return `${statusEmoji} *Actualización de Pedido*\n\n` +
+    `Hola ${customerName}, tu pedido ha sido actualizado.\n\n` +
+    `📋 *Número de pedido:* ${orderNumber}\n` +
+    `🔄 *Nuevo estado:* ${statusText}\n\n` +
+    `📦 *Productos:*\n${formatItemsList(items)}${additionalInfo}\n\n` +
+    `¡Gracias por tu preferencia! 😊`;
 }
 
 /**
@@ -572,12 +603,16 @@ function createStatusUpdateMessage(customerName: string, orderNumber: string, st
  */
 function createProductAddedMessage(customerName: string, orderNumber: string, addedProduct: any, allItems: any[]): string {
   const quantity = addedProduct.quantity === '#' ? '' : `${addedProduct.quantity} `;
-  const unit = addedProduct.notes ? addedProduct.notes.split(' - ')[0] + ' ' : '';
+  const unit = addedProduct.unit ? `${addedProduct.unit} ` : '';
+  const productName = addedProduct.product || addedProduct.product_name || 'Producto';
   
-  return `¡Hola ${customerName}! 👋\n\n` +
-    `✅ Se ha agregado *${quantity}${unit}${addedProduct.product_name}* a tu pedido *${orderNumber}*.\n\n` +
-    `📋 *Pedido actualizado:*\n${formatItemsList(allItems)}\n\n` +
-    `¡Gracias! 🙏`;
+  return `➕ *Producto Agregado*\n\n` +
+    `Hola ${customerName}, se ha agregado un producto a tu pedido.\n\n` +
+    `📋 *Número de pedido:* ${orderNumber}\n\n` +
+    `✨ *Producto agregado:*\n` +
+    `${quantity}${unit}${productName}\n\n` +
+    `📦 *Lista completa de productos:*\n${formatItemsList(allItems)}\n\n` +
+    `¡Gracias por tu preferencia! 😊`;
 }
 
 /**
@@ -925,6 +960,17 @@ serve(async (req) => {
           }
         } else {
           console.log('No existing pending order found for query');
+          
+          // Send help message if no products found
+          const customerName = await extractCustomerName(supabase, contact, from);
+          if (config.auto_reply_enabled && parsedItems.length === 0) {
+            await sendWhatsAppMessage(
+              config.phone_number_id,
+              config.access_token,
+              from,
+              createHelpMessage(customerName)
+            );
+          }
         }
         
         return new Response(JSON.stringify({ success: true, query: true }), {
