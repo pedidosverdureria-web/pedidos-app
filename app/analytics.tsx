@@ -101,12 +101,17 @@ export default function AnalyticsScreen() {
     }
   };
 
+  // Helper function to check if order should be counted for revenue
+  const isCompletedOrder = (status: string) => {
+    return status === 'delivered' || status === 'finalizado';
+  };
+
   const processAnalytics = (orders: Order[], customers: Customer[]) => {
-    // Calculate summary
-    const deliveredOrders = orders.filter(o => o.status === 'delivered');
-    const totalRevenue = deliveredOrders.reduce((sum, o) => sum + o.total_amount, 0);
+    // Calculate summary - include both delivered and finalizado orders
+    const completedOrders = orders.filter(o => isCompletedOrder(o.status));
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + o.total_amount, 0);
     const totalOrders = orders.length;
-    const averageOrderValue = deliveredOrders.length > 0 ? totalRevenue / deliveredOrders.length : 0;
+    const averageOrderValue = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
 
     // Calculate growth rate (compare with previous period)
     const midPoint = new Date();
@@ -120,8 +125,8 @@ export default function AnalyticsScreen() {
 
     const recentOrders = orders.filter(o => new Date(o.created_at) >= midPoint);
     const oldOrders = orders.filter(o => new Date(o.created_at) < midPoint);
-    const recentRevenue = recentOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total_amount, 0);
-    const oldRevenue = oldOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + o.total_amount, 0);
+    const recentRevenue = recentOrders.filter(o => isCompletedOrder(o.status)).reduce((sum, o) => sum + o.total_amount, 0);
+    const oldRevenue = oldOrders.filter(o => isCompletedOrder(o.status)).reduce((sum, o) => sum + o.total_amount, 0);
     const growthRate = oldRevenue > 0 ? ((recentRevenue - oldRevenue) / oldRevenue) * 100 : 0;
 
     setSummary({
@@ -156,13 +161,13 @@ export default function AnalyticsScreen() {
       .slice(0, 10);
     setTopProducts(sortedProducts);
 
-    // Process daily sales
+    // Process daily sales - include both delivered and finalizado orders
     const salesMap = new Map<string, DailySales>();
     orders.forEach(order => {
       const date = new Date(order.created_at).toISOString().split('T')[0];
       const existing = salesMap.get(date) || { date, orders: 0, revenue: 0 };
       existing.orders += 1;
-      if (order.status === 'delivered') {
+      if (isCompletedOrder(order.status)) {
         existing.revenue += order.total_amount;
       }
       salesMap.set(date, existing);
@@ -173,7 +178,7 @@ export default function AnalyticsScreen() {
       .slice(-30); // Last 30 days
     setDailySales(sortedSales);
 
-    // Process top customers
+    // Process top customers - include both delivered and finalizado orders
     const customerMap = new Map<string, CustomerStats>();
     orders.forEach(order => {
       if (!order.customer_id) return;
@@ -187,7 +192,7 @@ export default function AnalyticsScreen() {
       };
       
       existing.totalOrders += 1;
-      if (order.status === 'delivered') {
+      if (isCompletedOrder(order.status)) {
         existing.totalSpent += order.total_amount;
       }
       customerMap.set(order.customer_id, existing);
