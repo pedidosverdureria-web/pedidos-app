@@ -70,83 +70,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   /**
    * Register for push notifications after user is loaded
-   * FIXED: Deferred significantly to prevent blocking app startup
+   * FIXED: Immediate registration with proper error handling
    */
   useEffect(() => {
     if (!user || Platform.OS === 'web') {
       return;
     }
 
-    // Defer push notification registration significantly
-    const pushTimer = setTimeout(async () => {
-      console.log('[Auth] Registering for push notifications (deferred)...');
+    // Register push notifications immediately after user is loaded
+    const registerPushNotifications = async () => {
+      console.log('[Auth] Registering for push notifications...');
       try {
-        await registerForPushNotificationsAsync(user.role);
-        console.log('[Auth] Push notifications registered successfully');
-        
-        // Update device activity
-        await updateDeviceActivity();
+        const token = await registerForPushNotificationsAsync(user.role);
+        if (token) {
+          console.log('[Auth] Push notifications registered successfully');
+          
+          // Update device activity
+          await updateDeviceActivity();
+        } else {
+          console.warn('[Auth] Failed to register push notifications - no token returned');
+        }
       } catch (error) {
         console.error('[Auth] Error registering push notifications:', error);
         // Don't throw - this is not critical for app startup
       }
-    }, 8000); // Wait 8 seconds after user is loaded
+    };
+
+    // Defer slightly to not block UI
+    const timer = setTimeout(registerPushNotifications, 2000);
 
     return () => {
-      clearTimeout(pushTimer);
+      clearTimeout(timer);
     };
   }, [user]);
 
   /**
    * Set up notification handlers
-   * FIXED: Deferred significantly to prevent blocking app startup
+   * FIXED: Immediate setup with proper error handling
    */
   useEffect(() => {
     if (Platform.OS === 'web') {
       return;
     }
 
-    // Defer notification handler setup significantly
-    const setupTimer = setTimeout(() => {
-      console.log('[Auth] Setting up notification handlers (deferred)...');
+    console.log('[Auth] Setting up notification handlers...');
 
-      try {
-        // Handle notification taps (when user taps on a notification)
-        const responseSubscription = setupNotificationResponseHandler((response) => {
-          console.log('[Auth] Notification tapped:', response);
-          
-          const data = response.notification.request.content.data;
-          
-          // Navigate to order if orderId is present
-          if (data?.orderId) {
-            console.log('[Auth] Navigating to order:', data.orderId);
-            router.push(`/order/${data.orderId}` as any);
-          }
-        });
+    try {
+      // Handle notification taps (when user taps on a notification)
+      const responseSubscription = setupNotificationResponseHandler((response) => {
+        console.log('[Auth] Notification tapped:', response);
+        
+        const data = response.notification.request.content.data;
+        
+        // Navigate to order if orderId is present
+        if (data?.orderId) {
+          console.log('[Auth] Navigating to order:', data.orderId);
+          router.push(`/order/${data.orderId}` as any);
+        }
+      });
 
-        // Handle notifications received while app is in foreground
-        const receivedSubscription = setupNotificationReceivedHandler((notification) => {
-          console.log('[Auth] Notification received in foreground:', notification);
-          
-          // The notification will be displayed automatically by the notification handler
-          // configured in utils/pushNotifications.ts
-        });
+      // Handle notifications received while app is in foreground
+      const receivedSubscription = setupNotificationReceivedHandler((notification) => {
+        console.log('[Auth] Notification received in foreground:', notification);
+        
+        // The notification will be displayed automatically by the notification handler
+        // configured in utils/pushNotifications.ts
+      });
 
-        // Store subscriptions for cleanup
-        return () => {
-          console.log('[Auth] Cleaning up notification handlers...');
-          responseSubscription.remove();
-          receivedSubscription.remove();
-        };
-      } catch (error) {
-        console.error('[Auth] Error setting up notification handlers:', error);
-        // Don't throw - this is not critical
-      }
-    }, 5000); // Wait 5 seconds after app loads
-
-    return () => {
-      clearTimeout(setupTimer);
-    };
+      // Store subscriptions for cleanup
+      return () => {
+        console.log('[Auth] Cleaning up notification handlers...');
+        responseSubscription.remove();
+        receivedSubscription.remove();
+      };
+    } catch (error) {
+      console.error('[Auth] Error setting up notification handlers:', error);
+      // Don't throw - this is not critical
+    }
   }, []);
 
   /**
@@ -205,22 +205,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     console.log('[Auth] Sign in successful');
 
-    // Register for push notifications after successful login (deferred)
+    // Register for push notifications after successful login (immediate)
     if (Platform.OS !== 'web') {
       setTimeout(async () => {
-        console.log('[Auth] Registering for push notifications (deferred)...');
+        console.log('[Auth] Registering for push notifications after login...');
         try {
           const token = await registerForPushNotificationsAsync(role);
           if (token) {
-            console.log('[Auth] Push notifications registered successfully');
+            console.log('[Auth] Push notifications registered successfully after login');
           } else {
-            console.warn('[Auth] Failed to register push notifications');
+            console.warn('[Auth] Failed to register push notifications after login');
           }
         } catch (error) {
-          console.error('[Auth] Error registering push notifications:', error);
+          console.error('[Auth] Error registering push notifications after login:', error);
           // Don't throw - this is not critical
         }
-      }, 3000); // Wait 3 seconds after login
+      }, 1000); // Wait 1 second after login
     }
   };
 

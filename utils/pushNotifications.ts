@@ -65,6 +65,7 @@ async function getDeviceId(): Promise<string> {
  * CRITICAL: This sets up notification channels with maximum priority for screen-off delivery
  * 
  * @param userRole - The role of the user (admin, worker, printer, desarrollador)
+ * @returns The push token if successful, null otherwise
  */
 export async function registerForPushNotificationsAsync(userRole?: string): Promise<string | null> {
   // Push notifications are not supported on web
@@ -164,9 +165,23 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
         console.log('[PushNotifications] Device ID:', deviceId);
         console.log('[PushNotifications] Device Name:', deviceName);
         console.log('[PushNotifications] User Role:', userRole || 'null');
+        console.log('[PushNotifications] Push Token:', token);
         
-        // Use upsert to insert or update in one operation
-        // This is more reliable than checking first then inserting/updating
+        // First, try to check if a record exists
+        const { data: existingData, error: selectError } = await supabase
+          .from('device_push_tokens')
+          .select('*')
+          .eq('device_id', deviceId)
+          .single();
+
+        if (selectError && selectError.code !== 'PGRST116') {
+          // PGRST116 is "not found" error, which is fine
+          console.error('[PushNotifications] Error checking existing token:', selectError);
+        }
+
+        console.log('[PushNotifications] Existing record:', existingData ? 'found' : 'not found');
+
+        // Now upsert the token
         const { data, error } = await supabase
           .from('device_push_tokens')
           .upsert({
@@ -177,23 +192,42 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
             last_active_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }, {
-            onConflict: 'device_id', // Use device_id as the conflict resolution column
-            ignoreDuplicates: false, // Always update if exists
+            onConflict: 'device_id',
+            ignoreDuplicates: false,
           })
           .select();
 
         if (error) {
           console.error('[PushNotifications] Error saving push token:', error);
+          console.error('[PushNotifications] Error code:', error.code);
+          console.error('[PushNotifications] Error message:', error.message);
           console.error('[PushNotifications] Error details:', JSON.stringify(error, null, 2));
+          throw error;
         } else {
           console.log('[PushNotifications] Push token saved successfully to database');
-          console.log('[PushNotifications] Saved data:', data);
+          console.log('[PushNotifications] Saved data:', JSON.stringify(data, null, 2));
+          
+          // Verify the save by querying the database
+          const { data: verifyData, error: verifyError } = await supabase
+            .from('device_push_tokens')
+            .select('*')
+            .eq('device_id', deviceId)
+            .single();
+
+          if (verifyError) {
+            console.error('[PushNotifications] Error verifying saved token:', verifyError);
+          } else {
+            console.log('[PushNotifications] Verified saved token:', JSON.stringify(verifyData, null, 2));
+          }
         }
       } else {
         console.error('[PushNotifications] Supabase client not available');
+        throw new Error('Supabase client not available');
       }
     } catch (e) {
       console.error('[PushNotifications] Error getting push token:', e);
+      console.error('[PushNotifications] Error stack:', (e as Error).stack);
+      throw e;
     }
   } else {
     console.log('[PushNotifications] Must use physical device for Push Notifications');
@@ -485,5 +519,76 @@ export async function updateDeviceActivity(): Promise<void> {
     }
   } catch (error) {
     console.error('[PushNotifications] Error updating device activity:', error);
+  }
+}
+
+/**
+ * Remove device push token from database
+ * Call this when user disables push notifications
+ */
+export async function removeDevicePushToken(): Promise<void> {
+  if (Platform.OS === 'web') {
+    return;
+  }
+
+  try {
+    const deviceId = await getDeviceId();
+    const supabase = getSupabase();
+    
+    if (supabase) {
+      console.log('[PushNotifications] Removing push token for device:', deviceId);
+      
+      const { error } = await supabase
+        .from('device_push_tokens')
+        .delete()
+        .eq('device_id', deviceId);
+      
+      if (error) {
+        console.error('[PushNotifications] Error removing push token:', error);
+        throw error;
+      }
+      
+      console.log('[PushNotifications] Push token removed successfully');
+    }
+  } catch (error) {
+    console.error('[PushNotifications] Error removing device push token:', error);
+    throw error;
+  }
+}
+
+/**
+ * Check if device has a registered push token
+ */
+export async function hasRegisteredPushToken(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return false;
+  }
+
+  try {
+    const deviceId = await getDeviceId();
+    const supabase = getSupabase();
+    
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('device_push_tokens')
+        .select('push_token')
+        .eq('device_id', deviceId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116 is "not found" error
+        console.error('[PushNotifications] Error checking push token:', error);
+        return false;
+      }
+      
+      const hasToken = !!data?.push_token;
+      console.log('[PushNotifications] Device has registered token:', hasToken);
+      return hasToken;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('[PushNotifications] Error checking registered push token:', error);
+    return false;
   }
 }

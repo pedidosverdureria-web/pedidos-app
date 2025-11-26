@@ -20,7 +20,9 @@ import { Notification } from '@/types';
 import { 
   registerForPushNotificationsAsync, 
   checkNotificationPermissions,
-  requestNotificationPermissions 
+  requestNotificationPermissions,
+  hasRegisteredPushToken,
+  removeDevicePushToken
 } from '@/utils/pushNotifications';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import * as Notifications from 'expo-notifications';
@@ -71,19 +73,26 @@ export default function NotificationsScreen() {
     setDialog({ ...dialog, visible: false });
   };
 
-  // Check notification permissions on mount
+  // Check notification permissions and token registration on mount
   useEffect(() => {
-    const checkPermissions = async () => {
+    const checkPermissionsAndToken = async () => {
       if (Platform.OS === 'web') {
         setCheckingPermissions(false);
         return;
       }
 
       try {
+        console.log('[NotificationsScreen] Checking permissions and token registration...');
+        
         const granted = await checkNotificationPermissions();
         setPermissionsGranted(granted);
-        setSettings(prev => ({ ...prev, pushNotificationsEnabled: granted }));
         console.log('[NotificationsScreen] Permissions granted:', granted);
+        
+        // Check if device has a registered token
+        const hasToken = await hasRegisteredPushToken();
+        console.log('[NotificationsScreen] Has registered token:', hasToken);
+        
+        setSettings(prev => ({ ...prev, pushNotificationsEnabled: granted && hasToken }));
       } catch (error) {
         console.error('[NotificationsScreen] Error checking permissions:', error);
       } finally {
@@ -91,7 +100,7 @@ export default function NotificationsScreen() {
       }
     };
 
-    checkPermissions();
+    checkPermissionsAndToken();
   }, []);
 
   const loadNotifications = useCallback(async () => {
@@ -168,9 +177,12 @@ export default function NotificationsScreen() {
       try {
         setSavingSettings(true);
         
+        console.log('[NotificationsScreen] Enabling push notifications...');
+        
         const granted = await requestNotificationPermissions();
         
         if (!granted) {
+          console.log('[NotificationsScreen] Permissions not granted');
           showDialog(
             'warning', 
             'Permisos requeridos', 
@@ -205,19 +217,37 @@ export default function NotificationsScreen() {
         setPermissionsGranted(true);
 
         console.log('[NotificationsScreen] Registering push notifications for role:', user?.role);
-        const token = await registerForPushNotificationsAsync(user?.role);
         
-        if (token) {
-          setSettings({ ...settings, pushNotificationsEnabled: true });
+        try {
+          const token = await registerForPushNotificationsAsync(user?.role);
+          
+          if (token) {
+            console.log('[NotificationsScreen] Push token registered successfully:', token);
+            
+            // Verify the token was saved
+            const hasToken = await hasRegisteredPushToken();
+            
+            if (hasToken) {
+              setSettings({ ...settings, pushNotificationsEnabled: true });
+              showDialog(
+                'success', 
+                'Éxito', 
+                'Notificaciones push activadas correctamente. Recibirás notificaciones de nuevos pedidos en este dispositivo.'
+              );
+              console.log('[NotificationsScreen] Push notifications enabled and verified');
+            } else {
+              throw new Error('Token no se guardó en la base de datos');
+            }
+          } else {
+            throw new Error('No se pudo obtener el token de notificaciones push');
+          }
+        } catch (tokenError) {
+          console.error('[NotificationsScreen] Error registering push token:', tokenError);
           showDialog(
-            'success', 
-            'Éxito', 
-            'Notificaciones push activadas correctamente. Recibirás notificaciones de nuevos pedidos en este dispositivo.'
+            'error', 
+            'Error', 
+            'No se pudieron activar las notificaciones push: ' + (tokenError as Error).message
           );
-          console.log('[NotificationsScreen] Push notifications enabled successfully');
-        } else {
-          showDialog('error', 'Error', 'No se pudo obtener el token de notificaciones push');
-          console.error('[NotificationsScreen] Failed to get push token');
         }
       } catch (error) {
         console.error('[NotificationsScreen] Error enabling push notifications:', error);
@@ -226,12 +256,26 @@ export default function NotificationsScreen() {
         setSavingSettings(false);
       }
     } else {
-      setSettings({ ...settings, pushNotificationsEnabled: false });
-      showDialog(
-        'info', 
-        'Desactivado', 
-        'Las notificaciones push han sido desactivadas en este dispositivo. El token de notificación permanecerá registrado pero no recibirás alertas. Para volver a activarlas, activa el interruptor nuevamente.'
-      );
+      // Disable push notifications
+      try {
+        setSavingSettings(true);
+        console.log('[NotificationsScreen] Disabling push notifications...');
+        
+        await removeDevicePushToken();
+        
+        setSettings({ ...settings, pushNotificationsEnabled: false });
+        showDialog(
+          'info', 
+          'Desactivado', 
+          'Las notificaciones push han sido desactivadas en este dispositivo. Ya no recibirás alertas de nuevos pedidos.'
+        );
+        console.log('[NotificationsScreen] Push notifications disabled');
+      } catch (error) {
+        console.error('[NotificationsScreen] Error disabling push notifications:', error);
+        showDialog('error', 'Error', 'No se pudieron desactivar las notificaciones push: ' + (error as Error).message);
+      } finally {
+        setSavingSettings(false);
+      }
     }
   };
 
@@ -593,9 +637,11 @@ export default function NotificationsScreen() {
                   <Text style={styles.switchSubtext}>
                     {Platform.OS === 'web' 
                       ? 'No disponible en web' 
-                      : permissionsGranted 
+                      : settings.pushNotificationsEnabled
                         ? 'Activadas y funcionando' 
-                        : 'Requiere permisos del sistema'}
+                        : permissionsGranted
+                          ? 'Permisos otorgados, activa para recibir notificaciones'
+                          : 'Requiere permisos del sistema'}
                   </Text>
                 </View>
               </View>
