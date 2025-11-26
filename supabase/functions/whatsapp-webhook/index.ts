@@ -711,6 +711,19 @@ function splitLineIntoSegments(line: string): string[] {
 }
 
 /**
+ * Calculate the ratio of conversational text to product text
+ */
+function calculateConversationalRatio(originalMessage: string, extractedProducts: string): number {
+  const originalLength = originalMessage.trim().length;
+  const extractedLength = extractedProducts.trim().length;
+  
+  if (originalLength === 0) return 0;
+  
+  const conversationalLength = originalLength - extractedLength;
+  return conversationalLength / originalLength;
+}
+
+/**
  * Parses a WhatsApp message into a list of order items
  */
 function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
@@ -777,6 +790,48 @@ function isGreeting(message: string): boolean {
  */
 function isQuestion(message: string): boolean {
   return QUESTION_PATTERNS.some(pattern => pattern.test(message));
+}
+
+/**
+ * Determines if the message should create an order or send a help message
+ * Returns true if the message is valid for order creation
+ */
+function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[]): boolean {
+  // If no items were parsed, don't create order
+  if (parsedItems.length === 0) {
+    console.log('No items parsed - should not create order');
+    return false;
+  }
+
+  // If all items are unparseable, don't create order
+  const allUnparseable = parsedItems.every(item => item.quantity === '#');
+  if (allUnparseable) {
+    console.log('All items unparseable - should not create order');
+    return false;
+  }
+
+  // Calculate conversational ratio
+  const productListOnly = extractProductList(message);
+  const conversationalRatio = calculateConversationalRatio(message, productListOnly);
+  
+  console.log(`Conversational ratio: ${(conversationalRatio * 100).toFixed(1)}%`);
+  
+  // If more than 60% of the message is conversational text and we only have 1-2 items,
+  // it's likely not a proper order
+  if (conversationalRatio > 0.6 && parsedItems.length <= 2) {
+    console.log('Too much conversational text for few items - should not create order');
+    return false;
+  }
+
+  // If the message is very short (less than 15 characters after extraction) and only has 1 item,
+  // it might be too vague
+  if (productListOnly.length < 15 && parsedItems.length === 1) {
+    console.log('Message too short with only 1 item - should not create order');
+    return false;
+  }
+
+  console.log('Message is valid for order creation');
+  return true;
 }
 
 // ============================================================================
@@ -1175,11 +1230,17 @@ serve(async (req) => {
       const parsedItems = parseWhatsAppMessage(messageText);
       console.log('Parsed items:', parsedItems.length);
 
-      const shouldCreateQuery = !isAuthorized && (isQuestion(messageText) || parsedItems.length === 0);
-      console.log('Should create query:', shouldCreateQuery);
+      // Check if this should be a query instead of an order
+      const shouldBeQuery = !isAuthorized && (isQuestion(messageText) || parsedItems.length === 0);
+      
+      // Check if the message is valid for order creation
+      const validForOrder = shouldCreateOrder(messageText, parsedItems);
+      
+      console.log('Should be query:', shouldBeQuery);
+      console.log('Valid for order:', validForOrder);
 
-      if (shouldCreateQuery) {
-        console.log('Creating query...');
+      if (shouldBeQuery || !validForOrder) {
+        console.log('Creating query or sending help message...');
         
         const { data: existingOrders } = await supabase
           .from('orders')
@@ -1233,7 +1294,7 @@ serve(async (req) => {
           console.log('No existing pending order found for query');
           
           const customerName = await extractCustomerName(supabase, contact, from);
-          if (config.auto_reply_enabled && parsedItems.length === 0) {
+          if (config.auto_reply_enabled) {
             await sendWhatsAppMessage(
               config.phone_number_id,
               config.access_token,
@@ -1289,7 +1350,10 @@ serve(async (req) => {
 
       console.log('Order created:', orderNumber);
 
-      for (const item of parsedItems) {
+      // Only add parseable items to the order
+      const parseableItems = parsedItems.filter(item => item.quantity !== '#');
+      
+      for (const item of parseableItems) {
         const notes = item.unit ? `unidad: ${item.unit}` : null;
         
         await supabase.from('order_items').insert({
@@ -1301,10 +1365,10 @@ serve(async (req) => {
         });
       }
 
-      console.log('Order items created:', parsedItems.length);
+      console.log('Order items created:', parseableItems.length);
 
       if (config.auto_reply_enabled) {
-        const confirmationMessage = createConfirmationMessage(customerName, orderNumber, parsedItems);
+        const confirmationMessage = createConfirmationMessage(customerName, orderNumber, parseableItems);
         await sendWhatsAppMessage(
           config.phone_number_id,
           config.access_token,
@@ -1315,7 +1379,7 @@ serve(async (req) => {
 
       try {
         const notificationTitle = `🛒 Nuevo Pedido: ${orderNumber}`;
-        const notificationBody = `${customerName} - ${parsedItems.length} producto(s)`;
+        const notificationBody = `${customerName} - ${parseableItems.length} producto(s)`;
         
         await supabase.from('notifications').insert({
           user_id: null,
@@ -1345,3 +1409,223 @@ serve(async (req) => {
 
   return new Response('Method not allowed', { status: 405 });
 });
+</write file>
+
+Now let me deploy this updated webhook to Supabase:Perfect! The webhook has been deployed. Now let me create a documentation file explaining the improvements:
+
+<write file="WHATSAPP_INTELLIGENT_ORDER_VALIDATION.md">
+# WhatsApp Intelligent Order Validation
+
+## Problem Solved
+
+Previously, when a customer sent a message like:
+```
+"Hola buenas tardes quiero hacer un pedido de dos kilos de papas"
+```
+
+The system would create an order with the entire text, including greetings and conversational phrases. This resulted in orders with unnecessary text that should have been filtered out.
+
+## Solution Implemented
+
+The WhatsApp webhook now includes intelligent validation to determine whether a message should:
+1. **Create an order** - When the message contains a clear product list
+2. **Send a help message** - When the message is too conversational or unclear
+3. **Create a query** - When the message is a question about an existing order
+
+## How It Works
+
+### 1. Product Extraction
+The `extractProductList()` function removes:
+- Greetings: "Hola", "Buenos días", "Buenas tardes", etc.
+- Closings: "Gracias", "Saludos", "Bendiciones", etc.
+- Filler phrases: "Quiero hacer un pedido", "Quisiera pedir", etc.
+- Questions: Lines containing "?" or "¿"
+
+### 2. Order Validation
+The new `shouldCreateOrder()` function checks:
+
+#### No Items Parsed
+```javascript
+if (parsedItems.length === 0) {
+  return false; // Don't create order
+}
+```
+
+#### All Items Unparseable
+```javascript
+const allUnparseable = parsedItems.every(item => item.quantity === '#');
+if (allUnparseable) {
+  return false; // Don't create order
+}
+```
+
+#### Conversational Ratio Check
+```javascript
+const conversationalRatio = calculateConversationalRatio(message, productListOnly);
+
+// If more than 60% is conversational text and only 1-2 items
+if (conversationalRatio > 0.6 && parsedItems.length <= 2) {
+  return false; // Too much conversation, not enough products
+}
+```
+
+#### Message Length Check
+```javascript
+// If message is very short (< 15 chars) with only 1 item
+if (productListOnly.length < 15 && parsedItems.length === 1) {
+  return false; // Too vague
+}
+```
+
+## Examples
+
+### ✅ Valid Orders (Will Create Order)
+
+**Example 1: Clear product list**
+```
+3 kilos de tomates
+2 kilos de papas
+5 pepinos
+```
+- Conversational ratio: 0%
+- Items: 3
+- Result: ✅ Order created
+
+**Example 2: With greeting but clear products**
+```
+Hola, quiero:
+3 kilos de tomates
+2 kilos de papas
+5 pepinos
+1 cilantro
+```
+- Conversational ratio: ~20%
+- Items: 4
+- Result: ✅ Order created (enough products to be clear)
+
+**Example 3: Horizontal format**
+```
+3 kilos de tomates, 2 kilos de papas, 5 pepinos, 1 cilantro
+```
+- Conversational ratio: 0%
+- Items: 4
+- Result: ✅ Order created
+
+### ❌ Invalid Orders (Will Send Help Message)
+
+**Example 1: Too much conversation, few products**
+```
+Hola buenas tardes quiero hacer un pedido de dos kilos de papas
+```
+- Conversational ratio: ~70%
+- Items: 1
+- Result: ❌ Help message sent
+
+**Example 2: Only greeting**
+```
+Hola buenos días
+```
+- Conversational ratio: 100%
+- Items: 0
+- Result: ❌ Welcome message sent
+
+**Example 3: Question**
+```
+¿Cuánto cuesta el kilo de tomates?
+```
+- Is question: Yes
+- Result: ❌ Query created (if existing order) or help message
+
+**Example 4: Vague message**
+```
+Quiero papas
+```
+- Message length: 13 chars
+- Items: 1
+- Result: ❌ Help message sent (too vague)
+
+## Help Message
+
+When validation fails, customers receive a helpful message:
+
+```
+❌ *No pudimos identificar productos*
+
+Hola [Nombre]! No pude identificar productos en tu mensaje.
+
+📝 *Formato sugerido:*
+• 3 kilos de tomates
+• 2 kilos de palta
+• 1 kg de papas
+• 5 pepinos
+• 1 cilantro
+
+También puedes escribir:
+• tomates 3 kilos
+• 3k de tomates
+• tres kilos de tomates
+• 3kilos de papas
+• papas 3k
+• 1/4 de ají
+• 1/2 kilo de papas
+• 2 saco de papa, un cajón de tomate
+• 2 kilos de tomates 1 kilo de papa
+• 3kilos tomates 2kilos paltas 3 pepinos
+
+¡Gracias por tu comprensión! 😊
+```
+
+## Benefits
+
+1. **Cleaner Orders**: Only actual products are added to orders
+2. **Better User Experience**: Customers get immediate feedback if their message format is unclear
+3. **Reduced Manual Work**: Less need to manually clean up orders
+4. **Educational**: Help messages teach customers the correct format
+5. **Flexible**: Still accepts various formats when the intent is clear
+
+## Technical Details
+
+### Conversational Ratio Calculation
+```typescript
+function calculateConversationalRatio(originalMessage: string, extractedProducts: string): number {
+  const originalLength = originalMessage.trim().length;
+  const extractedLength = extractedProducts.trim().length;
+  
+  if (originalLength === 0) return 0;
+  
+  const conversationalLength = originalLength - extractedLength;
+  return conversationalLength / originalLength;
+}
+```
+
+### Validation Thresholds
+- **Conversational ratio threshold**: 60%
+- **Minimum items for high conversation**: 3 items
+- **Minimum message length for single item**: 15 characters
+
+These thresholds can be adjusted based on real-world usage patterns.
+
+## Future Improvements
+
+Potential enhancements:
+1. Machine learning to improve validation accuracy
+2. Customer-specific learning (remember their typical order format)
+3. Confidence scores for parsed items
+4. Automatic correction suggestions
+5. Multi-language support
+
+## Testing
+
+To test the new validation:
+
+1. **Valid order**: Send "3 kilos de tomates, 2 kilos de papas, 5 pepinos"
+   - Expected: Order created with 3 items
+
+2. **Invalid order**: Send "Hola buenas tardes quiero hacer un pedido de dos kilos de papas"
+   - Expected: Help message received
+
+3. **Question**: Send "¿Cuánto cuesta?"
+   - Expected: Query created (if existing order) or help message
+
+4. **Greeting only**: Send "Hola"
+   - Expected: Welcome message received
