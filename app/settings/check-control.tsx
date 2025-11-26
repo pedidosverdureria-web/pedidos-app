@@ -362,53 +362,66 @@ export default function CheckControlScreen() {
       fontSize: 16,
       color: currentTheme.colors.textSecondary,
     },
-    scrollView: {
-      flex: 1,
+    stickyHeader: {
+      backgroundColor: currentTheme.colors.background,
+      borderBottomWidth: 1,
+      borderBottomColor: currentTheme.colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 4,
     },
     summaryContainer: {
       flexDirection: 'row',
-      padding: 16,
-      gap: 12,
+      padding: 10,
+      gap: 8,
       flexWrap: 'wrap',
     },
     summaryCard: {
       flex: 1,
-      minWidth: '45%',
-      padding: 16,
-      borderRadius: 16,
+      minWidth: '30%',
+      padding: 10,
+      borderRadius: 12,
       alignItems: 'center',
-      gap: 8,
+      gap: 4,
     },
     summaryValue: {
-      fontSize: 28,
+      fontSize: 20,
       fontWeight: '700',
       color: currentTheme.colors.text,
     },
     summaryLabel: {
-      fontSize: 12,
+      fontSize: 10,
       color: currentTheme.colors.textSecondary,
       fontWeight: '500',
       textAlign: 'center',
     },
     debtCard: {
-      margin: 16,
-      marginTop: 0,
-      padding: 24,
+      marginHorizontal: 10,
+      marginBottom: 10,
+      padding: 14,
       backgroundColor: currentTheme.colors.card,
-      borderRadius: 16,
+      borderRadius: 12,
       borderWidth: 2,
       borderColor: currentTheme.colors.error + '40',
       alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 12,
     },
     debtLabel: {
-      fontSize: 16,
+      fontSize: 13,
       color: currentTheme.colors.textSecondary,
-      marginBottom: 8,
+      fontWeight: '600',
     },
     debtAmount: {
-      fontSize: 36,
+      fontSize: 22,
       fontWeight: '700',
       color: currentTheme.colors.error,
+    },
+    scrollView: {
+      flex: 1,
     },
     section: {
       padding: 16,
@@ -670,64 +683,70 @@ export default function CheckControlScreen() {
           <Text style={styles.loadingText}>Cargando cheques...</Text>
         </View>
       ) : (
-        <ScrollView
-          style={styles.scrollView}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        >
-          {/* Summary Cards */}
-          <View style={styles.summaryContainer}>
-            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.warning + '20' }]}>
-              <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={28} color={currentTheme.colors.warning} />
-              <Text style={styles.summaryValue}>{pendingChecks.length}</Text>
-              <Text style={styles.summaryLabel}>Pendientes</Text>
+        <>
+          {/* Sticky Header with Summary and Debt */}
+          <View style={styles.stickyHeader}>
+            {/* Summary Cards */}
+            <View style={styles.summaryContainer}>
+              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.warning + '20' }]}>
+                <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={20} color={currentTheme.colors.warning} />
+                <Text style={styles.summaryValue}>{pendingChecks.length}</Text>
+                <Text style={styles.summaryLabel}>Pendientes</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.success + '20' }]}>
+                <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color={currentTheme.colors.success} />
+                <Text style={styles.summaryValue}>{paidChecks.length}</Text>
+                <Text style={styles.summaryLabel}>Pagados</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.info + '20' }]}>
+                <IconSymbol ios_icon_name="arrow.right.circle.fill" android_material_icon_name="arrow_circle_right" size={20} color={currentTheme.colors.info} />
+                <Text style={styles.summaryValue}>{movedChecks.length}</Text>
+                <Text style={styles.summaryLabel}>Movidos</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: '#8B5CF6' + '20' }]}>
+                <IconSymbol ios_icon_name="pause.circle.fill" android_material_icon_name="pause_circle" size={20} color="#8B5CF6" />
+                <Text style={styles.summaryValue}>{pausedChecks.length}</Text>
+                <Text style={styles.summaryLabel}>Pausados</Text>
+              </View>
+              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.error + '20' }]}>
+                <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={20} color={currentTheme.colors.error} />
+                <Text style={styles.summaryValue}>{canceledChecks.length}</Text>
+                <Text style={styles.summaryLabel}>Anulados</Text>
+              </View>
             </View>
-            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.success + '20' }]}>
-              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={28} color={currentTheme.colors.success} />
-              <Text style={styles.summaryValue}>{paidChecks.length}</Text>
-              <Text style={styles.summaryLabel}>Pagados</Text>
-            </View>
-            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.info + '20' }]}>
-              <IconSymbol ios_icon_name="arrow.right.circle.fill" android_material_icon_name="arrow_circle_right" size={28} color={currentTheme.colors.info} />
-              <Text style={styles.summaryValue}>{movedChecks.length}</Text>
-              <Text style={styles.summaryLabel}>Movidos</Text>
-            </View>
-            <View style={[styles.summaryCard, { backgroundColor: '#8B5CF6' + '20' }]}>
-              <IconSymbol ios_icon_name="pause.circle.fill" android_material_icon_name="pause_circle" size={28} color="#8B5CF6" />
-              <Text style={styles.summaryValue}>{pausedChecks.length}</Text>
-              <Text style={styles.summaryLabel}>Pausados</Text>
-            </View>
-            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.error + '20' }]}>
-              <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={currentTheme.colors.error} />
-              <Text style={styles.summaryValue}>{canceledChecks.length}</Text>
-              <Text style={styles.summaryLabel}>Anulados</Text>
+
+            {/* Total Debt Card */}
+            <View style={styles.debtCard}>
+              <Text style={styles.debtLabel}>Deuda Total:</Text>
+              <Text style={styles.debtAmount}>{formatCurrency(totalDebt)}</Text>
             </View>
           </View>
 
-          {/* Total Debt Card */}
-          <View style={styles.debtCard}>
-            <Text style={styles.debtLabel}>Deuda Total de Cheques</Text>
-            <Text style={styles.debtAmount}>{formatCurrency(totalDebt)}</Text>
-          </View>
+          {/* Scrollable Content */}
+          <ScrollView
+            style={styles.scrollView}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          >
+            {/* Pending Checks Section */}
+            {renderSection('Cheques Pendientes', pendingChecks, 'pendiente', 'No hay cheques pendientes')}
 
-          {/* Pending Checks Section */}
-          {renderSection('Cheques Pendientes', pendingChecks, 'pendiente', 'No hay cheques pendientes')}
+            {/* Moved Checks Section */}
+            {renderSection('Cheques Movidos', movedChecks, 'movido', 'No hay cheques movidos')}
 
-          {/* Moved Checks Section */}
-          {renderSection('Cheques Movidos', movedChecks, 'movido', 'No hay cheques movidos')}
+            {/* Paused Checks Section */}
+            {renderSection('Cheques Pausados', pausedChecks, 'pausado', 'No hay cheques pausados')}
 
-          {/* Paused Checks Section */}
-          {renderSection('Cheques Pausados', pausedChecks, 'pausado', 'No hay cheques pausados')}
+            {/* Paid Checks Section */}
+            {renderSection('Cheques Pagados', paidChecks, 'pagado', 'No hay cheques pagados')}
 
-          {/* Paid Checks Section */}
-          {renderSection('Cheques Pagados', paidChecks, 'pagado', 'No hay cheques pagados')}
+            {/* Canceled Checks Section */}
+            {renderSection('Cheques Anulados', canceledChecks, 'anulado', 'No hay cheques anulados')}
 
-          {/* Canceled Checks Section */}
-          {renderSection('Cheques Anulados', canceledChecks, 'anulado', 'No hay cheques anulados')}
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        </>
       )}
 
       {/* Floating Action Buttons */}
