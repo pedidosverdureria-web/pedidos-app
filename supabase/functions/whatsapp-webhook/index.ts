@@ -477,12 +477,12 @@ function formatCLP(amount: number): string {
  * Format items list for WhatsApp message
  */
 function formatItemsList(items: any[], showPrices: boolean = false): string {
-  return items.map((item, index) => {
+  return items.map((item) => {
     const quantity = item.quantity === '#' ? '' : `${item.quantity} `;
     const unit = item.unit ? `${item.unit} ` : '';
     const productName = item.product || item.product_name || 'Producto';
     const price = showPrices && item.unit_price > 0 ? ` - ${formatCLP(item.unit_price)}` : '';
-    return `${index + 1}. ${quantity}${unit}${productName}${price}`;
+    return `• ${quantity}${unit}${productName}${price}`;
   }).join('\n');
 }
 
