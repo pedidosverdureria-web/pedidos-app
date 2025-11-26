@@ -115,59 +115,40 @@ function formatDate(dateString: string, format: 'short' | 'long' | 'time' = 'lon
   }
 }
 
-function getUnitFromNotes(notes: string | null | undefined): string {
-  if (!notes) return '';
-  const lowerNotes = notes.toLowerCase();
-  
-  const unitMatch = lowerNotes.match(/unidad:\s*(\w+)/);
-  if (unitMatch) {
-    return unitMatch[1];
-  }
-  
-  if (lowerNotes.includes('kg') || lowerNotes.includes('kilo')) return 'kg';
-  if (lowerNotes.includes('gr') || lowerNotes.includes('gramo')) return 'gr';
-  if (lowerNotes.includes('lt') || lowerNotes.includes('litro')) return 'lt';
-  if (lowerNotes.includes('ml')) return 'ml';
-  if (lowerNotes.includes('un') || lowerNotes.includes('unidad')) return 'un';
-  return '';
-}
-
+/**
+ * Format product display with WhatsApp style
+ * FIXED: Now uses the same format as orderHelpers.ts for consistency
+ */
 function formatProductDisplay(item: OrderItem, config?: PrinterConfig): string {
-  const unit = getUnitFromNotes(item.notes);
+  // FIXED: Use case-insensitive regex to match both "unidad:" and "Unidad:"
+  const unit = item.notes?.match(/unidad:\s*(\S+)/i)?.[1] || '';
   
-  let unitText = '';
-  if (unit === 'kg' || unit === 'kilo' || unit === 'kilos') {
-    unitText = item.quantity === 1 ? 'kilo' : 'kilos';
-  } else if (unit === 'gr' || unit === 'gramo' || unit === 'gramos') {
-    unitText = item.quantity === 1 ? 'gramo' : 'gramos';
-  } else if (unit === 'lt' || unit === 'litro' || unit === 'litros') {
-    unitText = item.quantity === 1 ? 'litro' : 'litros';
-  } else if (unit === 'ml') {
-    unitText = 'ml';
-  } else if (unit === 'un' || unit === 'unidad' || unit === 'unidades') {
-    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
-  } else if (unit) {
-    if (item.quantity === 1) {
-      unitText = unit;
-    } else {
-      unitText = unit.endsWith('s') ? unit : unit + 's';
-    }
-  } else {
-    unitText = item.quantity === 1 ? 'unidad' : 'unidades';
+  if (item.quantity === '#') {
+    const productName = processText(item.product_name, config);
+    return `# ${productName}`;
   }
   
-  // FIXED: Apply processText to product name to handle special characters
+  if (unit) {
+    const productName = processText(item.product_name, config);
+    return `${item.quantity} ${unit} de ${productName}`;
+  }
+  
   const productName = processText(item.product_name, config);
-  return `${item.quantity} ${unitText} de ${productName}`;
+  return `${item.quantity} ${productName}`;
 }
 
+/**
+ * Get additional notes (excluding unit information)
+ * FIXED: Now uses the same logic as orderHelpers.ts
+ */
 function getAdditionalNotes(notes: string | null | undefined, config?: PrinterConfig): string {
   if (!notes) return '';
   
-  const cleanNotes = notes.replace(/unidad:\s*\w+/gi, '').trim();
+  // FIXED: Use case-insensitive regex to remove both "unidad:" and "Unidad:"
+  const cleanedNotes = notes.replace(/unidad:\s*\S+\s*/i, '').trim();
   
-  // FIXED: Apply processText to notes to handle special characters
-  return processText(cleanNotes, config);
+  // Apply processText to handle special characters
+  return processText(cleanedNotes, config);
 }
 
 function alignText(text: string, width: number, alignment: 'left' | 'center' | 'right'): string {
@@ -398,6 +379,7 @@ export function generateAdvancedReceiptText(
  * Generate receipt text for printing
  * This is the unified function used by both auto-printing and manual printing
  * FIXED: All text is now processed through processText to handle special characters
+ * FIXED: Now uses WhatsApp-style product formatting
  */
 export function generateReceiptText(
   order: Order,
@@ -442,6 +424,7 @@ export function generateReceiptText(
   // Products section
   receipt += 'PRODUCTOS:\n\n';
   for (const item of order.items || []) {
+    // FIXED: Use WhatsApp-style formatting
     receipt += `${formatProductDisplay(item, config)}\n`;
     
     const additionalNotes = getAdditionalNotes(item.notes, config);
@@ -481,6 +464,7 @@ export function generateReceiptText(
 /**
  * Generate receipt text for order queries
  * FIXED: All text is now processed through processText to handle special characters
+ * FIXED: Now uses WhatsApp-style product formatting
  */
 export function generateQueryReceiptText(
   order: Order,
@@ -657,7 +641,7 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         quantity: 2,
         unit_price: 3000,
         total_price: 3000,
-        notes: 'Unidad: kg\nTomates frescos',
+        notes: 'unidad: kilos\nTomates frescos',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -668,7 +652,7 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         quantity: 1,
         unit_price: 2000,
         total_price: 2000,
-        notes: 'Unidad: malla\nTamaño mediano',
+        notes: 'unidad: malla\nTamaño mediano',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -679,7 +663,7 @@ export function generateSampleReceipt(config?: PrinterConfig): string {
         quantity: 3,
         unit_price: 4500,
         total_price: 4500,
-        notes: 'Unidad: kg\nPapas blancas',
+        notes: 'unidad: kilos\nPapas blancas',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
