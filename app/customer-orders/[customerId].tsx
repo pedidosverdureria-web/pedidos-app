@@ -15,49 +15,8 @@ import { getSupabase } from '@/lib/supabase';
 import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { Order, OrderStatus } from '@/types';
+import { getStatusColor, getStatusLabel, formatCLP, formatDate } from '@/utils/orderHelpers';
 import * as Haptics from 'expo-haptics';
-
-function getStatusColor(status: OrderStatus, colors: any): string {
-  switch (status) {
-    case 'pending':
-      return '#F59E0B';
-    case 'preparing':
-      return '#3B82F6';
-    case 'ready':
-      return '#10B981';
-    case 'delivered':
-      return '#6B7280';
-    case 'cancelled':
-      return '#EF4444';
-    case 'pending_payment':
-      return '#8B5CF6';
-    case 'paid':
-      return '#059669';
-    default:
-      return '#6B7280';
-  }
-}
-
-function getStatusLabel(status: OrderStatus): string {
-  switch (status) {
-    case 'pending':
-      return 'Pendiente';
-    case 'preparing':
-      return 'Preparando';
-    case 'ready':
-      return 'Listo';
-    case 'delivered':
-      return 'Entregado';
-    case 'cancelled':
-      return 'Cancelado';
-    case 'pending_payment':
-      return 'Pend. Pago';
-    case 'paid':
-      return 'Pagado';
-    default:
-      return status;
-  }
-}
 
 function getFilterLabel(filter: string): string {
   switch (filter) {
@@ -74,24 +33,6 @@ function getFilterLabel(filter: string): string {
     default:
       return 'Pedidos';
   }
-}
-
-function formatCLP(amount: number): string {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-  }).format(amount);
-}
-
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleString('es-CL', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 export default function CustomerOrdersScreen() {
@@ -177,54 +118,70 @@ export default function CustomerOrdersScreen() {
   };
 
   const renderOrderCard = ({ item }: { item: Order }) => {
+    const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
+    const itemCount = item.items?.length || 0;
+    const statusColor = getStatusColor(item.status);
     const hasMessages = item.queries && item.queries.length > 0;
-    const messageCount = item.queries?.length || 0;
 
     return (
       <TouchableOpacity
-        style={[styles.orderCard, { borderLeftColor: getStatusColor(item.status, colors) }]}
+        style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => handleOrderPress(item.id)}
       >
         <View style={styles.orderHeader}>
           <View style={styles.orderHeaderLeft}>
-            <Text style={styles.orderNumber}>{item.order_number}</Text>
-            {hasMessages && (
-              <View style={styles.messageIndicator}>
-                <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={12} color="#fff" />
-                <Text style={styles.messageCount}>{messageCount}</Text>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <View style={styles.orderInfo}>
+              <View style={styles.orderNumberRow}>
+                <Text style={[styles.orderNumber, { color: colors.text }]}>{item.order_number}</Text>
+                {/* Source icon - WhatsApp or Manual */}
+                <View style={[
+                  styles.sourceIconContainer,
+                  { backgroundColor: item.source === 'whatsapp' ? '#25D366' : colors.textSecondary }
+                ]}>
+                  <IconSymbol 
+                    ios_icon_name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'}
+                    android_material_icon_name={item.source === 'whatsapp' ? 'message' : 'edit'}
+                    size={12} 
+                    color="#fff" 
+                  />
+                </View>
+                {/* Message indicator */}
+                {hasMessages && (
+                  <View style={styles.messageIndicator}>
+                    <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={12} color="#fff" />
+                    <Text style={styles.messageCount}>{item.queries.length}</Text>
+                  </View>
+                )}
               </View>
-            )}
+              <Text style={[styles.orderCustomer, { color: colors.textSecondary }]}>{item.customer_name}</Text>
+            </View>
           </View>
-          <View style={[styles.orderStatusBadge, { backgroundColor: getStatusColor(item.status, colors) }]}>
-            <Text style={styles.orderStatusText}>{getStatusLabel(item.status)}</Text>
-          </View>
+          {!item.is_read && <View style={[styles.unreadBadge, { backgroundColor: colors.error }]} />}
         </View>
-
-        {item.items && item.items.length > 0 && (
-          <Text style={styles.orderInfo}>
-            {item.items.length} {item.items.length === 1 ? 'producto' : 'productos'}
-          </Text>
-        )}
-
-        <View style={styles.orderSourceRow}>
-          <View style={[
-            styles.orderSourceBadge,
-            item.source === 'whatsapp' ? styles.orderSourceWhatsApp : styles.orderSourceManual
-          ]}>
-            <IconSymbol 
-              ios_icon_name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'}
-              android_material_icon_name={item.source === 'whatsapp' ? 'message' : 'edit'}
-              size={12} 
-              color="#fff" 
-            />
-            <Text style={styles.orderSourceText}>
-              {item.source === 'whatsapp' ? 'WhatsApp' : 'Manual'}
+        
+        <View style={styles.orderDetails}>
+          <View style={styles.orderDetailRow}>
+            <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={14} color={colors.textSecondary} />
+            <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatDate(item.created_at)}</Text>
+          </View>
+          <View style={styles.orderDetailRow}>
+            <IconSymbol ios_icon_name="bag.fill" android_material_icon_name="shopping_bag" size={14} color={colors.textSecondary} />
+            <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>
+              {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
             </Text>
           </View>
+          {total > 0 && (
+            <View style={styles.orderDetailRow}>
+              <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="attach_money" size={14} color={colors.textSecondary} />
+              <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatCLP(total)}</Text>
+            </View>
+          )}
         </View>
-
-        <Text style={styles.orderDate}>📅 {formatDate(item.created_at)}</Text>
-        <Text style={styles.orderTotal}>{formatCLP(item.total_amount)}</Text>
+        
+        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -241,7 +198,7 @@ export default function CustomerOrdersScreen() {
     },
     header: {
       padding: 16,
-      paddingTop: Platform.OS === 'ios' ? 60 : 40,
+      paddingTop: Platform.OS === 'ios' ? 60 : 48,
       backgroundColor: colors.primary,
     },
     headerTop: {
@@ -265,7 +222,7 @@ export default function CustomerOrdersScreen() {
       color: 'rgba(255, 255, 255, 0.8)',
       marginTop: 4,
     },
-    statusBadge: {
+    statusBadgeHeader: {
       paddingHorizontal: 16,
       paddingVertical: 8,
       borderRadius: 20,
@@ -280,46 +237,53 @@ export default function CustomerOrdersScreen() {
       flex: 1,
     },
     orderCard: {
-      backgroundColor: colors.card,
-      marginHorizontal: 16,
-      marginVertical: 8,
-      padding: 16,
       borderRadius: 12,
-      borderLeftWidth: 4,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        },
-        android: {
-          elevation: 3,
-        },
-      }),
+      padding: 16,
+      marginBottom: 12,
+      borderWidth: 1,
     },
     orderHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 8,
+      marginBottom: 12,
     },
     orderHeaderLeft: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: 12,
       flex: 1,
+    },
+    statusDot: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+    },
+    orderInfo: {
+      flex: 1,
+    },
+    orderNumberRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 2,
     },
     orderNumber: {
       fontSize: 18,
       fontWeight: 'bold',
-      color: colors.text,
+    },
+    sourceIconContainer: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     messageIndicator: {
       backgroundColor: '#25D366',
       borderRadius: 12,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
@@ -329,57 +293,36 @@ export default function CustomerOrdersScreen() {
       fontSize: 11,
       fontWeight: '700',
     },
-    orderStatusBadge: {
+    orderCustomer: {
+      fontSize: 14,
+    },
+    unreadBadge: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    orderDetails: {
+      gap: 8,
+      marginBottom: 12,
+    },
+    orderDetailRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    orderDetailText: {
+      fontSize: 13,
+    },
+    statusBadge: {
+      alignSelf: 'flex-start',
       paddingHorizontal: 12,
-      paddingVertical: 4,
+      paddingVertical: 6,
       borderRadius: 12,
     },
-    orderStatusText: {
-      color: '#fff',
+    statusText: {
       fontSize: 12,
       fontWeight: '600',
-    },
-    orderInfo: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginBottom: 2,
-    },
-    orderSourceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 4,
-      marginBottom: 2,
-    },
-    orderSourceBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 8,
-      gap: 4,
-    },
-    orderSourceWhatsApp: {
-      backgroundColor: '#25D366',
-    },
-    orderSourceManual: {
-      backgroundColor: '#6B7280',
-    },
-    orderSourceText: {
       color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    orderDate: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      marginTop: 4,
-      fontStyle: 'italic',
-    },
-    orderTotal: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: colors.primary,
-      marginTop: 8,
     },
     emptyContainer: {
       flex: 1,
@@ -406,17 +349,8 @@ export default function CustomerOrdersScreen() {
       marginBottom: 8,
       padding: 16,
       borderRadius: 12,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        },
-        android: {
-          elevation: 3,
-        },
-      }),
+      borderWidth: 1,
+      borderColor: colors.border,
     },
     summaryTitle: {
       fontSize: 16,
@@ -443,6 +377,10 @@ export default function CustomerOrdersScreen() {
       fontSize: 18,
       fontWeight: 'bold',
       color: colors.primary,
+    },
+    listContent: {
+      padding: 16,
+      paddingBottom: 100,
     },
   });
 
@@ -471,7 +409,7 @@ export default function CustomerOrdersScreen() {
             <Text style={styles.headerTitle}>{customerName}</Text>
             <Text style={styles.headerSubtitle}>{getFilterLabel(statusFilter)}</Text>
           </View>
-          <View style={styles.statusBadge}>
+          <View style={styles.statusBadgeHeader}>
             <Text style={styles.statusBadgeText}>{orders.length}</Text>
           </View>
         </View>
@@ -525,6 +463,7 @@ export default function CustomerOrdersScreen() {
               tintColor={colors.primary}
             />
           }
+          contentContainerStyle={styles.listContent}
         />
       )}
     </View>
