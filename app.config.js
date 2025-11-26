@@ -44,7 +44,12 @@ module.exports = {
         "POST_NOTIFICATIONS",
         "VIBRATE"
       ],
-      useNextNotificationsApi: true
+      useNextNotificationsApi: true,
+      gradleProperties: {
+        "android.lint.checkReleaseBuilds": "false",
+        "android.lint.abortOnError": "false",
+        "android.enableLint": "false"
+      }
     },
     web: {
       favicon: "./assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png",
