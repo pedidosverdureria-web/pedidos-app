@@ -194,6 +194,23 @@ export default function CheckControlScreen() {
     }
   };
 
+  const getStatusIcon = (checkStatus: CheckStatus) => {
+    switch (checkStatus) {
+      case 'pendiente':
+        return { ios: 'clock.fill', android: 'schedule' };
+      case 'pagado':
+        return { ios: 'checkmark.circle.fill', android: 'check_circle' };
+      case 'movido':
+        return { ios: 'arrow.right.circle.fill', android: 'arrow_circle_right' };
+      case 'pausado':
+        return { ios: 'pause.circle.fill', android: 'pause_circle' };
+      case 'anulado':
+        return { ios: 'xmark.circle.fill', android: 'cancel' };
+      default:
+        return { ios: 'doc.text.fill', android: 'description' };
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', {
       style: 'currency',
@@ -321,8 +338,13 @@ export default function CheckControlScreen() {
     });
   };
 
+  // Group checks by status
   const pendingChecks = sortChecksByDate(checks.filter(c => c.status === 'pendiente'));
   const paidChecks = sortChecksByDate(checks.filter(c => c.status === 'pagado'));
+  const movedChecks = sortChecksByDate(checks.filter(c => c.status === 'movido'));
+  const pausedChecks = sortChecksByDate(checks.filter(c => c.status === 'pausado'));
+  const canceledChecks = sortChecksByDate(checks.filter(c => c.status === 'anulado'));
+
   const totalDebt = pendingChecks.reduce((sum, check) => sum + check.amount, 0);
 
   const styles = StyleSheet.create({
@@ -347,23 +369,26 @@ export default function CheckControlScreen() {
       flexDirection: 'row',
       padding: 16,
       gap: 12,
+      flexWrap: 'wrap',
     },
     summaryCard: {
       flex: 1,
-      padding: 20,
+      minWidth: '45%',
+      padding: 16,
       borderRadius: 16,
       alignItems: 'center',
       gap: 8,
     },
     summaryValue: {
-      fontSize: 32,
+      fontSize: 28,
       fontWeight: '700',
       color: currentTheme.colors.text,
     },
     summaryLabel: {
-      fontSize: 14,
+      fontSize: 12,
       color: currentTheme.colors.textSecondary,
       fontWeight: '500',
+      textAlign: 'center',
     },
     debtCard: {
       margin: 16,
@@ -613,6 +638,30 @@ export default function CheckControlScreen() {
     </TouchableOpacity>
   );
 
+  const renderSection = (
+    title: string,
+    checksArray: Check[],
+    statusType: CheckStatus,
+    emptyMessage: string
+  ) => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {checksArray.length === 0 ? (
+        <View style={styles.emptyState}>
+          <IconSymbol 
+            ios_icon_name={getStatusIcon(statusType).ios} 
+            android_material_icon_name={getStatusIcon(statusType).android} 
+            size={48} 
+            color={currentTheme.colors.textSecondary} 
+          />
+          <Text style={styles.emptyStateText}>{emptyMessage}</Text>
+        </View>
+      ) : (
+        checksArray.map(renderCheckItem)
+      )}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       {loading ? (
@@ -630,14 +679,29 @@ export default function CheckControlScreen() {
           {/* Summary Cards */}
           <View style={styles.summaryContainer}>
             <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.warning + '20' }]}>
-              <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={32} color={currentTheme.colors.warning} />
+              <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={28} color={currentTheme.colors.warning} />
               <Text style={styles.summaryValue}>{pendingChecks.length}</Text>
               <Text style={styles.summaryLabel}>Pendientes</Text>
             </View>
             <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.success + '20' }]}>
-              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={32} color={currentTheme.colors.success} />
+              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={28} color={currentTheme.colors.success} />
               <Text style={styles.summaryValue}>{paidChecks.length}</Text>
               <Text style={styles.summaryLabel}>Pagados</Text>
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.info + '20' }]}>
+              <IconSymbol ios_icon_name="arrow.right.circle.fill" android_material_icon_name="arrow_circle_right" size={28} color={currentTheme.colors.info} />
+              <Text style={styles.summaryValue}>{movedChecks.length}</Text>
+              <Text style={styles.summaryLabel}>Movidos</Text>
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: '#8B5CF6' + '20' }]}>
+              <IconSymbol ios_icon_name="pause.circle.fill" android_material_icon_name="pause_circle" size={28} color="#8B5CF6" />
+              <Text style={styles.summaryValue}>{pausedChecks.length}</Text>
+              <Text style={styles.summaryLabel}>Pausados</Text>
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.error + '20' }]}>
+              <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={28} color={currentTheme.colors.error} />
+              <Text style={styles.summaryValue}>{canceledChecks.length}</Text>
+              <Text style={styles.summaryLabel}>Anulados</Text>
             </View>
           </View>
 
@@ -648,30 +712,19 @@ export default function CheckControlScreen() {
           </View>
 
           {/* Pending Checks Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Cheques Pendientes</Text>
-            {pendingChecks.length === 0 ? (
-              <View style={styles.emptyState}>
-                <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={48} color={currentTheme.colors.textSecondary} />
-                <Text style={styles.emptyStateText}>No hay cheques pendientes</Text>
-              </View>
-            ) : (
-              pendingChecks.map(renderCheckItem)
-            )}
-          </View>
+          {renderSection('Cheques Pendientes', pendingChecks, 'pendiente', 'No hay cheques pendientes')}
+
+          {/* Moved Checks Section */}
+          {renderSection('Cheques Movidos', movedChecks, 'movido', 'No hay cheques movidos')}
+
+          {/* Paused Checks Section */}
+          {renderSection('Cheques Pausados', pausedChecks, 'pausado', 'No hay cheques pausados')}
 
           {/* Paid Checks Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Cheques Pagados</Text>
-            {paidChecks.length === 0 ? (
-              <View style={styles.emptyState}>
-                <IconSymbol ios_icon_name="doc.text" android_material_icon_name="description" size={48} color={currentTheme.colors.textSecondary} />
-                <Text style={styles.emptyStateText}>No hay cheques pagados</Text>
-              </View>
-            ) : (
-              paidChecks.map(renderCheckItem)
-            )}
-          </View>
+          {renderSection('Cheques Pagados', paidChecks, 'pagado', 'No hay cheques pagados')}
+
+          {/* Canceled Checks Section */}
+          {renderSection('Cheques Anulados', canceledChecks, 'anulado', 'No hay cheques anulados')}
 
           <View style={{ height: 100 }} />
         </ScrollView>
