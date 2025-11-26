@@ -9,6 +9,7 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { getSupabase } from '@/lib/supabase';
@@ -16,7 +17,6 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { Order, OrderStatus } from '@/types';
 import { getStatusColor, getStatusLabel, formatCLP, formatDate } from '@/utils/orderHelpers';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useThemedStyles } from '@/hooks/useThemedStyles';
 import * as Haptics from 'expo-haptics';
 
 export default function CompletedOrdersScreen() {
@@ -25,7 +25,7 @@ export default function CompletedOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { currentTheme } = useTheme();
-  const { colors } = useThemedStyles();
+  const colors = currentTheme.colors;
 
   // Create dynamic styles based on theme
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -61,6 +61,11 @@ export default function CompletedOrdersScreen() {
     await loadOrders();
     setRefreshing(false);
   }, [loadOrders]);
+
+  const handleBackPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.back();
+  };
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
@@ -113,14 +118,7 @@ export default function CompletedOrdersScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <Stack.Screen
-          options={{
-            title: 'Pedidos Completados',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.primary },
-            headerTintColor: '#fff',
-          }}
-        />
+        <Stack.Screen options={{ headerShown: false }} />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -128,14 +126,23 @@ export default function CompletedOrdersScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: 'Pedidos Completados',
-          headerShown: true,
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
+      
+      {/* Custom Header */}
+      <View style={styles.header}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBackPress}
+          >
+            <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow_back" size={28} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.headerTitle}>Pedidos Completados</Text>
+            <Text style={styles.headerSubtitle}>{orders.length} pedidos</Text>
+          </View>
+        </View>
+      </View>
       
       {/* Search Bar */}
       <View style={styles.searchContainer}>
@@ -205,6 +212,31 @@ function createStyles(colors: any) {
       flex: 1,
       backgroundColor: colors.background,
     },
+    header: {
+      padding: 16,
+      paddingTop: Platform.OS === 'ios' ? 60 : 48,
+      backgroundColor: colors.primary,
+    },
+    headerTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    backButton: {
+      marginRight: 12,
+    },
+    headerTitleContainer: {
+      flex: 1,
+    },
+    headerTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: '#fff',
+    },
+    headerSubtitle: {
+      fontSize: 14,
+      color: 'rgba(255, 255, 255, 0.8)',
+      marginTop: 4,
+    },
     searchContainer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -215,6 +247,19 @@ function createStyles(colors: any) {
       backgroundColor: colors.card,
       borderRadius: 12,
       gap: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 2,
+        },
+      }),
     },
     searchInput: {
       flex: 1,
@@ -234,11 +279,19 @@ function createStyles(colors: any) {
       padding: 16,
       borderRadius: 12,
       borderLeftWidth: 4,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 3,
+        },
+      }),
     },
     orderHeader: {
       flexDirection: 'row',
@@ -310,6 +363,19 @@ function createStyles(colors: any) {
       marginTop: 8,
       marginBottom: 8,
       borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 2,
+        },
+      }),
     },
     statItem: {
       alignItems: 'center',
