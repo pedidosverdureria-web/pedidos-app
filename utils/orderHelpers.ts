@@ -134,7 +134,8 @@ export function formatCLP(amount: number): string {
 
 // Format product display with quantity and unit
 export function formatProductDisplay(item: any): string {
-  const unit = item.notes?.match(/unidad:\s*(\w+)/)?.[1] || '';
+  // FIXED: Use case-insensitive regex to match both "unidad:" and "Unidad:"
+  const unit = item.notes?.match(/unidad:\s*(\S+)/i)?.[1] || '';
   
   if (item.quantity === '#') {
     return `# ${item.product_name}`;
@@ -151,8 +152,8 @@ export function formatProductDisplay(item: any): string {
 export function getAdditionalNotes(notes?: string): string {
   if (!notes) return '';
   
-  // Remove "unidad: xxx" from notes
-  const cleanedNotes = notes.replace(/unidad:\s*\w+\s*/i, '').trim();
+  // FIXED: Use case-insensitive regex to remove both "unidad:" and "Unidad:"
+  const cleanedNotes = notes.replace(/unidad:\s*\S+\s*/i, '').trim();
   return cleanedNotes;
 }
 

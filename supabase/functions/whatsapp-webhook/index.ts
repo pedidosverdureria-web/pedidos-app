@@ -1024,7 +1024,8 @@ serve(async (req) => {
 
       // Create order items
       for (const item of parsedItems) {
-        const notes = item.unit ? `${item.unit}` : null;
+        // FIXED: Store unit with "unidad:" prefix for consistency
+        const notes = item.unit ? `unidad: ${item.unit}` : null;
         
         await supabase.from('order_items').insert({
           order_id: order.id,

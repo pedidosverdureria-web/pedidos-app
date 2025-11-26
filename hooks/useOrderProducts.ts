@@ -128,7 +128,8 @@ export function useOrderProducts(order: Order | null, onUpdate: () => Promise<vo
       const supabase = getSupabase();
       
       for (const parsedItem of parsedProducts) {
-        const notes = `Unidad: ${parsedItem.unit}`;
+        // FIXED: Use lowercase "unidad:" for consistency
+        const notes = `unidad: ${parsedItem.unit}`;
         
         await supabase
           .from('order_items')
