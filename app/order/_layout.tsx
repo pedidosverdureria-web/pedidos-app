@@ -7,9 +7,6 @@ import { useTheme } from '@/contexts/ThemeContext';
  * 
  * This layout handles all routes under /order/
  * Expo Router will automatically discover all files in the order folder.
- * 
- * DO NOT explicitly declare <Stack.Screen> components here.
- * The file-based routing system will handle screen registration automatically.
  */
 export default function OrderLayout() {
   const { currentTheme } = useTheme();
@@ -29,7 +26,18 @@ export default function OrderLayout() {
         animation: 'slide_from_right',
       }}
     >
-      {/* DO NOT add Stack.Screen components here - Expo Router handles this automatically */}
+      <Stack.Screen
+        name="[orderId]"
+        options={{
+          title: 'Detalle del Pedido',
+        }}
+      />
+      <Stack.Screen
+        name="new"
+        options={{
+          title: 'Nuevo Pedido',
+        }}
+      />
     </Stack>
   );
 }

@@ -8,9 +8,6 @@ import { useTheme } from '@/contexts/ThemeContext';
  * This layout handles all routes under /settings/
  * Expo Router will automatically discover all files in the settings folder
  * and create routes for them.
- * 
- * DO NOT explicitly declare <Stack.Screen> components here.
- * The file-based routing system will handle screen registration automatically.
  */
 export default function SettingsLayout() {
   const { currentTheme } = useTheme();
@@ -29,7 +26,138 @@ export default function SettingsLayout() {
         animation: 'slide_from_right',
       }}
     >
-      {/* DO NOT add Stack.Screen components here - Expo Router handles this automatically */}
+      <Stack.Screen
+        name="index"
+        options={{
+          title: 'Configuración',
+        }}
+      />
+      <Stack.Screen
+        name="check-control"
+        options={{
+          title: 'Control de Cheques',
+        }}
+      />
+      <Stack.Screen
+        name="theme"
+        options={{
+          title: 'Color de la App',
+        }}
+      />
+      <Stack.Screen
+        name="permissions"
+        options={{
+          title: 'Permisos',
+        }}
+      />
+      <Stack.Screen
+        name="notifications"
+        options={{
+          title: 'Notificaciones',
+        }}
+      />
+      <Stack.Screen
+        name="printer"
+        options={{
+          title: 'Impresora',
+        }}
+      />
+      <Stack.Screen
+        name="whatsapp"
+        options={{
+          title: 'WhatsApp',
+        }}
+      />
+      <Stack.Screen
+        name="units"
+        options={{
+          title: 'Unidades de Medida',
+        }}
+      />
+      <Stack.Screen
+        name="pdf-manager"
+        options={{
+          title: 'Gestor de PDF Pedidos',
+        }}
+      />
+      <Stack.Screen
+        name="users"
+        options={{
+          title: 'Usuarios',
+        }}
+      />
+      <Stack.Screen
+        name="printer-test"
+        options={{
+          title: 'Prueba de Impresora',
+        }}
+      />
+      <Stack.Screen
+        name="whatsapp-test"
+        options={{
+          title: 'Prueba de WhatsApp Parser',
+        }}
+      />
+      <Stack.Screen
+        name="about"
+        options={{
+          title: 'Acerca de',
+        }}
+      />
+      <Stack.Screen
+        name="receipt-editor"
+        options={{
+          title: 'Editor de Recibo',
+        }}
+      />
+      <Stack.Screen
+        name="receipt-logo"
+        options={{
+          title: 'Logo del Recibo',
+        }}
+      />
+      <Stack.Screen
+        name="user-manual"
+        options={{
+          title: 'Manual de Usuario',
+        }}
+      />
+      <Stack.Screen
+        name="admin-manual"
+        options={{
+          title: 'Manual de Administrador',
+        }}
+      />
+      <Stack.Screen
+        name="developer-manual"
+        options={{
+          title: 'Manual de Desarrollador',
+        }}
+      />
+      <Stack.Screen
+        name="technical-manual"
+        options={{
+          title: 'Manual Técnico',
+        }}
+      />
+      <Stack.Screen
+        name="troubleshooting-manual"
+        options={{
+          title: 'Solución de Problemas',
+        }}
+      />
+      <Stack.Screen
+        name="special-functions-manual"
+        options={{
+          title: 'Funciones Especiales',
+        }}
+      />
+      <Stack.Screen
+        name="check-detail"
+        options={{
+          title: 'Detalle del Cheque',
+        }}
+      />
     </Stack>
   );
 }

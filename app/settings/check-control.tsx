@@ -11,8 +11,8 @@ import {
   RefreshControl,
   Platform,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
-import { colors } from '@/styles/commonStyles';
+import { router } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
 import { IconSymbol } from '@/components/IconSymbol';
 import { CustomDialog, DialogButton } from '@/components/CustomDialog';
 import { getSupabase } from '@/lib/supabase';
@@ -28,6 +28,7 @@ interface DialogState {
 }
 
 export default function CheckControlScreen() {
+  const { currentTheme } = useTheme();
   const [checks, setChecks] = useState<Check[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,17 +163,17 @@ export default function CheckControlScreen() {
   const getStatusColor = (checkStatus: CheckStatus) => {
     switch (checkStatus) {
       case 'pendiente':
-        return colors.warning;
+        return currentTheme.colors.warning;
       case 'pagado':
-        return colors.success;
+        return currentTheme.colors.success;
       case 'movido':
-        return colors.info;
+        return currentTheme.colors.info;
       case 'pausado':
         return '#8B5CF6';
       case 'anulado':
-        return colors.error;
+        return currentTheme.colors.error;
       default:
-        return colors.textSecondary;
+        return currentTheme.colors.textSecondary;
     }
   };
 
@@ -315,6 +316,262 @@ export default function CheckControlScreen() {
   const paidChecks = checks.filter(c => c.status === 'pagado');
   const totalDebt = pendingChecks.reduce((sum, check) => sum + check.amount, 0);
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: currentTheme.colors.background,
+    },
+    loadingContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    loadingText: {
+      marginTop: 12,
+      fontSize: 16,
+      color: currentTheme.colors.textSecondary,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    summaryContainer: {
+      flexDirection: 'row',
+      padding: 16,
+      gap: 12,
+    },
+    summaryCard: {
+      flex: 1,
+      padding: 20,
+      borderRadius: 16,
+      alignItems: 'center',
+      gap: 8,
+    },
+    summaryValue: {
+      fontSize: 32,
+      fontWeight: '700',
+      color: currentTheme.colors.text,
+    },
+    summaryLabel: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+      fontWeight: '500',
+    },
+    debtCard: {
+      margin: 16,
+      marginTop: 0,
+      padding: 24,
+      backgroundColor: currentTheme.colors.card,
+      borderRadius: 16,
+      borderWidth: 2,
+      borderColor: currentTheme.colors.error + '40',
+      alignItems: 'center',
+    },
+    debtLabel: {
+      fontSize: 16,
+      color: currentTheme.colors.textSecondary,
+      marginBottom: 8,
+    },
+    debtAmount: {
+      fontSize: 36,
+      fontWeight: '700',
+      color: currentTheme.colors.error,
+    },
+    section: {
+      padding: 16,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: currentTheme.colors.text,
+      marginBottom: 12,
+    },
+    checkItem: {
+      backgroundColor: currentTheme.colors.card,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+    },
+    checkItemHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    checkItemLeft: {
+      flexDirection: 'row',
+      gap: 12,
+      flex: 1,
+    },
+    checkItemInfo: {
+      flex: 1,
+    },
+    checkNumber: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: currentTheme.colors.text,
+      marginBottom: 4,
+    },
+    checkPayableTo: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+    },
+    statusBadge: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 12,
+    },
+    statusText: {
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    checkItemFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    checkAmount: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: currentTheme.colors.primary,
+    },
+    checkDate: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+    },
+    emptyState: {
+      padding: 40,
+      alignItems: 'center',
+      gap: 12,
+    },
+    emptyStateText: {
+      fontSize: 16,
+      color: currentTheme.colors.textSecondary,
+    },
+    fabContainer: {
+      position: 'absolute',
+      bottom: 24,
+      right: 16,
+      gap: 12,
+    },
+    fab: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    formContainer: {
+      marginTop: 16,
+      gap: 12,
+    },
+    input: {
+      backgroundColor: currentTheme.colors.background,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+      borderRadius: 10,
+      padding: 14,
+      fontSize: 16,
+      color: currentTheme.colors.text,
+    },
+    notesInput: {
+      height: 80,
+      textAlignVertical: 'top',
+    },
+    dateButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: currentTheme.colors.background,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+      borderRadius: 10,
+      padding: 14,
+    },
+    dateButtonText: {
+      fontSize: 16,
+      color: currentTheme.colors.text,
+    },
+    statusSelector: {
+      gap: 8,
+    },
+    statusSelectorLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: currentTheme.colors.text,
+    },
+    statusOption: {
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: currentTheme.colors.background,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+      marginRight: 8,
+    },
+    statusOptionText: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+    },
+    saveButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: currentTheme.colors.primary,
+      padding: 16,
+      borderRadius: 10,
+      marginTop: 8,
+    },
+    saveButtonDisabled: {
+      opacity: 0.6,
+    },
+    saveButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    convertButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: currentTheme.colors.info,
+      padding: 16,
+      borderRadius: 10,
+    },
+    convertButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#FFFFFF',
+    },
+    resultContainer: {
+      marginTop: 16,
+      padding: 16,
+      backgroundColor: currentTheme.colors.background,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: currentTheme.colors.border,
+    },
+    resultLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: currentTheme.colors.textSecondary,
+      marginBottom: 8,
+    },
+    resultText: {
+      fontSize: 16,
+      color: currentTheme.colors.text,
+      lineHeight: 24,
+    },
+  });
+
   const renderCheckItem = (check: Check) => (
     <TouchableOpacity
       key={check.id}
@@ -323,7 +580,7 @@ export default function CheckControlScreen() {
     >
       <View style={styles.checkItemHeader}>
         <View style={styles.checkItemLeft}>
-          <IconSymbol name="doc.text.fill" size={24} color={colors.primary} />
+          <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="description" size={24} color={currentTheme.colors.primary} />
           <View style={styles.checkItemInfo}>
             <Text style={styles.checkNumber}>Cheque #{check.check_number}</Text>
             <Text style={styles.checkPayableTo}>A la orden de: {check.payable_to}</Text>
@@ -348,512 +605,245 @@ export default function CheckControlScreen() {
   );
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: 'Control de Cheques',
-          headerStyle: {
-            backgroundColor: colors.primary,
-          },
-          headerTintColor: '#FFFFFF',
-        }}
-      />
-      <View style={styles.container}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Cargando cheques...</Text>
+    <View style={styles.container}>
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={currentTheme.colors.primary} />
+          <Text style={styles.loadingText}>Cargando cheques...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Summary Cards */}
+          <View style={styles.summaryContainer}>
+            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.warning + '20' }]}>
+              <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={32} color={currentTheme.colors.warning} />
+              <Text style={styles.summaryValue}>{pendingChecks.length}</Text>
+              <Text style={styles.summaryLabel}>Pendientes</Text>
+            </View>
+            <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.success + '20' }]}>
+              <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={32} color={currentTheme.colors.success} />
+              <Text style={styles.summaryValue}>{paidChecks.length}</Text>
+              <Text style={styles.summaryLabel}>Pagados</Text>
+            </View>
           </View>
-        ) : (
-          <ScrollView
-            style={styles.scrollView}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          >
-            {/* Summary Cards */}
-            <View style={styles.summaryContainer}>
-              <View style={[styles.summaryCard, { backgroundColor: colors.warning + '20' }]}>
-                <IconSymbol name="clock.fill" size={32} color={colors.warning} />
-                <Text style={styles.summaryValue}>{pendingChecks.length}</Text>
-                <Text style={styles.summaryLabel}>Pendientes</Text>
+
+          {/* Total Debt Card */}
+          <View style={styles.debtCard}>
+            <Text style={styles.debtLabel}>Deuda Total de Cheques</Text>
+            <Text style={styles.debtAmount}>{formatCurrency(totalDebt)}</Text>
+          </View>
+
+          {/* Pending Checks Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cheques Pendientes</Text>
+            {pendingChecks.length === 0 ? (
+              <View style={styles.emptyState}>
+                <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={48} color={currentTheme.colors.textSecondary} />
+                <Text style={styles.emptyStateText}>No hay cheques pendientes</Text>
               </View>
-              <View style={[styles.summaryCard, { backgroundColor: colors.success + '20' }]}>
-                <IconSymbol name="checkmark.circle.fill" size={32} color={colors.success} />
-                <Text style={styles.summaryValue}>{paidChecks.length}</Text>
-                <Text style={styles.summaryLabel}>Pagados</Text>
+            ) : (
+              pendingChecks.map(renderCheckItem)
+            )}
+          </View>
+
+          {/* Paid Checks Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cheques Pagados</Text>
+            {paidChecks.length === 0 ? (
+              <View style={styles.emptyState}>
+                <IconSymbol ios_icon_name="doc.text" android_material_icon_name="description" size={48} color={currentTheme.colors.textSecondary} />
+                <Text style={styles.emptyStateText}>No hay cheques pagados</Text>
               </View>
-            </View>
+            ) : (
+              paidChecks.map(renderCheckItem)
+            )}
+          </View>
 
-            {/* Total Debt Card */}
-            <View style={styles.debtCard}>
-              <Text style={styles.debtLabel}>Deuda Total de Cheques</Text>
-              <Text style={styles.debtAmount}>{formatCurrency(totalDebt)}</Text>
-            </View>
+          <View style={{ height: 100 }} />
+        </ScrollView>
+      )}
 
-            {/* Pending Checks Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Cheques Pendientes</Text>
-              {pendingChecks.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <IconSymbol name="checkmark.circle" size={48} color={colors.textSecondary} />
-                  <Text style={styles.emptyStateText}>No hay cheques pendientes</Text>
-                </View>
-              ) : (
-                pendingChecks.map(renderCheckItem)
-              )}
-            </View>
+      {/* Floating Action Buttons */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: currentTheme.colors.info }]}
+          onPress={() => setShowAmountToWordsDialog(true)}
+        >
+          <IconSymbol ios_icon_name="textformat.abc" android_material_icon_name="text_fields" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.fab, { backgroundColor: currentTheme.colors.primary }]}
+          onPress={() => setShowAddDialog(true)}
+        >
+          <IconSymbol ios_icon_name="plus" android_material_icon_name="add" size={28} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
 
-            {/* Paid Checks Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Cheques Pagados</Text>
-              {paidChecks.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <IconSymbol name="doc.text" size={48} color={colors.textSecondary} />
-                  <Text style={styles.emptyStateText}>No hay cheques pagados</Text>
-                </View>
-              ) : (
-                paidChecks.map(renderCheckItem)
-              )}
-            </View>
+      {/* Add Check Dialog */}
+      <CustomDialog
+        visible={showAddDialog}
+        title="Agregar Cheque"
+        message="Complete los datos del cheque"
+        type="info"
+        onClose={() => {
+          setShowAddDialog(false);
+          resetForm();
+        }}
+      >
+        <View style={styles.formContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Número de Cheque"
+            placeholderTextColor={currentTheme.colors.textSecondary}
+            value={checkNumber}
+            onChangeText={setCheckNumber}
+          />
 
-            <View style={{ height: 100 }} />
-          </ScrollView>
-        )}
+          <TextInput
+            style={styles.input}
+            placeholder="Monto"
+            placeholderTextColor={currentTheme.colors.textSecondary}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="numeric"
+          />
 
-        {/* Floating Action Buttons */}
-        <View style={styles.fabContainer}>
           <TouchableOpacity
-            style={[styles.fab, { backgroundColor: colors.info }]}
-            onPress={() => setShowAmountToWordsDialog(true)}
+            style={styles.dateButton}
+            onPress={() => setShowDatePicker(true)}
           >
-            <IconSymbol name="textformat.abc" size={24} color="#FFFFFF" />
+            <IconSymbol ios_icon_name="calendar" android_material_icon_name="calendar_today" size={20} color={currentTheme.colors.primary} />
+            <Text style={styles.dateButtonText}>
+              {checkDate.toLocaleDateString('es-CL')}
+            </Text>
           </TouchableOpacity>
+
+          {showDatePicker && (
+            <DateTimePicker
+              value={checkDate}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={(event, selectedDate) => {
+                setShowDatePicker(Platform.OS === 'ios');
+                if (selectedDate) {
+                  setCheckDate(selectedDate);
+                }
+              }}
+            />
+          )}
+
+          <TextInput
+            style={styles.input}
+            placeholder="A la orden de"
+            placeholderTextColor={currentTheme.colors.textSecondary}
+            value={payableTo}
+            onChangeText={setPayableTo}
+          />
+
+          <View style={styles.statusSelector}>
+            <Text style={styles.statusSelectorLabel}>Estado:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {(['pendiente', 'pagado', 'movido', 'pausado', 'anulado'] as CheckStatus[]).map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[
+                    styles.statusOption,
+                    status === s && { backgroundColor: getStatusColor(s) + '40' },
+                  ]}
+                  onPress={() => setStatus(s)}
+                >
+                  <Text
+                    style={[
+                      styles.statusOptionText,
+                      status === s && { color: getStatusColor(s), fontWeight: '600' },
+                    ]}
+                  >
+                    {getStatusLabel(s)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <TextInput
+            style={[styles.input, styles.notesInput]}
+            placeholder="Notas (opcional)"
+            placeholderTextColor={currentTheme.colors.textSecondary}
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={3}
+          />
+
           <TouchableOpacity
-            style={[styles.fab, { backgroundColor: colors.primary }]}
-            onPress={() => setShowAddDialog(true)}
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={handleAddCheck}
+            disabled={saving}
           >
-            <IconSymbol name="plus" size={28} color="#FFFFFF" />
+            {saving ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <IconSymbol ios_icon_name="checkmark" android_material_icon_name="check" size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Guardar Cheque</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
+      </CustomDialog>
 
-        {/* Add Check Dialog */}
-        <CustomDialog
-          visible={showAddDialog}
-          title="Agregar Cheque"
-          message="Complete los datos del cheque"
-          type="info"
-          onClose={() => {
-            setShowAddDialog(false);
-            resetForm();
-          }}
-        >
-          <View style={styles.formContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Número de Cheque"
-              placeholderTextColor={colors.textSecondary}
-              value={checkNumber}
-              onChangeText={setCheckNumber}
-            />
+      {/* Amount to Words Dialog */}
+      <CustomDialog
+        visible={showAmountToWordsDialog}
+        title="Convertir Monto a Palabras"
+        message="Ingrese el monto del cheque (puede usar puntos como separadores de miles)"
+        type="info"
+        onClose={() => {
+          setShowAmountToWordsDialog(false);
+          setAmountInput('');
+          setAmountInWords('');
+        }}
+      >
+        <View style={styles.formContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: 1.000.000 o 2.295.000"
+            placeholderTextColor={currentTheme.colors.textSecondary}
+            value={amountInput}
+            onChangeText={setAmountInput}
+            keyboardType="numeric"
+          />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Monto"
-              placeholderTextColor={colors.textSecondary}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-            />
+          <TouchableOpacity
+            style={styles.convertButton}
+            onPress={handleConvertAmount}
+          >
+            <IconSymbol ios_icon_name="arrow.right.circle.fill" android_material_icon_name="arrow_circle_right" size={20} color="#FFFFFF" />
+            <Text style={styles.convertButtonText}>Convertir</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.dateButton}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <IconSymbol name="calendar" size={20} color={colors.primary} />
-              <Text style={styles.dateButtonText}>
-                {checkDate.toLocaleDateString('es-CL')}
-              </Text>
-            </TouchableOpacity>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={checkDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setShowDatePicker(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    setCheckDate(selectedDate);
-                  }
-                }}
-              />
-            )}
-
-            <TextInput
-              style={styles.input}
-              placeholder="A la orden de"
-              placeholderTextColor={colors.textSecondary}
-              value={payableTo}
-              onChangeText={setPayableTo}
-            />
-
-            <View style={styles.statusSelector}>
-              <Text style={styles.statusSelectorLabel}>Estado:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {(['pendiente', 'pagado', 'movido', 'pausado', 'anulado'] as CheckStatus[]).map((s) => (
-                  <TouchableOpacity
-                    key={s}
-                    style={[
-                      styles.statusOption,
-                      status === s && { backgroundColor: getStatusColor(s) + '40' },
-                    ]}
-                    onPress={() => setStatus(s)}
-                  >
-                    <Text
-                      style={[
-                        styles.statusOptionText,
-                        status === s && { color: getStatusColor(s), fontWeight: '600' },
-                      ]}
-                    >
-                      {getStatusLabel(s)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+          {amountInWords !== '' && (
+            <View style={styles.resultContainer}>
+              <Text style={styles.resultLabel}>Monto en palabras:</Text>
+              <Text style={styles.resultText}>{amountInWords}</Text>
             </View>
+          )}
+        </View>
+      </CustomDialog>
 
-            <TextInput
-              style={[styles.input, styles.notesInput]}
-              placeholder="Notas (opcional)"
-              placeholderTextColor={colors.textSecondary}
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              numberOfLines={3}
-            />
-
-            <TouchableOpacity
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={handleAddCheck}
-              disabled={saving}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <>
-                  <IconSymbol name="checkmark" size={20} color="#FFFFFF" />
-                  <Text style={styles.saveButtonText}>Guardar Cheque</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        </CustomDialog>
-
-        {/* Amount to Words Dialog */}
-        <CustomDialog
-          visible={showAmountToWordsDialog}
-          title="Convertir Monto a Palabras"
-          message="Ingrese el monto del cheque (puede usar puntos como separadores de miles)"
-          type="info"
-          onClose={() => {
-            setShowAmountToWordsDialog(false);
-            setAmountInput('');
-            setAmountInWords('');
-          }}
-        >
-          <View style={styles.formContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Ej: 1.000.000 o 2.295.000"
-              placeholderTextColor={colors.textSecondary}
-              value={amountInput}
-              onChangeText={setAmountInput}
-              keyboardType="numeric"
-            />
-
-            <TouchableOpacity
-              style={styles.convertButton}
-              onPress={handleConvertAmount}
-            >
-              <IconSymbol name="arrow.right.circle.fill" size={20} color="#FFFFFF" />
-              <Text style={styles.convertButtonText}>Convertir</Text>
-            </TouchableOpacity>
-
-            {amountInWords !== '' && (
-              <View style={styles.resultContainer}>
-                <Text style={styles.resultLabel}>Monto en palabras:</Text>
-                <Text style={styles.resultText}>{amountInWords}</Text>
-              </View>
-            )}
-          </View>
-        </CustomDialog>
-
-        <CustomDialog
-          visible={dialog.visible}
-          type={dialog.type}
-          title={dialog.title}
-          message={dialog.message}
-          buttons={dialog.buttons}
-          onClose={closeDialog}
-        />
-      </View>
-    </>
+      <CustomDialog
+        visible={dialog.visible}
+        type={dialog.type}
+        title={dialog.title}
+        message={dialog.message}
+        buttons={dialog.buttons}
+        onClose={closeDialog}
+      />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  summaryContainer: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-  },
-  summaryCard: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  summaryValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  summaryLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  debtCard: {
-    margin: 16,
-    marginTop: 0,
-    padding: 24,
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: colors.error + '40',
-    alignItems: 'center',
-  },
-  debtLabel: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  debtAmount: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 12,
-  },
-  checkItem: {
-    backgroundColor: colors.card,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  checkItemHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  checkItemLeft: {
-    flexDirection: 'row',
-    gap: 12,
-    flex: 1,
-  },
-  checkItemInfo: {
-    flex: 1,
-  },
-  checkNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  checkPayableTo: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  checkItemFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  checkAmount: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  checkDate: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-    gap: 12,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  fabContainer: {
-    position: 'absolute',
-    bottom: 24,
-    right: 16,
-    gap: 12,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  formContainer: {
-    marginTop: 16,
-    gap: 12,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 16,
-    color: colors.text,
-  },
-  notesInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 14,
-  },
-  dateButtonText: {
-    fontSize: 16,
-    color: colors.text,
-  },
-  statusSelector: {
-    gap: 8,
-  },
-  statusSelectorLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  statusOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: 8,
-  },
-  statusOptionText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  saveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.primary,
-    padding: 16,
-    borderRadius: 10,
-    marginTop: 8,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  convertButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.info,
-    padding: 16,
-    borderRadius: 10,
-  },
-  convertButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  resultContainer: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  resultLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 8,
-  },
-  resultText: {
-    fontSize: 16,
-    color: colors.text,
-    lineHeight: 24,
-  },
-});
