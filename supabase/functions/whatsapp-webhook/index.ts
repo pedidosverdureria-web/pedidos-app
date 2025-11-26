@@ -200,13 +200,26 @@ function extractProductList(message: string): string {
     if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
 
     // Check if line contains product-like patterns
-    const hasProductPattern = 
-      /\d+/.test(trimmedLine) ||
-      /\b(kilo|kg|gramo|gr|unidad|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
-      /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) ||
-      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine);
-
-    if (hasProductPattern) {
+    // A line is considered a product line if it:
+    // 1. Starts with a bullet point or dash
+    // 2. Contains a quantity followed by a unit or product name
+    // 3. Has a clear quantity + product structure
+    
+    const startsWithBullet = /^[-•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→*+~\d]/.test(trimmedLine);
+    
+    // Check for quantity patterns (number + unit or number + product)
+    const hasQuantityPattern = 
+      /^\d+\s*(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro|de\s+)/i.test(trimmedLine) ||
+      /\b(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
+      /\b(medio|media|cuarto|tercio)\s+(kilo|kg|de\s+)/i.test(trimmedLine);
+    
+    // Exclude lines that are clearly conversational
+    const isConversational = 
+      /\b(quiero|quisiera|necesito|me gustaría|hacer|pedido|para|el|dia|lunes|martes|miércoles|jueves|viernes|sábado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|por favor|quedo atento)\b/i.test(trimmedLine) &&
+      !hasQuantityPattern;
+    
+    // Include line if it starts with bullet/dash OR has quantity pattern AND is not conversational
+    if ((startsWithBullet || hasQuantityPattern) && !isConversational) {
       productLines.push(trimmedLine);
     }
   }
