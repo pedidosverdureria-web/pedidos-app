@@ -23,6 +23,7 @@ export default function OrderLayout() {
         headerTintColor: '#FFFFFF',
         headerShadowVisible: true,
         headerBackTitle: 'Atrás',
+        headerBackVisible: true, // Ensure back button is visible
         animation: 'slide_from_right',
       }}
     >
@@ -30,12 +31,14 @@ export default function OrderLayout() {
         name="[orderId]"
         options={{
           title: 'Detalle del Pedido',
+          headerBackVisible: true, // Explicitly enable back button
         }}
       />
       <Stack.Screen
         name="new"
         options={{
           title: 'Nuevo Pedido',
+          headerBackVisible: true, // Explicitly enable back button
         }}
       />
     </Stack>
