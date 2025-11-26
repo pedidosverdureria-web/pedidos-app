@@ -27,9 +27,6 @@ export default function CompletedOrdersScreen() {
   const { currentTheme } = useTheme();
   const colors = currentTheme.colors;
 
-  // Create dynamic styles based on theme
-  const styles = useMemo(() => createStyles(colors), [colors]);
-
   const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
@@ -84,40 +81,72 @@ export default function CompletedOrdersScreen() {
 
   const renderOrderCard = ({ item }: { item: Order }) => {
     const total = item.items?.reduce((sum, orderItem) => sum + orderItem.unit_price, 0) || 0;
+    const itemCount = item.items?.length || 0;
     const statusColor = getStatusColor(item.status);
 
     return (
       <TouchableOpacity
-        style={[styles.orderCard, { borderLeftColor: statusColor }]}
+        style={[styles.orderCard, { backgroundColor: colors.card, borderColor: colors.border }]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           router.push(`/order/${item.id}`);
         }}
       >
         <View style={styles.orderHeader}>
-          <Text style={styles.orderNumber}>{item.order_number}</Text>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-            <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+          <View style={styles.orderHeaderLeft}>
+            <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+            <View style={styles.orderInfo}>
+              <View style={styles.orderNumberRow}>
+                <Text style={[styles.orderNumber, { color: colors.text }]}>{item.order_number}</Text>
+                {/* Source icon - WhatsApp or Manual */}
+                {item.source && (
+                  <View style={[
+                    styles.sourceIconContainer,
+                    { backgroundColor: item.source === 'whatsapp' ? '#25D366' : colors.textSecondary }
+                  ]}>
+                    <IconSymbol 
+                      ios_icon_name={item.source === 'whatsapp' ? 'message.fill' : 'pencil'}
+                      android_material_icon_name={item.source === 'whatsapp' ? 'message' : 'edit'}
+                      size={12} 
+                      color="#fff" 
+                    />
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.orderCustomer, { color: colors.textSecondary }]}>{item.customer_name}</Text>
+            </View>
           </View>
         </View>
-        <Text style={styles.customerName}>{item.customer_name}</Text>
-        {item.customer_phone && (
-          <Text style={styles.orderInfo}>📞 {item.customer_phone}</Text>
-        )}
-        {item.items && item.items.length > 0 && (
-          <Text style={styles.orderInfo}>
-            {item.items.length} {item.items.length === 1 ? 'producto' : 'productos'}
-          </Text>
-        )}
-        <Text style={styles.orderDate}>📅 {formatDate(item.created_at)}</Text>
-        {total > 0 && <Text style={styles.orderTotal}>{formatCLP(total)}</Text>}
+        
+        <View style={styles.orderDetails}>
+          <View style={styles.orderDetailRow}>
+            <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={14} color={colors.textSecondary} />
+            <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatDate(item.created_at)}</Text>
+          </View>
+          <View style={styles.orderDetailRow}>
+            <IconSymbol ios_icon_name="bag.fill" android_material_icon_name="shopping_bag" size={14} color={colors.textSecondary} />
+            <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>
+              {itemCount} {itemCount === 1 ? 'producto' : 'productos'}
+            </Text>
+          </View>
+          {total > 0 && (
+            <View style={styles.orderDetailRow}>
+              <IconSymbol ios_icon_name="dollarsign.circle.fill" android_material_icon_name="attach_money" size={14} color={colors.textSecondary} />
+              <Text style={[styles.orderDetailText, { color: colors.textSecondary }]}>{formatCLP(total)}</Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+          <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
@@ -125,11 +154,11 @@ export default function CompletedOrdersScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
       
       {/* Custom Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={styles.backButton}
@@ -145,10 +174,10 @@ export default function CompletedOrdersScreen() {
       </View>
       
       {/* Search Bar */}
-      <View style={styles.searchContainer}>
+      <View style={[styles.searchContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <IconSymbol ios_icon_name="magnifyingglass" android_material_icon_name="search" size={20} color={colors.textSecondary} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: colors.text }]}
           placeholder="Buscar pedidos..."
           placeholderTextColor={colors.textSecondary}
           value={searchQuery}
@@ -157,22 +186,22 @@ export default function CompletedOrdersScreen() {
       </View>
 
       {orders.length > 0 && (
-        <View style={styles.statsContainer}>
+        <View style={[styles.statsContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{deliveredCount}</Text>
-            <Text style={styles.statLabel}>Entregados</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{deliveredCount}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Entregados</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{paidCount}</Text>
-            <Text style={styles.statLabel}>Pagados</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{paidCount}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Pagados</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{finalizadoCount}</Text>
-            <Text style={styles.statLabel}>Finalizados</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{finalizadoCount}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Finalizados</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{formatCLP(totalAmount)}</Text>
-            <Text style={styles.statLabel}>Total</Text>
+            <Text style={[styles.statValue, { color: colors.primary }]}>{formatCLP(totalAmount)}</Text>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Total</Text>
           </View>
         </View>
       )}
@@ -180,7 +209,8 @@ export default function CompletedOrdersScreen() {
       {filteredOrders.length === 0 ? (
         <View style={styles.emptyContainer}>
           <IconSymbol ios_icon_name="checkmark.circle" android_material_icon_name="check_circle" size={64} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>Sin Pedidos Completados</Text>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
             {searchQuery
               ? 'No se encontraron pedidos completados'
               : 'No hay pedidos completados aún'}
@@ -206,189 +236,164 @@ export default function CompletedOrdersScreen() {
   );
 }
 
-function createStyles(colors: any) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      padding: 16,
-      paddingTop: Platform.OS === 'ios' ? 60 : 48,
-      backgroundColor: colors.primary,
-    },
-    headerTop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    backButton: {
-      marginRight: 12,
-    },
-    headerTitleContainer: {
-      flex: 1,
-    },
-    headerTitle: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: '#fff',
-    },
-    headerSubtitle: {
-      fontSize: 14,
-      color: 'rgba(255, 255, 255, 0.8)',
-      marginTop: 4,
-    },
-    searchContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      margin: 16,
-      marginBottom: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      gap: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        },
-        android: {
-          elevation: 2,
-        },
-      }),
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 16,
-      color: colors.text,
-    },
-    content: {
-      flex: 1,
-    },
-    listContent: {
-      paddingBottom: 100,
-    },
-    orderCard: {
-      backgroundColor: colors.card,
-      marginHorizontal: 16,
-      marginVertical: 8,
-      padding: 16,
-      borderRadius: 12,
-      borderLeftWidth: 4,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        },
-        android: {
-          elevation: 3,
-        },
-      }),
-    },
-    orderHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 8,
-    },
-    orderNumber: {
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: colors.text,
-    },
-    statusBadge: {
-      paddingHorizontal: 12,
-      paddingVertical: 4,
-      borderRadius: 12,
-    },
-    statusText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    customerName: {
-      fontSize: 16,
-      color: colors.text,
-      marginBottom: 4,
-    },
-    orderInfo: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginBottom: 2,
-    },
-    orderDate: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      marginTop: 4,
-      fontStyle: 'italic',
-    },
-    orderTotal: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: colors.primary,
-      marginTop: 8,
-    },
-    emptyContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: 32,
-    },
-    emptyText: {
-      fontSize: 18,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginTop: 16,
-    },
-    loadingContainer: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: colors.background,
-    },
-    statsContainer: {
-      flexDirection: 'row',
-      justifyContent: 'space-around',
-      padding: 16,
-      backgroundColor: colors.card,
-      marginHorizontal: 16,
-      marginTop: 8,
-      marginBottom: 8,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-        },
-        android: {
-          elevation: 2,
-        },
-      }),
-    },
-    statItem: {
-      alignItems: 'center',
-    },
-    statValue: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: colors.primary,
-    },
-    statLabel: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginTop: 4,
-    },
-  });
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  header: {
+    padding: 16,
+    paddingTop: Platform.OS === 'ios' ? 60 : 48,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 12,
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 4,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: 16,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+  },
+  content: {
+    flex: 1,
+  },
+  listContent: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  orderCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  orderHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  orderInfo: {
+    flex: 1,
+  },
+  orderNumberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 2,
+  },
+  orderNumber: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  sourceIconContainer: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orderCustomer: {
+    fontSize: 14,
+  },
+  orderDetails: {
+    gap: 8,
+    marginBottom: 12,
+  },
+  orderDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  orderDetailText: {
+    fontSize: 13,
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  statLabel: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+});
