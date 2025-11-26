@@ -82,6 +82,78 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container}>
       <ScrollView style={styles.content}>
+        {/* Business Intelligence */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Inteligencia de Negocio</Text>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleNavigation('/analytics')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#8B5CF6' }]}>
+                <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="analytics" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Analytics Avanzado</Text>
+                <Text style={styles.menuDescription}>
+                  Análisis detallado de ventas y tendencias
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => handleNavigation('/stats')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#06B6D4' }]}>
+                <IconSymbol ios_icon_name="chart.pie.fill" android_material_icon_name="pie_chart" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Estadísticas</Text>
+                <Text style={styles.menuDescription}>
+                  Resumen de pedidos y estados
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => handleNavigation('/inventory')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#10B981' }]}>
+                <IconSymbol ios_icon_name="cube.box.fill" android_material_icon_name="inventory_2" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Inventario</Text>
+                <Text style={styles.menuDescription}>
+                  Gestión de productos y stock
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* App Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Aplicación</Text>

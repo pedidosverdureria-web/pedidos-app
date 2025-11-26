@@ -117,7 +117,7 @@ export default function ProfileScreen() {
       case 'printer':
         return '#8B5CF6';
       case 'desarrollador':
-        return '#F59E0B'; // Orange color for developer
+        return '#F59E0B';
       default:
         return colors.primary;
     }
@@ -130,7 +130,6 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              {/* Display app logo instead of user icon */}
               <Image
                 source={require('@/assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png')}
                 style={styles.logoImage}
@@ -175,16 +174,51 @@ export default function ProfileScreen() {
               <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => router.push('/completed-orders')}
-            >
-              <View style={styles.menuItemLeft}>
-                <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color={colors.success} />
-                <Text style={styles.menuItemText}>Pedidos Completados</Text>
-              </View>
-              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push('/analytics')}
+              >
+                <View style={styles.menuItemLeft}>
+                  <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="analytics" size={24} color="#8B5CF6" />
+                  <Text style={styles.menuItemText}>Analytics Avanzado</Text>
+                </View>
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push('/inventory')}
+              >
+                <View style={styles.menuItemLeft}>
+                  <IconSymbol ios_icon_name="cube.box.fill" android_material_icon_name="inventory_2" size={24} color="#10B981" />
+                  <Text style={styles.menuItemText}>Inventario</Text>
+                </View>
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push('/activity-log')}
+              >
+                <View style={styles.menuItemLeft}>
+                  <IconSymbol ios_icon_name="clock.arrow.circlepath" android_material_icon_name="history" size={24} color="#06B6D4" />
+                  <Text style={styles.menuItemText}>Registro de Actividad</Text>
+                </View>
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => router.push('/completed-orders')}
+              >
+                <View style={styles.menuItemLeft}>
+                  <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={24} color={colors.success} />
+                  <Text style={styles.menuItemText}>Pedidos Completados</Text>
+                </View>
+                <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="chevron_right" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </>
           )}
 
           <TouchableOpacity
