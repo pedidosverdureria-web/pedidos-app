@@ -35,6 +35,7 @@ export default function CheckControlScreen() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showAmountToWordsDialog, setShowAmountToWordsDialog] = useState(false);
   const [selectedCheck, setSelectedCheck] = useState<Check | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<CheckStatus | 'all'>('all');
   const [dialog, setDialog] = useState<DialogState>({
     visible: false,
     type: 'info',
@@ -158,6 +159,10 @@ export default function CheckControlScreen() {
   const handleCheckPress = (check: Check) => {
     setSelectedCheck(check);
     router.push(`/settings/check-detail/${check.id}`);
+  };
+
+  const handleFilterPress = (filterStatus: CheckStatus | 'all') => {
+    setSelectedFilter(filterStatus);
   };
 
   const getStatusColor = (checkStatus: CheckStatus) => {
@@ -347,6 +352,16 @@ export default function CheckControlScreen() {
 
   const totalDebt = pendingChecks.reduce((sum, check) => sum + check.amount, 0);
 
+  // Get filtered checks based on selected filter
+  const getFilteredChecks = () => {
+    if (selectedFilter === 'all') {
+      return sortChecksByDate(checks);
+    }
+    return sortChecksByDate(checks.filter(c => c.status === selectedFilter));
+  };
+
+  const filteredChecks = getFilteredChecks();
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -385,6 +400,10 @@ export default function CheckControlScreen() {
       borderRadius: 12,
       alignItems: 'center',
       gap: 4,
+    },
+    summaryCardActive: {
+      borderWidth: 2,
+      borderColor: currentTheme.colors.primary,
     },
     summaryValue: {
       fontSize: 20,
@@ -651,30 +670,6 @@ export default function CheckControlScreen() {
     </TouchableOpacity>
   );
 
-  const renderSection = (
-    title: string,
-    checksArray: Check[],
-    statusType: CheckStatus,
-    emptyMessage: string
-  ) => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {checksArray.length === 0 ? (
-        <View style={styles.emptyState}>
-          <IconSymbol 
-            ios_icon_name={getStatusIcon(statusType).ios} 
-            android_material_icon_name={getStatusIcon(statusType).android} 
-            size={48} 
-            color={currentTheme.colors.textSecondary} 
-          />
-          <Text style={styles.emptyStateText}>{emptyMessage}</Text>
-        </View>
-      ) : (
-        checksArray.map(renderCheckItem)
-      )}
-    </View>
-  );
-
   return (
     <View style={styles.container}>
       {loading ? (
@@ -686,63 +681,111 @@ export default function CheckControlScreen() {
         <>
           {/* Sticky Header with Summary and Debt */}
           <View style={styles.stickyHeader}>
-            {/* Summary Cards */}
+            {/* Summary Cards - Now acting as filters */}
             <View style={styles.summaryContainer}>
-              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.warning + '20' }]}>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: currentTheme.colors.warning + '20' },
+                  selectedFilter === 'pendiente' && styles.summaryCardActive,
+                ]}
+                onPress={() => handleFilterPress('pendiente')}
+              >
                 <IconSymbol ios_icon_name="clock.fill" android_material_icon_name="schedule" size={20} color={currentTheme.colors.warning} />
                 <Text style={styles.summaryValue}>{pendingChecks.length}</Text>
                 <Text style={styles.summaryLabel}>Pendientes</Text>
-              </View>
-              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.success + '20' }]}>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: currentTheme.colors.success + '20' },
+                  selectedFilter === 'pagado' && styles.summaryCardActive,
+                ]}
+                onPress={() => handleFilterPress('pagado')}
+              >
                 <IconSymbol ios_icon_name="checkmark.circle.fill" android_material_icon_name="check_circle" size={20} color={currentTheme.colors.success} />
                 <Text style={styles.summaryValue}>{paidChecks.length}</Text>
                 <Text style={styles.summaryLabel}>Pagados</Text>
-              </View>
-              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.info + '20' }]}>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: currentTheme.colors.info + '20' },
+                  selectedFilter === 'movido' && styles.summaryCardActive,
+                ]}
+                onPress={() => handleFilterPress('movido')}
+              >
                 <IconSymbol ios_icon_name="arrow.right.circle.fill" android_material_icon_name="arrow_circle_right" size={20} color={currentTheme.colors.info} />
                 <Text style={styles.summaryValue}>{movedChecks.length}</Text>
                 <Text style={styles.summaryLabel}>Movidos</Text>
-              </View>
-              <View style={[styles.summaryCard, { backgroundColor: '#8B5CF6' + '20' }]}>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: '#8B5CF6' + '20' },
+                  selectedFilter === 'pausado' && styles.summaryCardActive,
+                ]}
+                onPress={() => handleFilterPress('pausado')}
+              >
                 <IconSymbol ios_icon_name="pause.circle.fill" android_material_icon_name="pause_circle" size={20} color="#8B5CF6" />
                 <Text style={styles.summaryValue}>{pausedChecks.length}</Text>
                 <Text style={styles.summaryLabel}>Pausados</Text>
-              </View>
-              <View style={[styles.summaryCard, { backgroundColor: currentTheme.colors.error + '20' }]}>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.summaryCard,
+                  { backgroundColor: currentTheme.colors.error + '20' },
+                  selectedFilter === 'anulado' && styles.summaryCardActive,
+                ]}
+                onPress={() => handleFilterPress('anulado')}
+              >
                 <IconSymbol ios_icon_name="xmark.circle.fill" android_material_icon_name="cancel" size={20} color={currentTheme.colors.error} />
                 <Text style={styles.summaryValue}>{canceledChecks.length}</Text>
                 <Text style={styles.summaryLabel}>Anulados</Text>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* Total Debt Card */}
-            <View style={styles.debtCard}>
+            <TouchableOpacity
+              style={styles.debtCard}
+              onPress={() => handleFilterPress('all')}
+            >
               <Text style={styles.debtLabel}>Deuda Total:</Text>
               <Text style={styles.debtAmount}>{formatCurrency(totalDebt)}</Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
-          {/* Scrollable Content */}
+          {/* Scrollable Content - Now showing filtered checks */}
           <ScrollView
             style={styles.scrollView}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
             }
           >
-            {/* Pending Checks Section */}
-            {renderSection('Cheques Pendientes', pendingChecks, 'pendiente', 'No hay cheques pendientes')}
-
-            {/* Moved Checks Section */}
-            {renderSection('Cheques Movidos', movedChecks, 'movido', 'No hay cheques movidos')}
-
-            {/* Paused Checks Section */}
-            {renderSection('Cheques Pausados', pausedChecks, 'pausado', 'No hay cheques pausados')}
-
-            {/* Paid Checks Section */}
-            {renderSection('Cheques Pagados', paidChecks, 'pagado', 'No hay cheques pagados')}
-
-            {/* Canceled Checks Section */}
-            {renderSection('Cheques Anulados', canceledChecks, 'anulado', 'No hay cheques anulados')}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {selectedFilter === 'all' 
+                  ? 'Todos los Cheques' 
+                  : `Cheques ${getStatusLabel(selectedFilter as CheckStatus)}`}
+              </Text>
+              {filteredChecks.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <IconSymbol 
+                    ios_icon_name={selectedFilter === 'all' ? 'doc.text.fill' : getStatusIcon(selectedFilter as CheckStatus).ios} 
+                    android_material_icon_name={selectedFilter === 'all' ? 'description' : getStatusIcon(selectedFilter as CheckStatus).android} 
+                    size={48} 
+                    color={currentTheme.colors.textSecondary} 
+                  />
+                  <Text style={styles.emptyStateText}>
+                    {selectedFilter === 'all' 
+                      ? 'No hay cheques registrados' 
+                      : `No hay cheques ${getStatusLabel(selectedFilter as CheckStatus).toLowerCase()}`}
+                  </Text>
+                </View>
+              ) : (
+                filteredChecks.map(renderCheckItem)
+              )}
+            </View>
 
             <View style={{ height: 100 }} />
           </ScrollView>
