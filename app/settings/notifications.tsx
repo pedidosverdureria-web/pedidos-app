@@ -241,17 +241,51 @@ export default function NotificationsScreen() {
           } else {
             throw new Error('No se pudo obtener el token de notificaciones push');
           }
-        } catch (tokenError) {
+        } catch (tokenError: any) {
           console.error('[NotificationsScreen] Error registering push token:', tokenError);
-          showDialog(
-            'error', 
-            'Error', 
-            'No se pudieron activar las notificaciones push: ' + (tokenError as Error).message
-          );
+          
+          // Check if it's a Firebase initialization error
+          if (tokenError?.message?.includes('FirebaseApp') || tokenError?.message?.includes('FCM')) {
+            showDialog(
+              'error', 
+              'Configuración de Firebase requerida', 
+              'Para usar notificaciones push en Android, necesitas configurar Firebase Cloud Messaging (FCM).\n\n' +
+              'Pasos para configurar FCM:\n\n' +
+              '1. Ve a la consola de Firebase (https://console.firebase.google.com)\n' +
+              '2. Crea un proyecto o selecciona uno existente\n' +
+              '3. Agrega una aplicación Android con el package name: com.pedidosapp.mobile\n' +
+              '4. Descarga el archivo google-services.json\n' +
+              '5. Coloca el archivo en la raíz del proyecto\n' +
+              '6. Configura las credenciales FCM en EAS\n\n' +
+              'Consulta la documentación de Expo para más detalles:\n' +
+              'https://docs.expo.dev/push-notifications/fcm-credentials/',
+              [
+                { text: 'Cerrar', style: 'cancel', onPress: closeDialog },
+                {
+                  text: 'Ver Guía',
+                  style: 'default',
+                  onPress: async () => {
+                    closeDialog();
+                    try {
+                      await Linking.openURL('https://docs.expo.dev/push-notifications/fcm-credentials/');
+                    } catch (error) {
+                      console.error('[NotificationsScreen] Error opening URL:', error);
+                    }
+                  },
+                },
+              ]
+            );
+          } else {
+            showDialog(
+              'error', 
+              'Error', 
+              'No se pudieron activar las notificaciones push: ' + tokenError.message
+            );
+          }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('[NotificationsScreen] Error enabling push notifications:', error);
-        showDialog('error', 'Error', 'No se pudieron activar las notificaciones push: ' + (error as Error).message);
+        showDialog('error', 'Error', 'No se pudieron activar las notificaciones push: ' + error.message);
       } finally {
         setSavingSettings(false);
       }
@@ -270,9 +304,9 @@ export default function NotificationsScreen() {
           'Las notificaciones push han sido desactivadas en este dispositivo. Ya no recibirás alertas de nuevos pedidos.'
         );
         console.log('[NotificationsScreen] Push notifications disabled');
-      } catch (error) {
+      } catch (error: any) {
         console.error('[NotificationsScreen] Error disabling push notifications:', error);
-        showDialog('error', 'Error', 'No se pudieron desactivar las notificaciones push: ' + (error as Error).message);
+        showDialog('error', 'Error', 'No se pudieron desactivar las notificaciones push: ' + error.message);
       } finally {
         setSavingSettings(false);
       }

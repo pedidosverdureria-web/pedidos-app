@@ -143,16 +143,47 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
       
       if (!projectId) {
         console.error('[PushNotifications] No Expo project ID found in app.config.js');
-        throw new Error('Expo project ID not configured');
+        throw new Error('Expo project ID not configured. Please add it to app.config.js under extra.eas.projectId');
       }
 
       console.log('[PushNotifications] Using project ID:', projectId);
 
-      const pushToken = await Notifications.getExpoPushTokenAsync({
-        projectId,
-      });
-      token = pushToken.data;
-      console.log('[PushNotifications] Push token obtained:', token);
+      // Try to get the push token
+      // This will fail if Firebase is not configured on Android
+      let pushToken;
+      try {
+        pushToken = await Notifications.getExpoPushTokenAsync({
+          projectId,
+        });
+        token = pushToken.data;
+        console.log('[PushNotifications] Push token obtained:', token);
+      } catch (tokenError: any) {
+        console.error('[PushNotifications] Error getting push token:', tokenError);
+        
+        // Check if it's a Firebase-related error
+        if (Platform.OS === 'android' && 
+            (tokenError?.message?.includes('FirebaseApp') || 
+             tokenError?.message?.includes('FCM') ||
+             tokenError?.message?.includes('google-services'))) {
+          
+          const errorMessage = 
+            'Firebase Cloud Messaging (FCM) no está configurado correctamente.\n\n' +
+            'Para usar notificaciones push en Android, necesitas:\n\n' +
+            '1. Crear un proyecto en Firebase Console (https://console.firebase.google.com)\n' +
+            '2. Agregar una aplicación Android con el package name: com.pedidosapp.mobile\n' +
+            '3. Descargar el archivo google-services.json\n' +
+            '4. Colocar el archivo en la raíz del proyecto\n' +
+            '5. Configurar las credenciales FCM en EAS\n\n' +
+            'Consulta la guía completa en:\n' +
+            'https://docs.expo.dev/push-notifications/fcm-credentials/\n\n' +
+            'Error original: ' + tokenError.message;
+          
+          throw new Error(errorMessage);
+        }
+        
+        // Re-throw other errors
+        throw tokenError;
+      }
 
       // Get device ID
       const deviceId = await getDeviceId();
@@ -224,13 +255,14 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
         console.error('[PushNotifications] Supabase client not available');
         throw new Error('Supabase client not available');
       }
-    } catch (e) {
-      console.error('[PushNotifications] Error getting push token:', e);
-      console.error('[PushNotifications] Error stack:', (e as Error).stack);
+    } catch (e: any) {
+      console.error('[PushNotifications] Error in registration process:', e);
+      console.error('[PushNotifications] Error stack:', e.stack);
       throw e;
     }
   } else {
     console.log('[PushNotifications] Must use physical device for Push Notifications');
+    throw new Error('Las notificaciones push solo funcionan en dispositivos físicos, no en emuladores');
   }
 
   return token;
