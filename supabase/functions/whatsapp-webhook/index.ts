@@ -110,6 +110,12 @@ const CLOSING_PATTERNS = [
   /\s*buen\s+d[ií]a\.?$/i,
   /\s*buena\s+tarde\.?$/i,
   /\s*buena\s+noche\.?$/i,
+  /\s*quedo\s+atento\.?$/i,
+  /\s*qued[oó]\s+atent[oa]\.?$/i,
+  /\s*quedo\s+atento\s+gracias\.?$/i,
+  /\s*qued[oó]\s+atent[oa]\s+gracias\.?$/i,
+  /\s*quedamos\s+atent[oa]s\.?$/i,
+  /\s*estamos\s+atent[oa]s\.?$/i,
 ];
 
 const FILLER_PATTERNS = [
@@ -132,6 +138,47 @@ const QUESTION_PATTERNS = [
   /^(cuánto|cuanto|cuando|dónde|donde|qué|que|cómo|como|por qué|porque)/i,
   /^(how much|when|where|what|how|why)/i,
 ];
+
+// Common closing/conversational phrases that should NOT be parsed as products
+const CONVERSATIONAL_PHRASES = [
+  /^quedo\s+atento/i,
+  /^qued[oó]\s+atent[oa]/i,
+  /^quedamos\s+atent[oa]s/i,
+  /^estamos\s+atent[oa]s/i,
+  /^muchas\s+gracias/i,
+  /^mil\s+gracias/i,
+  /^gracias/i,
+  /^saludos/i,
+  /^bendiciones/i,
+  /^que\s+est[eé]s?\s+bien/i,
+  /^que\s+est[eé]n\s+bien/i,
+  /^hasta\s+luego/i,
+  /^nos\s+vemos/i,
+  /^chao/i,
+  /^adi[oó]s/i,
+  /^buen\s+d[ií]a/i,
+  /^buena\s+tarde/i,
+  /^buena\s+noche/i,
+  /^por\s+favor/i,
+  /^espero/i,
+  /^esperamos/i,
+];
+
+/**
+ * Check if a line is a conversational phrase that should not be parsed as a product
+ */
+function isConversationalPhrase(line: string): boolean {
+  const trimmed = line.trim().toLowerCase();
+  
+  for (const pattern of CONVERSATIONAL_PHRASES) {
+    if (pattern.test(trimmed)) {
+      console.log(`Detected conversational phrase: "${line}"`);
+      return true;
+    }
+  }
+  
+  return false;
+}
 
 /**
  * Extracts only the product list from a message, removing greetings, closings, and filler text
@@ -159,12 +206,19 @@ function extractProductList(message: string): string {
   // Remove lines that are purely greetings or questions (no product info)
   const lines = cleaned.split('\n');
   const productLines: string[] = [];
+  let foundProductLines = false;
 
   for (const line of lines) {
     const trimmedLine = line.trim();
     
     // Skip empty lines
     if (!trimmedLine) continue;
+
+    // Skip lines that are conversational phrases
+    if (isConversationalPhrase(trimmedLine)) {
+      console.log(`Skipping conversational phrase: "${trimmedLine}"`);
+      continue;
+    }
 
     // Skip lines that are only greetings
     let isGreeting = false;
@@ -199,31 +253,36 @@ function extractProductList(message: string): string {
     // Skip lines that are questions (contain ?)
     if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
 
-    // Check if line contains product-like patterns
-    // A line is considered a product line if it:
-    // 1. Starts with a bullet point or dash
-    // 2. Contains a quantity followed by a unit or product name
-    // 3. Has a clear quantity + product structure
-    
-    const startsWithBullet = /^[-•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→*+~\d]/.test(trimmedLine);
-    
-    // Check for quantity patterns (number + unit or number + product)
-    const hasQuantityPattern = 
-      /^\d+\s*(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro|de\s+)/i.test(trimmedLine) ||
-      /\b(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
-      /\b(medio|media|cuarto|tercio)\s+(kilo|kg|de\s+)/i.test(trimmedLine);
-    
-    // Exclude lines that are clearly conversational
-    const isConversational = 
-      /\b(quiero|quisiera|necesito|me gustaría|hacer|pedido|para|el|dia|lunes|martes|miércoles|jueves|viernes|sábado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|por favor|quedo atento)\b/i.test(trimmedLine) &&
-      !hasQuantityPattern;
-    
-    // Include line if it starts with bullet/dash OR has quantity pattern AND is not conversational
-    if ((startsWithBullet || hasQuantityPattern) && !isConversational) {
+    // Check if line contains product-like patterns (quantity + product)
+    // This helps identify actual product lines vs. conversational text
+    const hasProductPattern = 
+      /\d+/.test(trimmedLine) || // Contains numbers
+      /\b(kilo|kg|gramo|gr|unidad|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
+      /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
+      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
+
+    // If we've already found product lines, be more lenient with subsequent lines
+    // This allows items like "Tomillo lindo" and "Romero lindo" to be included
+    // even if they don't have explicit quantities
+    if (hasProductPattern) {
       productLines.push(trimmedLine);
+      foundProductLines = true;
+    } else if (foundProductLines && trimmedLine.length > 2 && trimmedLine.length < 50) {
+      // If we've already found product lines and this line is short enough to be a product name,
+      // include it (this catches items without quantities at the end of lists)
+      // Exclude very short lines (< 3 chars) and very long lines (> 50 chars) to avoid noise
+      const looksLikeProduct = 
+        /^[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+$/.test(trimmedLine) && // Only letters and spaces
+        !/(quiero|quisiera|necesito|gustaría|hacer|pedido|para|favor|gracias|saludos|quedo|atento|atenta)/i.test(trimmedLine); // Not conversational
+      
+      if (looksLikeProduct) {
+        console.log(`Including line without quantity after product list: "${trimmedLine}"`);
+        productLines.push(trimmedLine);
+      }
     }
   }
 
+  // If we found product lines, use them; otherwise use the cleaned message
   const result = productLines.length > 0 ? productLines.join('\n') : cleaned.trim();
 
   console.log('Extracted product list:', result);

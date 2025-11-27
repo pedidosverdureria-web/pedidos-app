@@ -119,6 +119,12 @@ const CLOSING_PATTERNS = [
   /\s*buen\s+d[ií]a\.?$/i,
   /\s*buena\s+tarde\.?$/i,
   /\s*buena\s+noche\.?$/i,
+  /\s*quedo\s+atento\.?$/i,
+  /\s*qued[oó]\s+atent[oa]\.?$/i,
+  /\s*quedo\s+atento\s+gracias\.?$/i,
+  /\s*qued[oó]\s+atent[oa]\s+gracias\.?$/i,
+  /\s*quedamos\s+atent[oa]s\.?$/i,
+  /\s*estamos\s+atent[oa]s\.?$/i,
 ];
 
 const FILLER_PATTERNS = [
@@ -135,6 +141,47 @@ const FILLER_PATTERNS = [
   /^voy\s+a\s+pedir\s*/i,
   /^por\s+favor\s*/i,
 ];
+
+// Common closing/conversational phrases that should NOT be parsed as products
+const CONVERSATIONAL_PHRASES = [
+  /^quedo\s+atento/i,
+  /^qued[oó]\s+atent[oa]/i,
+  /^quedamos\s+atent[oa]s/i,
+  /^estamos\s+atent[oa]s/i,
+  /^muchas\s+gracias/i,
+  /^mil\s+gracias/i,
+  /^gracias/i,
+  /^saludos/i,
+  /^bendiciones/i,
+  /^que\s+est[eé]s?\s+bien/i,
+  /^que\s+est[eé]n\s+bien/i,
+  /^hasta\s+luego/i,
+  /^nos\s+vemos/i,
+  /^chao/i,
+  /^adi[oó]s/i,
+  /^buen\s+d[ií]a/i,
+  /^buena\s+tarde/i,
+  /^buena\s+noche/i,
+  /^por\s+favor/i,
+  /^espero/i,
+  /^esperamos/i,
+];
+
+/**
+ * Check if a line is a conversational phrase that should not be parsed as a product
+ */
+function isConversationalPhrase(line: string): boolean {
+  const trimmed = line.trim().toLowerCase();
+  
+  for (const pattern of CONVERSATIONAL_PHRASES) {
+    if (pattern.test(trimmed)) {
+      console.log(`Detected conversational phrase: "${line}"`);
+      return true;
+    }
+  }
+  
+  return false;
+}
 
 /**
  * Extracts only the product list from a message, removing greetings, closings, and filler text
@@ -169,6 +216,12 @@ function extractProductList(message: string): string {
     
     // Skip empty lines
     if (!trimmedLine) continue;
+
+    // Skip lines that are conversational phrases
+    if (isConversationalPhrase(trimmedLine)) {
+      console.log(`Skipping conversational phrase: "${trimmedLine}"`);
+      continue;
+    }
 
     // Skip lines that are only greetings
     let isGreeting = false;
@@ -223,7 +276,7 @@ function extractProductList(message: string): string {
       // Exclude very short lines (< 3 chars) and very long lines (> 50 chars) to avoid noise
       const looksLikeProduct = 
         /^[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+$/.test(trimmedLine) && // Only letters and spaces
-        !/(quiero|quisiera|necesito|gustaría|hacer|pedido|para|favor|gracias|saludos)/i.test(trimmedLine); // Not conversational
+        !/(quiero|quisiera|necesito|gustaría|hacer|pedido|para|favor|gracias|saludos|quedo|atento|atenta)/i.test(trimmedLine); // Not conversational
       
       if (looksLikeProduct) {
         console.log(`Including line without quantity after product list: "${trimmedLine}"`);
