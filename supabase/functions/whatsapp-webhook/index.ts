@@ -121,15 +121,23 @@ const CLOSING_PATTERNS = [
 const FILLER_PATTERNS = [
   /^quiero\s+hacer\s+un\s+pedido\s*/i,
   /^quisiera\s+hacer\s+un\s+pedido\s*/i,
+  /^quisi[eé]ramos\s+hacer\s+un?\s+pedido\s*/i,
   /^necesito\s+hacer\s+un\s+pedido\s*/i,
+  /^necesitamos\s+hacer\s+un?\s+pedido\s*/i,
   /^me\s+gustar[ií]a\s+hacer\s+un\s+pedido\s*/i,
+  /^nos\s+gustar[ií]a\s+hacer\s+un?\s+pedido\s*/i,
   /^quiero\s+pedir\s*/i,
   /^quisiera\s+pedir\s*/i,
+  /^quisi[eé]ramos\s+pedir\s*/i,
   /^necesito\s+pedir\s*/i,
+  /^necesitamos\s+pedir\s*/i,
   /^me\s+gustar[ií]a\s+pedir\s*/i,
+  /^nos\s+gustar[ií]a\s+pedir\s*/i,
   /^mi\s+pedido\s+es\s*/i,
   /^el\s+pedido\s+es\s*/i,
+  /^nuestro\s+pedido\s+es\s*/i,
   /^voy\s+a\s+pedir\s*/i,
+  /^vamos\s+a\s+pedir\s*/i,
   /^por\s+favor\s*/i,
 ];
 
@@ -162,6 +170,20 @@ const CONVERSATIONAL_PHRASES = [
   /^por\s+favor/i,
   /^espero/i,
   /^esperamos/i,
+  // Date and time related phrases
+  /para\s+el\s+d[ií]a/i,
+  /para\s+ma[ñn]ana/i,
+  /para\s+hoy/i,
+  /para\s+el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)/i,
+  /el\s+d[ií]a\s+\d+/i,
+  /\d+\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i,
+  // Order request phrases
+  /quisi[eé]ramos?\s+hacer/i,
+  /quiero\s+hacer/i,
+  /necesito\s+hacer/i,
+  /me\s+gustar[ií]a\s+hacer/i,
+  /hacer\s+un?\s+pedido/i,
+  /hacer\s+pedido/i,
 ];
 
 /**
@@ -173,6 +195,55 @@ function isConversationalPhrase(line: string): boolean {
   for (const pattern of CONVERSATIONAL_PHRASES) {
     if (pattern.test(trimmed)) {
       console.log(`Detected conversational phrase: "${line}"`);
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Check if a line contains date/time information
+ */
+function containsDateTimeInfo(line: string): boolean {
+  const dateTimePatterns = [
+    /para\s+el\s+d[ií]a/i,
+    /para\s+ma[ñn]ana/i,
+    /para\s+hoy/i,
+    /para\s+el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)/i,
+    /el\s+d[ií]a\s+\d+/i,
+    /\d+\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i,
+    /(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\s+\d+/i,
+  ];
+  
+  for (const pattern of dateTimePatterns) {
+    if (pattern.test(line)) {
+      console.log(`Detected date/time info: "${line}"`);
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Check if a line is an order request phrase
+ */
+function isOrderRequestPhrase(line: string): boolean {
+  const orderRequestPatterns = [
+    /^quisi[eé]ramos?\s+hacer\s+(un?\s+)?pedido/i,
+    /^quiero\s+hacer\s+(un?\s+)?pedido/i,
+    /^quisiera\s+hacer\s+(un?\s+)?pedido/i,
+    /^necesito\s+hacer\s+(un?\s+)?pedido/i,
+    /^necesitamos\s+hacer\s+(un?\s+)?pedido/i,
+    /^me\s+gustar[ií]a\s+hacer\s+(un?\s+)?pedido/i,
+    /^nos\s+gustar[ií]a\s+hacer\s+(un?\s+)?pedido/i,
+    /^hacer\s+(un?\s+)?pedido/i,
+  ];
+  
+  for (const pattern of orderRequestPatterns) {
+    if (pattern.test(line.trim())) {
+      console.log(`Detected order request phrase: "${line}"`);
       return true;
     }
   }
@@ -220,6 +291,18 @@ function extractProductList(message: string): string {
       continue;
     }
 
+    // Skip lines that contain date/time information
+    if (containsDateTimeInfo(trimmedLine)) {
+      console.log(`Skipping date/time info: "${trimmedLine}"`);
+      continue;
+    }
+
+    // Skip lines that are order request phrases
+    if (isOrderRequestPhrase(trimmedLine)) {
+      console.log(`Skipping order request phrase: "${trimmedLine}"`);
+      continue;
+    }
+
     // Skip lines that are only greetings
     let isGreeting = false;
     for (const pattern of GREETING_PATTERNS) {
@@ -260,6 +343,18 @@ function extractProductList(message: string): string {
       /\b(kilo|kg|gramo|gr|unidad|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
       /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
       /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
+
+    // Additional check: if the line has numbers but also contains date/order keywords, skip it
+    if (hasProductPattern) {
+      const hasDateOrderKeywords = 
+        /\b(d[ií]a|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|pedido|hacer|favor)\b/i.test(trimmedLine);
+      
+      if (hasDateOrderKeywords && !foundProductLines) {
+        // If we haven't found product lines yet and this line has date/order keywords, skip it
+        console.log(`Skipping line with date/order keywords: "${trimmedLine}"`);
+        continue;
+      }
+    }
 
     // If we've already found product lines, be more lenient with subsequent lines
     // This allows items like "Tomillo lindo" and "Romero lindo" to be included
