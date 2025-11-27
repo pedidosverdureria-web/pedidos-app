@@ -797,6 +797,93 @@ function calculateConversationalRatio(originalMessage: string, extractedProducts
 }
 
 /**
+ * Extract product list synchronously (for validation)
+ */
+function extractProductListSync(message: string): string {
+  let cleaned = message.trim();
+
+  // Remove greeting patterns from the beginning
+  for (const pattern of GREETING_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // Remove closing patterns from the end
+  for (const pattern of CLOSING_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // Remove filler patterns from the beginning
+  for (const pattern of FILLER_PATTERNS) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // Remove lines that are purely greetings or questions (no product info)
+  const lines = cleaned.split('\n');
+  const productLines: string[] = [];
+
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines
+    if (!trimmedLine) continue;
+
+    // Skip lines that are only greetings
+    let isGreeting = false;
+    for (const pattern of GREETING_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isGreeting = true;
+        break;
+      }
+    }
+    if (isGreeting) continue;
+
+    // Skip lines that are only closings
+    let isClosing = false;
+    for (const pattern of CLOSING_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isClosing = true;
+        break;
+      }
+    }
+    if (isClosing) continue;
+
+    // Skip lines that are only filler text
+    let isFiller = false;
+    for (const pattern of FILLER_PATTERNS) {
+      if (pattern.test(trimmedLine) && trimmedLine.replace(pattern, '').trim().length === 0) {
+        isFiller = true;
+        break;
+      }
+    }
+    if (isFiller) continue;
+
+    // Skip lines that are questions (contain ?)
+    if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
+
+    // Check if line contains product-like patterns
+    const startsWithBullet = /^[-•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→*+~\d]/.test(trimmedLine);
+    
+    // Check for quantity patterns (number + unit or number + product)
+    const hasQuantityPattern = 
+      /^\d+\s*(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro|de\s+)/i.test(trimmedLine) ||
+      /\b(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
+      /\b(medio|media|cuarto|tercio)\s+(kilo|kg|de\s+)/i.test(trimmedLine);
+    
+    // Exclude lines that are clearly conversational
+    const isConversational = 
+      /\b(quiero|quisiera|necesito|me gustaría|hacer|pedido|para|el|dia|lunes|martes|miércoles|jueves|viernes|sábado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|por favor|quedo atento)\b/i.test(trimmedLine) &&
+      !hasQuantityPattern;
+    
+    // Include line if it starts with bullet/dash OR has quantity pattern AND is not conversational
+    if ((startsWithBullet || hasQuantityPattern) && !isConversational) {
+      productLines.push(trimmedLine);
+    }
+  }
+
+  return productLines.length > 0 ? productLines.join('\n') : cleaned.trim();
+}
+
+/**
  * Parses a WhatsApp message into a list of order items
  * Enhanced with produce dictionary for better product identification
  */
@@ -884,8 +971,8 @@ function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[]): { v
     return { valid: false, reason: 'unparseable' };
   }
 
-  // Calculate conversational ratio
-  const productListOnly = extractProductList(message);
+  // Calculate conversational ratio using sync version
+  const productListOnly = extractProductListSync(message);
   const conversationalRatio = calculateConversationalRatio(message, productListOnly);
   
   console.log(`Conversational ratio: ${(conversationalRatio * 100).toFixed(1)}%`);
@@ -1347,6 +1434,8 @@ serve(async (req) => {
       const shouldBeQuery = !isAuthorized && (isQuestion(messageText) || parsedItems.length === 0);
       
       // Check if the message is valid for order creation
+      // Use sync version for validation to avoid async issues
+      const productListForValidation = extractProductListSync(messageText);
       const orderValidation = shouldCreateOrder(messageText, parsedItems);
       
       console.log('Should be query:', shouldBeQuery);
