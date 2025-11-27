@@ -61,6 +61,16 @@ async function getDeviceId(): Promise<string> {
 }
 
 /**
+ * Custom error class for Firebase configuration issues
+ */
+export class FirebaseConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FirebaseConfigError';
+  }
+}
+
+/**
  * Register for push notifications and save the token to the database
  * CRITICAL: This sets up notification channels with maximum priority for screen-off delivery
  * 
@@ -159,26 +169,42 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
         console.log('[PushNotifications] Push token obtained:', token);
       } catch (tokenError: any) {
         console.error('[PushNotifications] Error getting push token:', tokenError);
+        console.error('[PushNotifications] Error details:', {
+          message: tokenError?.message,
+          code: tokenError?.code,
+          stack: tokenError?.stack,
+        });
         
         // Check if it's a Firebase-related error
-        if (Platform.OS === 'android' && 
-            (tokenError?.message?.includes('FirebaseApp') || 
-             tokenError?.message?.includes('FCM') ||
-             tokenError?.message?.includes('google-services'))) {
+        if (Platform.OS === 'android') {
+          const errorMessage = tokenError?.message || '';
+          const isFirebaseError = 
+            errorMessage.includes('FirebaseApp') || 
+            errorMessage.includes('FCM') ||
+            errorMessage.includes('google-services') ||
+            errorMessage.includes('firebase') ||
+            errorMessage.toLowerCase().includes('firebase');
           
-          const errorMessage = 
-            'Firebase Cloud Messaging (FCM) no está configurado correctamente.\n\n' +
-            'Para usar notificaciones push en Android, necesitas:\n\n' +
-            '1. Crear un proyecto en Firebase Console (https://console.firebase.google.com)\n' +
-            '2. Agregar una aplicación Android con el package name: com.pedidosapp.mobile\n' +
-            '3. Descargar el archivo google-services.json\n' +
-            '4. Colocar el archivo en la raíz del proyecto\n' +
-            '5. Configurar las credenciales FCM en EAS\n\n' +
-            'Consulta la guía completa en:\n' +
-            'https://docs.expo.dev/push-notifications/fcm-credentials/\n\n' +
-            'Error original: ' + tokenError.message;
-          
-          throw new Error(errorMessage);
+          if (isFirebaseError) {
+            console.error('[PushNotifications] Firebase configuration error detected');
+            throw new FirebaseConfigError(
+              'Firebase Cloud Messaging (FCM) no está configurado.\n\n' +
+              '⚠️ IMPORTANTE: Para usar notificaciones push en Android, necesitas:\n\n' +
+              '1️⃣ Crear un proyecto en Firebase Console\n' +
+              '   → https://console.firebase.google.com\n\n' +
+              '2️⃣ Agregar una aplicación Android\n' +
+              '   → Package name: com.pedidosapp.mobile\n\n' +
+              '3️⃣ Descargar google-services.json\n' +
+              '   → Colocarlo en la raíz del proyecto\n\n' +
+              '4️⃣ Configurar credenciales FCM en EAS\n' +
+              '   → Usar comando: eas credentials\n\n' +
+              '5️⃣ Hacer un nuevo build de la app\n' +
+              '   → Comando: eas build -p android\n\n' +
+              '📚 Consulta FIREBASE_FCM_SETUP_GUIDE.md para instrucciones detalladas.\n\n' +
+              '💡 ALTERNATIVA: Puedes usar solo notificaciones locales sin configurar Firebase. ' +
+              'Las notificaciones locales funcionan cuando la app está abierta o en segundo plano.'
+            );
+          }
         }
         
         // Re-throw other errors

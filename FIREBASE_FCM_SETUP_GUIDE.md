@@ -28,7 +28,7 @@ El error "Default FirebaseApp is not initialized" ocurre porque **Expo usa Fireb
 
 1. Después de registrar la app, descarga el archivo `google-services.json`
 2. **Coloca este archivo en la raíz de tu proyecto** (al mismo nivel que `package.json`)
-3. **NO** lo agregues a `.gitignore` si quieres que funcione en todos los entornos
+3. **NO** lo agregues a `.gitignore` si quieres qu/e funcione en todos los entornos
 
 ### 4. Configurar Credenciales FCM en EAS
 
