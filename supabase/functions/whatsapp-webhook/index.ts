@@ -58,10 +58,11 @@ const FRACTION_WORDS: Record<string, number> = {
 };
 
 // Common unit variations
+// IMPORTANT: This should match the database known_units table
 const UNIT_VARIATIONS: Record<string, string[]> = {
-  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
-  'gramo': ['gramo', 'gramos', 'gr', 'g'],
-  'unidad': ['unidad', 'unidades', 'u', 'und'],
+  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k', 'kl', 'kls'],
+  'gramo': ['gramo', 'gramos', 'gr', 'grs', 'g'],
+  'unidad': ['unidad', 'unidades', 'u', 'und', 'unds'],
   'bolsa': ['bolsa', 'bolsas'],
   'malla': ['malla', 'mallas'],
   'saco': ['saco', 'sacos'],
@@ -69,11 +70,15 @@ const UNIT_VARIATIONS: Record<string, string[]> = {
   'atado': ['atado', 'atados'],
   'cabeza': ['cabeza', 'cabezas'],
   'libra': ['libra', 'libras', 'lb', 'lbs'],
-  'docena': ['docena', 'docenas'],
-  'paquete': ['paquete', 'paquetes', 'pqt'],
+  'docena': ['docena', 'docenas', 'doc'],
+  'paquete': ['paquete', 'paquetes', 'pqt', 'pqte', 'pqtes', 'paq'],
   'caja': ['caja', 'cajas'],
   'litro': ['litro', 'litros', 'lt', 'lts', 'l'],
   'metro': ['metro', 'metros', 'm'],
+  'bandeja': ['bandeja', 'bandejas'],
+  'cesta': ['cesta', 'cestas'],
+  'gamela': ['gamela', 'gamelas'],
+  'racimo': ['racimo', 'racimos'],
 };
 
 // Greeting and closing patterns to remove
@@ -340,7 +345,7 @@ function extractProductList(message: string): string {
     // This helps identify actual product lines vs. conversational text
     const hasProductPattern = 
       /\d+/.test(trimmedLine) || // Contains numbers
-      /\b(kilo|kg|gramo|gr|unidad|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
+      /\b(kilo|kg|kgs|gramo|gr|grs|unidad|unidades|und|unds|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
       /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
       /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
 
@@ -801,25 +806,30 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 13: Product + Quantity + Unit (reversed order)
-  // Examples: "tomates 3 kilos", "papas 2 kg", "paltas 3 kgs"
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)$/i);
+  // Examples: "tomates 3 kilos", "papas 2 kg", "cebolla morada 3kgs"
+  // IMPORTANT: This strategy now handles units without spaces (e.g., "3kgs")
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s*(\w+)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2].replace(',', '.');
     const unitStr = match[3];
+
+    console.log(`Strategy 13 - Product: "${product}", Quantity: "${quantityStr}", Unit: "${unitStr}"`);
 
     if (isKnownUnit(unitStr)) {
       const quantity = parseQuantityValue(quantityStr);
 
       if (quantity > 0 && product) {
         const unit = normalizeUnit(unitStr, quantity);
+        console.log(`✓ Strategy 13 SUCCESS: ${quantity} ${unit} de ${product}`);
         return { quantity, unit, product };
       }
+    } else {
+      console.log(`⚠ Strategy 13: Unit "${unitStr}" not recognized as known unit`);
     }
   }
 
   // Strategy 14: Product + Quantity (no unit, reversed order)
-  // Examples: "tomates 3", "pepinos 5"
   match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)$/i);
   if (match) {
     const product = match[1].trim();
