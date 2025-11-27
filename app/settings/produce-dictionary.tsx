@@ -59,14 +59,20 @@ export default function ProduceDictionaryScreen() {
   const loadProduceItems = async () => {
     try {
       setLoading(true);
+      console.log('Loading produce items from database...');
+      
       const { data, error } = await supabase
         .from('produce_dictionary')
         .select('*')
         .order('category', { ascending: true })
         .order('name', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading produce items:', error);
+        throw error;
+      }
 
+      console.log(`Loaded ${data?.length || 0} produce items`);
       setProduceItems(data || []);
     } catch (error) {
       console.error('Error loading produce items:', error);
@@ -205,16 +211,17 @@ export default function ProduceDictionaryScreen() {
     },
     categoryFilters: {
       flexDirection: 'row',
-      padding: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       gap: 8,
       backgroundColor: currentTheme.colors.card,
       borderBottomWidth: 1,
       borderBottomColor: currentTheme.colors.border,
     },
     categoryFilter: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 16,
       backgroundColor: currentTheme.colors.background,
       borderWidth: 1,
       borderColor: currentTheme.colors.border,
@@ -224,7 +231,7 @@ export default function ProduceDictionaryScreen() {
       borderColor: currentTheme.colors.primary,
     },
     categoryFilterText: {
-      fontSize: 14,
+      fontSize: 13,
       color: currentTheme.colors.text,
       fontWeight: '500',
     },
@@ -420,6 +427,18 @@ export default function ProduceDictionaryScreen() {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
+      backgroundColor: currentTheme.colors.background,
+    },
+    statsContainer: {
+      padding: 16,
+      backgroundColor: currentTheme.colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: currentTheme.colors.border,
+    },
+    statsText: {
+      fontSize: 14,
+      color: currentTheme.colors.textSecondary,
+      textAlign: 'center',
     },
   });
 
@@ -427,6 +446,9 @@ export default function ProduceDictionaryScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={currentTheme.colors.primary} />
+        <Text style={[styles.emptyStateText, { marginTop: 16 }]}>
+          Cargando diccionario de productos...
+        </Text>
       </View>
     );
   }
@@ -437,6 +459,12 @@ export default function ProduceDictionaryScreen() {
         <Text style={styles.headerTitle}>Diccionario de Productos</Text>
         <Text style={styles.headerDescription}>
           Gestiona el diccionario de frutas, verduras y hortalizas para mejorar el reconocimiento de productos en los pedidos de WhatsApp.
+        </Text>
+      </View>
+
+      <View style={styles.statsContainer}>
+        <Text style={styles.statsText}>
+          Total: {produceItems.length} productos | Filtrados: {filteredItems.length}
         </Text>
       </View>
 
@@ -572,7 +600,9 @@ export default function ProduceDictionaryScreen() {
               color={currentTheme.colors.textSecondary}
             />
             <Text style={styles.emptyStateText}>
-              No se encontraron productos
+              {searchQuery || selectedCategory 
+                ? 'No se encontraron productos con los filtros aplicados'
+                : 'No hay productos en el diccionario'}
             </Text>
           </View>
         ) : (
@@ -615,7 +645,7 @@ export default function ProduceDictionaryScreen() {
                       </TouchableOpacity>
                     )}
                   </View>
-                  {item.variations.length > 0 && (
+                  {item.variations && item.variations.length > 0 && (
                     <View style={styles.variationsContainer}>
                       {item.variations.map((variation, index) => (
                         <View key={index} style={styles.variationChip}>

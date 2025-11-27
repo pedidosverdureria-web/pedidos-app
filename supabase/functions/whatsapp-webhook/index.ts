@@ -57,24 +57,10 @@ const FRACTION_WORDS: Record<string, number> = {
   'tres cuartos': 0.75,
 };
 
-// Common unit variations
-const UNIT_VARIATIONS: Record<string, string[]> = {
-  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
-  'gramo': ['gramo', 'gramos', 'gr', 'g'],
-  'unidad': ['unidad', 'unidades', 'u', 'und'],
-  'bolsa': ['bolsa', 'bolsas'],
-  'malla': ['malla', 'mallas'],
-  'saco': ['saco', 'sacos'],
-  'cajón': ['cajón', 'cajon', 'cajones'],
-  'atado': ['atado', 'atados'],
-  'cabeza': ['cabeza', 'cabezas'],
-  'libra': ['libra', 'libras', 'lb', 'lbs'],
-  'docena': ['docena', 'docenas'],
-  'paquete': ['paquete', 'paquetes', 'pqt'],
-  'caja': ['caja', 'cajas'],
-  'litro': ['litro', 'litros', 'lt', 'lts', 'l'],
-  'metro': ['metro', 'metros', 'm'],
-};
+// Global cache for unit variations (loaded from database)
+let UNIT_VARIATIONS: Record<string, string[]> = {};
+let lastUnitsLoad: number = 0;
+const UNITS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Greeting and closing patterns to remove
 const GREETING_PATTERNS = [
@@ -134,6 +120,42 @@ const QUESTION_PATTERNS = [
 ];
 
 /**
+ * Load known units from database
+ */
+async function loadKnownUnits(supabase: any): Promise<void> {
+  const now = Date.now();
+  
+  // Return cached units if cache is still valid
+  if (Object.keys(UNIT_VARIATIONS).length > 0 && now - lastUnitsLoad < UNITS_CACHE_DURATION) {
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('known_units')
+      .select('*');
+
+    if (error) {
+      console.error('Error loading known units:', error);
+      return;
+    }
+
+    // Build unit variations map from database
+    const newUnitVariations: Record<string, string[]> = {};
+    for (const unit of data || []) {
+      newUnitVariations[unit.unit_name] = unit.variations || [];
+    }
+
+    UNIT_VARIATIONS = newUnitVariations;
+    lastUnitsLoad = now;
+    
+    console.log(`✅ Loaded ${Object.keys(UNIT_VARIATIONS).length} known units from database`);
+  } catch (error) {
+    console.error('Error loading known units:', error);
+  }
+}
+
+/**
  * Load produce dictionary from database
  */
 async function loadProduceDictionary(supabase: any): Promise<any[]> {
@@ -147,7 +169,7 @@ async function loadProduceDictionary(supabase: any): Promise<any[]> {
       return [];
     }
 
-    console.log(`Loaded ${data?.length || 0} produce items from dictionary`);
+    console.log(`✅ Loaded ${data?.length || 0} produce items from dictionary`);
     return data || [];
   } catch (error) {
     console.error('Error loading produce dictionary:', error);
@@ -252,26 +274,24 @@ async function extractProductList(message: string, supabase: any): Promise<strin
     const hasKnownProduce = containsProduceKeywords(trimmedLine, produceItems);
     
     // Check if line contains product-like patterns
-    // A line is considered a product line if it:
-    // 1. Starts with a bullet point or dash
-    // 2. Contains a quantity followed by a unit or product name
-    // 3. Has a clear quantity + product structure
-    // 4. Contains known produce items from dictionary
-    
     const startsWithBullet = /^[-•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→*+~\d]/.test(trimmedLine);
+    
+    // Build dynamic unit pattern from loaded units
+    const unitNames = Object.values(UNIT_VARIATIONS).flat().join('|');
+    const unitPattern = unitNames ? new RegExp(`\\b(${unitNames})\\b`, 'i') : null;
     
     // Check for quantity patterns (number + unit or number + product)
     const hasQuantityPattern = 
-      /^\d+\s*(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro|de\s+)/i.test(trimmedLine) ||
-      /\b(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
-      /\b(medio|media|cuarto|tercio)\s+(kilo|kg|de\s+)/i.test(trimmedLine) ||
-      hasKnownProduce; // ENHANCED: Contains known produce items
+      /^\d+\s*(de\s+)/i.test(trimmedLine) ||
+      (unitPattern && unitPattern.test(trimmedLine)) ||
+      /\b(medio|media|cuarto|tercio)\s+(de\s+)/i.test(trimmedLine) ||
+      hasKnownProduce;
     
     // Exclude lines that are clearly conversational
     const isConversational = 
       /\b(quiero|quisiera|necesito|me gustaría|hacer|pedido|para|el|dia|lunes|martes|miércoles|jueves|viernes|sábado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|por favor|quedo atento)\b/i.test(trimmedLine) &&
       !hasQuantityPattern &&
-      !hasKnownProduce; // ENHANCED: Don't exclude if it contains known produce
+      !hasKnownProduce;
     
     // Include line if it starts with bullet/dash OR has quantity pattern AND is not conversational
     if ((startsWithBullet || hasQuantityPattern) && !isConversational) {
@@ -705,7 +725,6 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 13: Product + Quantity + Unit (reversed order)
-  // Examples: "tomates 3 kilos", "papas 2 kg", "paltas 3 kgs"
   match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)$/i);
   if (match) {
     const product = match[1].trim();
@@ -723,7 +742,6 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 14: Product + Quantity (no unit, reversed order)
-  // Examples: "tomates 3", "pepinos 5"
   match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)$/i);
   if (match) {
     const product = match[1].trim();
@@ -863,11 +881,15 @@ function extractProductListSync(message: string): string {
     // Check if line contains product-like patterns
     const startsWithBullet = /^[-•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→*+~\d]/.test(trimmedLine);
     
+    // Build dynamic unit pattern from loaded units
+    const unitNames = Object.values(UNIT_VARIATIONS).flat().join('|');
+    const unitPattern = unitNames ? new RegExp(`\\b(${unitNames})\\b`, 'i') : null;
+    
     // Check for quantity patterns (number + unit or number + product)
     const hasQuantityPattern = 
-      /^\d+\s*(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro|de\s+)/i.test(trimmedLine) ||
-      /\b(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
-      /\b(medio|media|cuarto|tercio)\s+(kilo|kg|de\s+)/i.test(trimmedLine);
+      /^\d+\s*(de\s+)/i.test(trimmedLine) ||
+      (unitPattern && unitPattern.test(trimmedLine)) ||
+      /\b(medio|media|cuarto|tercio)\s+(de\s+)/i.test(trimmedLine);
     
     // Exclude lines that are clearly conversational
     const isConversational = 
@@ -892,6 +914,9 @@ async function parseWhatsAppMessage(message: string, supabase: any): Promise<Par
     console.log('Empty message provided');
     return [];
   }
+
+  // Load known units from database
+  await loadKnownUnits(supabase);
 
   const productListOnly = await extractProductList(message, supabase);
 
@@ -1016,7 +1041,6 @@ function formatCLP(amount: number): string {
 function formatItemsList(items: ParsedOrderItem[], showPrices: boolean = false): string {
   return items.map((item) => {
     // Format: quantity + unit + "de" + product
-    // Example: "3 kilos de paltas" instead of "paltas 3 kgs"
     const quantity = item.quantity === '#' ? '' : `${item.quantity} `;
     const unit = item.unit ? `${item.unit} de ` : '';
     const productName = item.product || 'Producto';
@@ -1434,7 +1458,6 @@ serve(async (req) => {
       const shouldBeQuery = !isAuthorized && (isQuestion(messageText) || parsedItems.length === 0);
       
       // Check if the message is valid for order creation
-      // Use sync version for validation to avoid async issues
       const productListForValidation = extractProductListSync(messageText);
       const orderValidation = shouldCreateOrder(messageText, parsedItems);
       
@@ -1522,11 +1545,9 @@ serve(async (req) => {
       console.log('Creating order...');
       
       // FIXED: Don't manually generate order_number - let the database trigger handle it
-      // The trigger will automatically generate a unique order number in format YYYYMMDD-NNNNNN
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          // order_number is NOT set here - the database trigger will generate it automatically
           customer_name: customerName,
           customer_phone: normalizedPhone,
           status: 'pending',
