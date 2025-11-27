@@ -2,7 +2,10 @@
 /**
  * Intelligent WhatsApp Message Parser
  * Handles a wide variety of natural order formats
+ * Enhanced with produce dictionary for better product identification
  */
+
+import { loadProduceDictionary, isKnownProduce, containsProduceKeywords } from './produceDictionary';
 
 /**
  * Represents a parsed order item from a WhatsApp message.
@@ -261,11 +264,16 @@ function isOrderRequestPhrase(line: string): boolean {
 
 /**
  * Extracts only the product list from a message, removing greetings, closings, and filler text
+ * Enhanced with produce dictionary for better product identification
  */
-function extractProductList(message: string): string {
+async function extractProductList(message: string): Promise<string> {
   let cleaned = message.trim();
 
   console.log('Original message:', cleaned);
+
+  // Load produce dictionary for enhanced detection
+  const produceItems = await loadProduceDictionary();
+  console.log(`Loaded ${produceItems.length} produce items for enhanced detection`);
 
   // Remove greeting patterns from the beginning
   for (const pattern of GREETING_PATTERNS) {
@@ -344,21 +352,26 @@ function extractProductList(message: string): string {
     // Skip lines that are questions (contain ?)
     if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
 
+    // ENHANCED: Check if line contains known produce items from dictionary
+    const hasKnownProduce = containsProduceKeywords(trimmedLine, produceItems);
+    
     // Check if line contains product-like patterns (quantity + product)
     // This helps identify actual product lines vs. conversational text
     const hasProductPattern = 
       /\d+/.test(trimmedLine) || // Contains numbers
       /\b(kilo|kg|kgs|gramo|gr|grs|unidad|unidades|und|unds|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
       /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
-      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
+      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine) || // Contains number words
+      hasKnownProduce; // ENHANCED: Contains known produce items
 
     // Additional check: if the line has numbers but also contains date/order keywords, skip it
     if (hasProductPattern) {
       const hasDateOrderKeywords = 
         /\b(d[ií]a|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|pedido|hacer|favor)\b/i.test(trimmedLine);
       
-      if (hasDateOrderKeywords && !foundProductLines) {
+      if (hasDateOrderKeywords && !foundProductLines && !hasKnownProduce) {
         // If we haven't found product lines yet and this line has date/order keywords, skip it
+        // UNLESS it contains a known produce item
         console.log(`Skipping line with date/order keywords: "${trimmedLine}"`);
         continue;
       }
@@ -370,6 +383,9 @@ function extractProductList(message: string): string {
     if (hasProductPattern) {
       productLines.push(trimmedLine);
       foundProductLines = true;
+      if (hasKnownProduce) {
+        console.log(`✓ Line contains known produce: "${trimmedLine}"`);
+      }
     } else if (foundProductLines && trimmedLine.length > 2 && trimmedLine.length < 50) {
       // If we've already found product lines and this line is short enough to be a product name,
       // include it (this catches items without quantities at the end of lists)
@@ -378,7 +394,7 @@ function extractProductList(message: string): string {
         /^[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+$/.test(trimmedLine) && // Only letters and spaces
         !/(quiero|quisiera|necesito|gustaría|hacer|pedido|para|favor|gracias|saludos|quedo|atento|atenta)/i.test(trimmedLine); // Not conversational
       
-      if (looksLikeProduct) {
+      if (looksLikeProduct || hasKnownProduce) {
         console.log(`Including line without quantity after product list: "${trimmedLine}"`);
         productLines.push(trimmedLine);
       }
@@ -915,15 +931,16 @@ function splitLineIntoSegments(line: string): string[] {
 
 /**
  * Parses a WhatsApp message into a list of order items
+ * Enhanced with produce dictionary for better product identification
  */
-export function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
+export async function parseWhatsAppMessage(message: string): Promise<ParsedOrderItem[]> {
   if (!message || !message.trim()) {
     console.log('Empty message provided');
     return [];
   }
 
   // First, extract only the product list from the message
-  const productListOnly = extractProductList(message);
+  const productListOnly = await extractProductList(message);
 
   if (!productListOnly || !productListOnly.trim()) {
     console.log('No product list found after extraction');

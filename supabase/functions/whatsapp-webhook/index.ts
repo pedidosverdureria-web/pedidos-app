@@ -58,11 +58,10 @@ const FRACTION_WORDS: Record<string, number> = {
 };
 
 // Common unit variations
-// IMPORTANT: This should match the database known_units table
 const UNIT_VARIATIONS: Record<string, string[]> = {
-  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k', 'kl', 'kls'],
-  'gramo': ['gramo', 'gramos', 'gr', 'grs', 'g'],
-  'unidad': ['unidad', 'unidades', 'u', 'und', 'unds'],
+  'kilo': ['kilo', 'kilos', 'kg', 'kgs', 'k'],
+  'gramo': ['gramo', 'gramos', 'gr', 'g'],
+  'unidad': ['unidad', 'unidades', 'u', 'und'],
   'bolsa': ['bolsa', 'bolsas'],
   'malla': ['malla', 'mallas'],
   'saco': ['saco', 'sacos'],
@@ -70,15 +69,11 @@ const UNIT_VARIATIONS: Record<string, string[]> = {
   'atado': ['atado', 'atados'],
   'cabeza': ['cabeza', 'cabezas'],
   'libra': ['libra', 'libras', 'lb', 'lbs'],
-  'docena': ['docena', 'docenas', 'doc'],
-  'paquete': ['paquete', 'paquetes', 'pqt', 'pqte', 'pqtes', 'paq'],
+  'docena': ['docena', 'docenas'],
+  'paquete': ['paquete', 'paquetes', 'pqt'],
   'caja': ['caja', 'cajas'],
   'litro': ['litro', 'litros', 'lt', 'lts', 'l'],
   'metro': ['metro', 'metros', 'm'],
-  'bandeja': ['bandeja', 'bandejas'],
-  'cesta': ['cesta', 'cestas'],
-  'gamela': ['gamela', 'gamelas'],
-  'racimo': ['racimo', 'racimos'],
 };
 
 // Greeting and closing patterns to remove
@@ -115,34 +110,20 @@ const CLOSING_PATTERNS = [
   /\s*buen\s+d[ií]a\.?$/i,
   /\s*buena\s+tarde\.?$/i,
   /\s*buena\s+noche\.?$/i,
-  /\s*quedo\s+atento\.?$/i,
-  /\s*qued[oó]\s+atent[oa]\.?$/i,
-  /\s*quedo\s+atento\s+gracias\.?$/i,
-  /\s*qued[oó]\s+atent[oa]\s+gracias\.?$/i,
-  /\s*quedamos\s+atent[oa]s\.?$/i,
-  /\s*estamos\s+atent[oa]s\.?$/i,
 ];
 
 const FILLER_PATTERNS = [
   /^quiero\s+hacer\s+un\s+pedido\s*/i,
   /^quisiera\s+hacer\s+un\s+pedido\s*/i,
-  /^quisi[eé]ramos\s+hacer\s+un?\s+pedido\s*/i,
   /^necesito\s+hacer\s+un\s+pedido\s*/i,
-  /^necesitamos\s+hacer\s+un?\s+pedido\s*/i,
   /^me\s+gustar[ií]a\s+hacer\s+un\s+pedido\s*/i,
-  /^nos\s+gustar[ií]a\s+hacer\s+un?\s+pedido\s*/i,
   /^quiero\s+pedir\s*/i,
   /^quisiera\s+pedir\s*/i,
-  /^quisi[eé]ramos\s+pedir\s*/i,
   /^necesito\s+pedir\s*/i,
-  /^necesitamos\s+pedir\s*/i,
   /^me\s+gustar[ií]a\s+pedir\s*/i,
-  /^nos\s+gustar[ií]a\s+pedir\s*/i,
   /^mi\s+pedido\s+es\s*/i,
   /^el\s+pedido\s+es\s*/i,
-  /^nuestro\s+pedido\s+es\s*/i,
   /^voy\s+a\s+pedir\s*/i,
-  /^vamos\s+a\s+pedir\s*/i,
   /^por\s+favor\s*/i,
 ];
 
@@ -152,104 +133,45 @@ const QUESTION_PATTERNS = [
   /^(how much|when|where|what|how|why)/i,
 ];
 
-// Common closing/conversational phrases that should NOT be parsed as products
-const CONVERSATIONAL_PHRASES = [
-  /^quedo\s+atento/i,
-  /^qued[oó]\s+atent[oa]/i,
-  /^quedamos\s+atent[oa]s/i,
-  /^estamos\s+atent[oa]s/i,
-  /^muchas\s+gracias/i,
-  /^mil\s+gracias/i,
-  /^gracias/i,
-  /^saludos/i,
-  /^bendiciones/i,
-  /^que\s+est[eé]s?\s+bien/i,
-  /^que\s+est[eé]n\s+bien/i,
-  /^hasta\s+luego/i,
-  /^nos\s+vemos/i,
-  /^chao/i,
-  /^adi[oó]s/i,
-  /^buen\s+d[ií]a/i,
-  /^buena\s+tarde/i,
-  /^buena\s+noche/i,
-  /^por\s+favor/i,
-  /^espero/i,
-  /^esperamos/i,
-  // Date and time related phrases
-  /para\s+el\s+d[ií]a/i,
-  /para\s+ma[ñn]ana/i,
-  /para\s+hoy/i,
-  /para\s+el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)/i,
-  /el\s+d[ií]a\s+\d+/i,
-  /\d+\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i,
-  // Order request phrases
-  /quisi[eé]ramos?\s+hacer/i,
-  /quiero\s+hacer/i,
-  /necesito\s+hacer/i,
-  /me\s+gustar[ií]a\s+hacer/i,
-  /hacer\s+un?\s+pedido/i,
-  /hacer\s+pedido/i,
-];
-
 /**
- * Check if a line is a conversational phrase that should not be parsed as a product
+ * Load produce dictionary from database
  */
-function isConversationalPhrase(line: string): boolean {
-  const trimmed = line.trim().toLowerCase();
-  
-  for (const pattern of CONVERSATIONAL_PHRASES) {
-    if (pattern.test(trimmed)) {
-      console.log(`Detected conversational phrase: "${line}"`);
-      return true;
+async function loadProduceDictionary(supabase: any): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('produce_dictionary')
+      .select('*');
+
+    if (error) {
+      console.error('Error loading produce dictionary:', error);
+      return [];
     }
+
+    console.log(`Loaded ${data?.length || 0} produce items from dictionary`);
+    return data || [];
+  } catch (error) {
+    console.error('Error loading produce dictionary:', error);
+    return [];
   }
-  
-  return false;
 }
 
 /**
- * Check if a line contains date/time information
+ * Check if a line contains known produce items
  */
-function containsDateTimeInfo(line: string): boolean {
-  const dateTimePatterns = [
-    /para\s+el\s+d[ií]a/i,
-    /para\s+ma[ñn]ana/i,
-    /para\s+hoy/i,
-    /para\s+el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)/i,
-    /el\s+d[ií]a\s+\d+/i,
-    /\d+\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i,
-    /(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\s+\d+/i,
-  ];
+function containsProduceKeywords(line: string, produceItems: any[]): boolean {
+  if (!line || !line.trim()) return false;
   
-  for (const pattern of dateTimePatterns) {
-    if (pattern.test(line)) {
-      console.log(`Detected date/time info: "${line}"`);
+  const normalized = line.toLowerCase().trim();
+  
+  for (const item of produceItems) {
+    if (normalized.includes(item.name)) {
       return true;
     }
-  }
-  
-  return false;
-}
-
-/**
- * Check if a line is an order request phrase
- */
-function isOrderRequestPhrase(line: string): boolean {
-  const orderRequestPatterns = [
-    /^quisi[eé]ramos?\s+hacer\s+(un?\s+)?pedido/i,
-    /^quiero\s+hacer\s+(un?\s+)?pedido/i,
-    /^quisiera\s+hacer\s+(un?\s+)?pedido/i,
-    /^necesito\s+hacer\s+(un?\s+)?pedido/i,
-    /^necesitamos\s+hacer\s+(un?\s+)?pedido/i,
-    /^me\s+gustar[ií]a\s+hacer\s+(un?\s+)?pedido/i,
-    /^nos\s+gustar[ií]a\s+hacer\s+(un?\s+)?pedido/i,
-    /^hacer\s+(un?\s+)?pedido/i,
-  ];
-  
-  for (const pattern of orderRequestPatterns) {
-    if (pattern.test(line.trim())) {
-      console.log(`Detected order request phrase: "${line}"`);
-      return true;
+    
+    for (const variation of item.variations || []) {
+      if (normalized.includes(variation)) {
+        return true;
+      }
     }
   }
   
@@ -258,11 +180,15 @@ function isOrderRequestPhrase(line: string): boolean {
 
 /**
  * Extracts only the product list from a message, removing greetings, closings, and filler text
+ * Enhanced with produce dictionary for better product identification
  */
-function extractProductList(message: string): string {
+async function extractProductList(message: string, supabase: any): Promise<string> {
   let cleaned = message.trim();
 
   console.log('Original message:', cleaned);
+
+  // Load produce dictionary for enhanced detection
+  const produceItems = await loadProduceDictionary(supabase);
 
   // Remove greeting patterns from the beginning
   for (const pattern of GREETING_PATTERNS) {
@@ -282,31 +208,12 @@ function extractProductList(message: string): string {
   // Remove lines that are purely greetings or questions (no product info)
   const lines = cleaned.split('\n');
   const productLines: string[] = [];
-  let foundProductLines = false;
 
   for (const line of lines) {
     const trimmedLine = line.trim();
     
     // Skip empty lines
     if (!trimmedLine) continue;
-
-    // Skip lines that are conversational phrases
-    if (isConversationalPhrase(trimmedLine)) {
-      console.log(`Skipping conversational phrase: "${trimmedLine}"`);
-      continue;
-    }
-
-    // Skip lines that contain date/time information
-    if (containsDateTimeInfo(trimmedLine)) {
-      console.log(`Skipping date/time info: "${trimmedLine}"`);
-      continue;
-    }
-
-    // Skip lines that are order request phrases
-    if (isOrderRequestPhrase(trimmedLine)) {
-      console.log(`Skipping order request phrase: "${trimmedLine}"`);
-      continue;
-    }
 
     // Skip lines that are only greetings
     let isGreeting = false;
@@ -341,48 +248,40 @@ function extractProductList(message: string): string {
     // Skip lines that are questions (contain ?)
     if (trimmedLine.includes('?') || trimmedLine.includes('¿')) continue;
 
-    // Check if line contains product-like patterns (quantity + product)
-    // This helps identify actual product lines vs. conversational text
-    const hasProductPattern = 
-      /\d+/.test(trimmedLine) || // Contains numbers
-      /\b(kilo|kg|kgs|gramo|gr|grs|unidad|unidades|und|unds|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
-      /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
-      /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
-
-    // Additional check: if the line has numbers but also contains date/order keywords, skip it
-    if (hasProductPattern) {
-      const hasDateOrderKeywords = 
-        /\b(d[ií]a|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|pedido|hacer|favor)\b/i.test(trimmedLine);
-      
-      if (hasDateOrderKeywords && !foundProductLines) {
-        // If we haven't found product lines yet and this line has date/order keywords, skip it
-        console.log(`Skipping line with date/order keywords: "${trimmedLine}"`);
-        continue;
-      }
-    }
-
-    // If we've already found product lines, be more lenient with subsequent lines
-    // This allows items like "Tomillo lindo" and "Romero lindo" to be included
-    // even if they don't have explicit quantities
-    if (hasProductPattern) {
+    // ENHANCED: Check if line contains known produce items from dictionary
+    const hasKnownProduce = containsProduceKeywords(trimmedLine, produceItems);
+    
+    // Check if line contains product-like patterns
+    // A line is considered a product line if it:
+    // 1. Starts with a bullet point or dash
+    // 2. Contains a quantity followed by a unit or product name
+    // 3. Has a clear quantity + product structure
+    // 4. Contains known produce items from dictionary
+    
+    const startsWithBullet = /^[-•●○◦▪▫■□★☆✓✔✗✘➤➢►▸▹▻⇒⇨→*+~\d]/.test(trimmedLine);
+    
+    // Check for quantity patterns (number + unit or number + product)
+    const hasQuantityPattern = 
+      /^\d+\s*(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro|de\s+)/i.test(trimmedLine) ||
+      /\b(kilo|kg|gramo|gr|unidad|und|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) ||
+      /\b(medio|media|cuarto|tercio)\s+(kilo|kg|de\s+)/i.test(trimmedLine) ||
+      hasKnownProduce; // ENHANCED: Contains known produce items
+    
+    // Exclude lines that are clearly conversational
+    const isConversational = 
+      /\b(quiero|quisiera|necesito|me gustaría|hacer|pedido|para|el|dia|lunes|martes|miércoles|jueves|viernes|sábado|domingo|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre|por favor|quedo atento)\b/i.test(trimmedLine) &&
+      !hasQuantityPattern &&
+      !hasKnownProduce; // ENHANCED: Don't exclude if it contains known produce
+    
+    // Include line if it starts with bullet/dash OR has quantity pattern AND is not conversational
+    if ((startsWithBullet || hasQuantityPattern) && !isConversational) {
       productLines.push(trimmedLine);
-      foundProductLines = true;
-    } else if (foundProductLines && trimmedLine.length > 2 && trimmedLine.length < 50) {
-      // If we've already found product lines and this line is short enough to be a product name,
-      // include it (this catches items without quantities at the end of lists)
-      // Exclude very short lines (< 3 chars) and very long lines (> 50 chars) to avoid noise
-      const looksLikeProduct = 
-        /^[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+$/.test(trimmedLine) && // Only letters and spaces
-        !/(quiero|quisiera|necesito|gustaría|hacer|pedido|para|favor|gracias|saludos|quedo|atento|atenta)/i.test(trimmedLine); // Not conversational
-      
-      if (looksLikeProduct) {
-        console.log(`Including line without quantity after product list: "${trimmedLine}"`);
-        productLines.push(trimmedLine);
+      if (hasKnownProduce) {
+        console.log(`✓ Line contains known produce: "${trimmedLine}"`);
       }
     }
   }
 
-  // If we found product lines, use them; otherwise use the cleaned message
   const result = productLines.length > 0 ? productLines.join('\n') : cleaned.trim();
 
   console.log('Extracted product list:', result);
@@ -806,30 +705,25 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 13: Product + Quantity + Unit (reversed order)
-  // Examples: "tomates 3 kilos", "papas 2 kg", "cebolla morada 3kgs"
-  // IMPORTANT: This strategy now handles units without spaces (e.g., "3kgs")
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s*(\w+)$/i);
+  // Examples: "tomates 3 kilos", "papas 2 kg", "paltas 3 kgs"
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2].replace(',', '.');
     const unitStr = match[3];
-
-    console.log(`Strategy 13 - Product: "${product}", Quantity: "${quantityStr}", Unit: "${unitStr}"`);
 
     if (isKnownUnit(unitStr)) {
       const quantity = parseQuantityValue(quantityStr);
 
       if (quantity > 0 && product) {
         const unit = normalizeUnit(unitStr, quantity);
-        console.log(`✓ Strategy 13 SUCCESS: ${quantity} ${unit} de ${product}`);
         return { quantity, unit, product };
       }
-    } else {
-      console.log(`⚠ Strategy 13: Unit "${unitStr}" not recognized as known unit`);
     }
   }
 
   // Strategy 14: Product + Quantity (no unit, reversed order)
+  // Examples: "tomates 3", "pepinos 5"
   match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)$/i);
   if (match) {
     const product = match[1].trim();
@@ -904,14 +798,15 @@ function calculateConversationalRatio(originalMessage: string, extractedProducts
 
 /**
  * Parses a WhatsApp message into a list of order items
+ * Enhanced with produce dictionary for better product identification
  */
-function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
+async function parseWhatsAppMessage(message: string, supabase: any): Promise<ParsedOrderItem[]> {
   if (!message || !message.trim()) {
     console.log('Empty message provided');
     return [];
   }
 
-  const productListOnly = extractProductList(message);
+  const productListOnly = await extractProductList(message, supabase);
 
   if (!productListOnly || !productListOnly.trim()) {
     console.log('No product list found after extraction');
@@ -1445,7 +1340,7 @@ serve(async (req) => {
         });
       }
 
-      const parsedItems = parseWhatsAppMessage(messageText);
+      const parsedItems = await parseWhatsAppMessage(messageText, supabase);
       console.log('Parsed items:', parsedItems.length);
 
       // Check if this should be a query instead of an order
@@ -1537,24 +1432,13 @@ serve(async (req) => {
 
       console.log('Creating order...');
       
-      const { data: lastOrder } = await supabase
-        .from('orders')
-        .select('order_number')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      let orderNumber = '001';
-      if (lastOrder?.order_number) {
-        const lastNumber = parseInt(lastOrder.order_number);
-        orderNumber = (lastNumber + 1).toString().padStart(3, '0');
-      }
-
+      // FIXED: Don't manually generate order_number - let the database trigger handle it
+      // The trigger will automatically generate a unique order number in format YYYYMMDD-NNNNNN
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          order_number: orderNumber,
-          customer_name: customerName, // This now uses the database name if available
+          // order_number is NOT set here - the database trigger will generate it automatically
+          customer_name: customerName,
           customer_phone: normalizedPhone,
           status: 'pending',
           source: 'whatsapp',
@@ -1565,14 +1449,20 @@ serve(async (req) => {
         .single();
 
       if (orderError) {
-        console.error('Error creating order:', orderError);
+        console.error('Error creating order:', JSON.stringify({
+          code: orderError.code,
+          message: orderError.message,
+          details: orderError.details,
+          hint: orderError.hint
+        }));
         return new Response(JSON.stringify({ success: false, error: orderError.message }), {
           status: 500,
           headers: { 'Content-Type': 'application/json' },
         });
       }
 
-      console.log('Order created:', orderNumber);
+      console.log('Order created:', order.id);
+      console.log('Order number (auto-generated):', order.order_number);
       console.log(`Order created with customer name: "${customerName}"`);
 
       // Only add parseable items to the order
@@ -1593,7 +1483,7 @@ serve(async (req) => {
       console.log('Order items created:', parseableItems.length);
 
       if (config.auto_reply_enabled) {
-        const confirmationMessage = createConfirmationMessage(customerName, orderNumber, parseableItems);
+        const confirmationMessage = createConfirmationMessage(customerName, order.order_number, parseableItems);
         await sendWhatsAppMessage(
           config.phone_number_id,
           config.access_token,
@@ -1603,7 +1493,7 @@ serve(async (req) => {
       }
 
       try {
-        const notificationTitle = `🛒 Nuevo Pedido: ${orderNumber}`;
+        const notificationTitle = `🛒 Nuevo Pedido: ${order.order_number}`;
         const notificationBody = `${customerName} - ${parseableItems.length} producto(s)`;
         
         await supabase.from('notifications').insert({
@@ -1620,7 +1510,7 @@ serve(async (req) => {
         console.error('Error sending notification:', error);
       }
 
-      return new Response(JSON.stringify({ success: true, order_number: orderNumber }), {
+      return new Response(JSON.stringify({ success: true, order_number: order.order_number }), {
         headers: { 'Content-Type': 'application/json' },
       });
     } catch (error) {

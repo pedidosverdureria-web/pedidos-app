@@ -275,7 +275,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemLast]}
+              style={styles.menuItem}
               onPress={() => handleNavigation('/settings/units')}
             >
               <View style={[styles.menuIcon, { backgroundColor: '#F59E0B' }]}>
@@ -285,6 +285,28 @@ export default function SettingsScreen() {
                 <Text style={styles.menuTitle}>Unidades de Medida</Text>
                 <Text style={styles.menuDescription}>
                   Gestionar unidades y sus definiciones
+                </Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="chevron_right"
+                size={20}
+                color={currentTheme.colors.textSecondary}
+                style={styles.menuChevron}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemLast]}
+              onPress={() => handleNavigation('/settings/produce-dictionary')}
+            >
+              <View style={[styles.menuIcon, { backgroundColor: '#10B981' }]}>
+                <IconSymbol ios_icon_name="leaf.fill" android_material_icon_name="eco" size={20} color="#FFFFFF" />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuTitle}>Diccionario de Productos</Text>
+                <Text style={styles.menuDescription}>
+                  Gestionar frutas, verduras y hortalizas
                 </Text>
               </View>
               <IconSymbol
