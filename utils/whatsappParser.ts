@@ -77,9 +77,9 @@ const UNIT_VARIATIONS: Record<string, string[]> = {
   'cabeza': ['cabeza', 'cabezas'],
   'libra': ['libra', 'libras', 'lb', 'lbs'],
   'docena': ['docena', 'docenas'],
-  'paquete': ['paquete', 'paquetes'],
+  'paquete': ['paquete', 'paquetes', 'pqt'],
   'caja': ['caja', 'cajas'],
-  'litro': ['litro', 'litros', 'lt', 'l'],
+  'litro': ['litro', 'litros', 'lt', 'lts', 'l'],
   'metro': ['metro', 'metros', 'm'],
 };
 
@@ -401,8 +401,8 @@ function cleanSegment(segment: string): string {
   // Remove square bracketed numbers or letters at the start: [1] or [a] or [A]
   cleaned = cleaned.replace(/^\[[0-9a-zA-Z]+\]\s*/, '');
   
-  // Remove dashes, asterisks, or plus signs that might be used as bullets
-  cleaned = cleaned.replace(/^[*+~]\s+/, '');
+  // Remove dashes at the start (hyphens used as bullets)
+  cleaned = cleaned.replace(/^-\s*/, '');
   
   // Remove any remaining leading whitespace
   cleaned = cleaned.trim();
@@ -656,8 +656,8 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 13: Product + Quantity + Unit (reversed order)
-  // Examples: "tomates 3 kilos", "papas 2 kg"
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)$/i);
+  // Examples: "tomates 3 kilos", "papas 2 kg", "paltas 3 kgs"
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2].replace(',', '.');
@@ -675,7 +675,7 @@ function parseSegment(segment: string): ParsedOrderItem {
 
   // Strategy 14: Product + Quantity (no unit, reversed order)
   // Examples: "tomates 3", "pepinos 5"
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)$/i);
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2].replace(',', '.');
@@ -790,4 +790,19 @@ export function parseWhatsAppMessage(message: string): ParsedOrderItem[] {
 
   console.log(`\n========== PARSING COMPLETE: ${orderItems.length} items ==========\n`);
   return orderItems;
+}
+
+/**
+ * Format parsed items for display
+ * Formats with quantity and unit on the LEFT of the product name
+ */
+export function formatParsedItems(items: ParsedOrderItem[]): string {
+  return items.map((item) => {
+    // Format: quantity + unit + "de" + product
+    // Example: "3 kilos de paltas" instead of "paltas 3 kgs"
+    const quantity = item.quantity === '#' ? '' : `${item.quantity} `;
+    const unit = item.unit ? `${item.unit} de ` : '';
+    const productName = item.product || 'Producto';
+    return `${quantity}${unit}${productName}`;
+  }).join('\n');
 }

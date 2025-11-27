@@ -70,9 +70,9 @@ const UNIT_VARIATIONS: Record<string, string[]> = {
   'cabeza': ['cabeza', 'cabezas'],
   'libra': ['libra', 'libras', 'lb', 'lbs'],
   'docena': ['docena', 'docenas'],
-  'paquete': ['paquete', 'paquetes'],
+  'paquete': ['paquete', 'paquetes', 'pqt'],
   'caja': ['caja', 'cajas'],
-  'litro': ['litro', 'litros', 'lt', 'l'],
+  'litro': ['litro', 'litros', 'lt', 'lts', 'l'],
   'metro': ['metro', 'metros', 'm'],
 };
 
@@ -407,8 +407,8 @@ function cleanSegment(segment: string): string {
   // Remove square bracketed numbers or letters at the start
   cleaned = cleaned.replace(/^\[[0-9a-zA-Z]+\]\s*/, '');
   
-  // Remove dashes, asterisks, or plus signs that might be used as bullets
-  cleaned = cleaned.replace(/^[*+~]\s+/, '');
+  // Remove dashes at the start (hyphens used as bullets)
+  cleaned = cleaned.replace(/^-\s*/, '');
   
   // Remove any remaining leading whitespace
   cleaned = cleaned.trim();
@@ -647,7 +647,8 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 13: Product + Quantity + Unit (reversed order)
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)\s+(\w+)$/i);
+  // Examples: "tomates 3 kilos", "papas 2 kg", "paltas 3 kgs"
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2].replace(',', '.');
@@ -664,7 +665,8 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 14: Product + Quantity (no unit, reversed order)
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?|\w+)$/i);
+  // Examples: "tomates 3", "pepinos 5"
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2].replace(',', '.');
@@ -863,13 +865,16 @@ function formatCLP(amount: number): string {
 
 /**
  * Format items list for WhatsApp message
+ * Now correctly formats with quantity and unit on the LEFT of the product name
  */
 function formatItemsList(items: ParsedOrderItem[], showPrices: boolean = false): string {
   return items.map((item) => {
+    // Format: quantity + unit + "de" + product
+    // Example: "3 kilos de paltas" instead of "paltas 3 kgs"
     const quantity = item.quantity === '#' ? '' : `${item.quantity} `;
-    const unit = item.unit ? `${item.unit} ` : '';
+    const unit = item.unit ? `${item.unit} de ` : '';
     const productName = item.product || 'Producto';
-    return `• ${quantity}${unit}${productName}`;
+    return `${quantity}${unit}${productName}`;
   }).join('\n');
 }
 
@@ -903,22 +908,22 @@ function createHelpMessage(customerName: string): string {
   return `❌ *No pudimos identificar productos*\n\n` +
     `Hola ${customerName}! No pude identificar productos en tu mensaje.\n\n` +
     `📝 *Formato sugerido:*\n` +
-    `• 3 kilos de tomates\n` +
-    `• 2 kilos de palta\n` +
-    `• 1 kg de papas\n` +
-    `• 5 pepinos\n` +
-    `• 1 cilantro\n\n` +
+    `3 kilos de tomates\n` +
+    `2 kilos de palta\n` +
+    `1 kg de papas\n` +
+    `5 pepinos\n` +
+    `1 cilantro\n\n` +
     `También puedes escribir:\n` +
-    `• tomates 3 kilos\n` +
-    `• 3k de tomates\n` +
-    `• tres kilos de tomates\n` +
-    `• 3kilos de papas\n` +
-    `• papas 3k\n` +
-    `• 1/4 de ají\n` +
-    `• 1/2 kilo de papas\n` +
-    `• 2 saco de papa, un cajón de tomate\n` +
-    `• 2 kilos de tomates 1 kilo de papa\n` +
-    `• 3kilos tomates 2kilos paltas 3 pepinos\n\n` +
+    `tomates 3 kilos\n` +
+    `3k de tomates\n` +
+    `tres kilos de tomates\n` +
+    `3kilos de papas\n` +
+    `papas 3k\n` +
+    `1/4 de ají\n` +
+    `1/2 kilo de papas\n` +
+    `2 saco de papa, un cajón de tomate\n` +
+    `2 kilos de tomates 1 kilo de papa\n` +
+    `3kilos tomates 2kilos paltas 3 pepinos\n\n` +
     `¡Gracias por tu comprensión! 😊`;
 }
 
@@ -930,12 +935,12 @@ function createTooMuchConversationMessage(customerName: string): string {
     `📝 Veo que quieres hacer un pedido, pero tu mensaje tiene mucho texto de conversación. 🗣️\n\n` +
     `✨ *Para procesar tu pedido más rápido*, por favor envía solo la lista de productos:\n\n` +
     `📋 *Ejemplo:*\n` +
-    `• Cebolla 36 unidades\n` +
-    `• Cilantro 7 atados\n` +
-    `• Morrón rojo 9 unidades\n` +
-    `• Limón 3 maya\n` +
-    `• Tomate 45 unidades\n` +
-    `• Frutilla 4 kilos\n\n` +
+    `Cebolla 36 unidades\n` +
+    `Cilantro 7 atados\n` +
+    `Morrón rojo 9 unidades\n` +
+    `Limón 3 maya\n` +
+    `Tomate 45 unidades\n` +
+    `Frutilla 4 kilos\n\n` +
     `💡 *Tip:* No es necesario saludar o agregar texto adicional, ¡solo envía tu lista de productos! 🎯\n\n` +
     `🙏 ¡Gracias por tu comprensión y preferencia! 💚`;
 }
@@ -948,18 +953,18 @@ function createWelcomeMessage(customerName: string): string {
     `Gracias por contactarnos. Para hacer un pedido, simplemente envía la lista de productos que necesitas.\n\n` +
     `📝 *Ejemplos de cómo hacer tu pedido:*\n\n` +
     `*Formato vertical:*\n` +
-    `• 3 kilos de tomates\n` +
-    `• 2 kilos de paltas\n` +
-    `• 5 pepinos\n` +
-    `• 1 cilantro\n\n` +
+    `3 kilos de tomates\n` +
+    `2 kilos de paltas\n` +
+    `5 pepinos\n` +
+    `1 cilantro\n\n` +
     `*Formato horizontal:*\n` +
-    `• 3 kilos de tomates, 2 kilos de paltas, 5 pepinos\n\n` +
+    `3 kilos de tomates, 2 kilos de paltas, 5 pepinos\n\n` +
     `*Otros formatos válidos:*\n` +
-    `• 3k de tomates\n` +
-    `• tomates 3 kilos\n` +
-    `• 1/4 de ají\n` +
-    `• 2 saco de papa\n` +
-    `• 3kilos tomates 2kilos paltas\n\n` +
+    `3k de tomates\n` +
+    `tomates 3 kilos\n` +
+    `1/4 de ají\n` +
+    `2 saco de papa\n` +
+    `3kilos tomates 2kilos paltas\n\n` +
     `💡 *Tip:* Puedes escribir los productos como prefieras, nosotros entenderemos tu pedido.\n\n` +
     `¿En qué podemos ayudarte hoy? 😊`;
 }
@@ -1060,20 +1065,30 @@ async function loadAuthorizedPhones(supabase: any): Promise<Set<string>> {
 
 /**
  * Get customer name from database by phone number
+ * This function prioritizes the database name over WhatsApp contact name
  */
 async function getCustomerNameFromDatabase(supabase: any, phone: string): Promise<string | null> {
   try {
+    console.log(`Looking up customer name in database for phone: ${phone}`);
+    
     const { data, error } = await supabase
       .from('customers')
       .select('name')
       .eq('phone', phone)
       .single();
 
-    if (error || !data) {
+    if (error) {
+      console.log('Customer not found in database or error occurred:', error.message);
       return null;
     }
 
-    return data.name;
+    if (data && data.name) {
+      console.log(`✅ Found customer in database: "${data.name}" (replacing WhatsApp contact name)`);
+      return data.name;
+    }
+
+    console.log('Customer found but no name in database');
+    return null;
   } catch (error) {
     console.error('Error getting customer name from database:', error);
     return null;
@@ -1082,22 +1097,28 @@ async function getCustomerNameFromDatabase(supabase: any, phone: string): Promis
 
 /**
  * Extract customer name from contact or phone
- * Prioritizes database name over WhatsApp contact name
+ * PRIORITY ORDER:
+ * 1. Database name (from customers table) - HIGHEST PRIORITY
+ * 2. WhatsApp contact name
+ * 3. Fallback name based on phone number
  */
 async function extractCustomerName(supabase: any, contact: any, phone: string): Promise<string> {
+  // PRIORITY 1: Check database first
   const dbName = await getCustomerNameFromDatabase(supabase, phone);
   if (dbName) {
-    console.log('Using customer name from database:', dbName);
+    console.log(`🎯 Using customer name from DATABASE: "${dbName}"`);
     return dbName;
   }
   
+  // PRIORITY 2: Use WhatsApp contact name
   if (contact?.profile?.name) {
-    console.log('Using customer name from WhatsApp contact:', contact.profile.name);
+    console.log(`📱 Using customer name from WhatsApp contact: "${contact.profile.name}"`);
     return contact.profile.name;
   }
   
+  // PRIORITY 3: Fallback to generic name
   const fallbackName = `Cliente ${phone.slice(-4)}`;
-  console.log('Using fallback customer name:', fallbackName);
+  console.log(`⚠️ Using fallback customer name: "${fallbackName}"`);
   return fallbackName;
 }
 
@@ -1217,10 +1238,13 @@ serve(async (req) => {
       const normalizedPhone = normalizePhoneNumber(from);
       console.log('Normalized phone:', normalizedPhone);
 
+      // Extract customer name - this will prioritize database name over WhatsApp contact name
+      const customerName = await extractCustomerName(supabase, contact, normalizedPhone);
+      console.log(`📝 Final customer name to use: "${customerName}"`);
+
       const blocked = await isCustomerBlocked(supabase, normalizedPhone);
       if (blocked) {
         console.log('Customer is blocked');
-        const customerName = await extractCustomerName(supabase, contact, from);
         
         if (config.auto_reply_enabled) {
           await sendWhatsAppMessage(
@@ -1242,7 +1266,6 @@ serve(async (req) => {
 
       if (isGreeting(messageText) && messageText.split(/\s+/).length <= 3) {
         console.log('Message is a greeting only');
-        const customerName = await extractCustomerName(supabase, contact, from);
         
         if (config.auto_reply_enabled) {
           await sendWhatsAppMessage(
@@ -1306,7 +1329,7 @@ serve(async (req) => {
             
             try {
               const notificationTitle = `💬 Consulta: ${existingOrder.order_number}`;
-              const notificationBody = `${existingOrder.customer_name}: ${messageText.substring(0, 100)}`;
+              const notificationBody = `${customerName}: ${messageText.substring(0, 100)}`;
               
               await supabase.from('notifications').insert({
                 user_id: null,
@@ -1325,7 +1348,6 @@ serve(async (req) => {
         } else {
           console.log('No existing pending order found for query');
           
-          const customerName = await extractCustomerName(supabase, contact, from);
           if (config.auto_reply_enabled) {
             // Send different message based on validation reason
             let helpMessage: string;
@@ -1351,8 +1373,6 @@ serve(async (req) => {
 
       console.log('Creating order...');
       
-      const customerName = await extractCustomerName(supabase, contact, from);
-      
       const { data: lastOrder } = await supabase
         .from('orders')
         .select('order_number')
@@ -1370,7 +1390,7 @@ serve(async (req) => {
         .from('orders')
         .insert({
           order_number: orderNumber,
-          customer_name: customerName,
+          customer_name: customerName, // This now uses the database name if available
           customer_phone: normalizedPhone,
           status: 'pending',
           source: 'whatsapp',
@@ -1389,6 +1409,7 @@ serve(async (req) => {
       }
 
       console.log('Order created:', orderNumber);
+      console.log(`Order created with customer name: "${customerName}"`);
 
       // Only add parseable items to the order
       const parseableItems = parsedItems.filter(item => item.quantity !== '#');
@@ -1449,222 +1470,3 @@ serve(async (req) => {
 
   return new Response('Method not allowed', { status: 405 });
 });
-
-
-
-<write file="WHATSAPP_INTELLIGENT_ORDER_VALIDATION.md">
-# WhatsApp Intelligent Order Validation
-
-## Problem Solved
-
-Previously, when a customer sent a message like:
-```
-"Hola buenas tardes quiero hacer un pedido de dos kilos de papas"
-```
-
-The system would create an order with the entire text, including greetings and conversational phrases. This resulted in orders with unnecessary text that should have been filtered out.
-
-## Solution Implemented
-
-The WhatsApp webhook now includes intelligent validation to determine whether a message should:
-1. **Create an order** - When the message contains a clear product list
-2. **Send a help message** - When the message is too conversational or unclear
-3. **Create a query** - When the message is a question about an existing order
-
-## How It Works
-
-### 1. Product Extraction
-The `extractProductList()` function removes:
-- Greetings: "Hola", "Buenos días", "Buenas tardes", etc.
-- Closings: "Gracias", "Saludos", "Bendiciones", etc.
-- Filler phrases: "Quiero hacer un pedido", "Quisiera pedir", etc.
-- Questions: Lines containing "?" or "¿"
-
-### 2. Order Validation
-The new `shouldCreateOrder()` function checks:
-
-#### No Items Parsed
-```javascript
-if (parsedItems.length === 0) {
-  return false; // Don't create order
-}
-```
-
-#### All Items Unparseable
-```javascript
-const allUnparseable = parsedItems.every(item => item.quantity === '#');
-if (allUnparseable) {
-  return false; // Don't create order
-}
-```
-
-#### Conversational Ratio Check
-```javascript
-const conversationalRatio = calculateConversationalRatio(message, productListOnly);
-
-// If more than 60% is conversational text and only 1-2 items
-if (conversationalRatio > 0.6 && parsedItems.length <= 2) {
-  return false; // Too much conversation, not enough products
-}
-```
-
-#### Message Length Check
-```javascript
-// If message is very short (< 15 chars) with only 1 item
-if (productListOnly.length < 15 && parsedItems.length === 1) {
-  return false; // Too vague
-}
-```
-
-## Examples
-
-### ✅ Valid Orders (Will Create Order)
-
-**Example 1: Clear product list**
-```
-3 kilos de tomates
-2 kilos de papas
-5 pepinos
-```
-- Conversational ratio: 0%
-- Items: 3
-- Result: ✅ Order created
-
-**Example 2: With greeting but clear products**
-```
-Hola, quiero:
-3 kilos de tomates
-2 kilos de papas
-5 pepinos
-1 cilantro
-```
-- Conversational ratio: ~20%
-- Items: 4
-- Result: ✅ Order created (enough products to be clear)
-
-**Example 3: Horizontal format**
-```
-3 kilos de tomates, 2 kilos de papas, 5 pepinos, 1 cilantro
-```
-- Conversational ratio: 0%
-- Items: 4
-- Result: ✅ Order created
-
-### ❌ Invalid Orders (Will Send Help Message)
-
-**Example 1: Too much conversation, few products**
-```
-Hola buenas tardes quiero hacer un pedido de dos kilos de papas
-```
-- Conversational ratio: ~70%
-- Items: 1
-- Result: ❌ Help message sent
-
-**Example 2: Only greeting**
-```
-Hola buenos días
-```
-- Conversational ratio: 100%
-- Items: 0
-- Result: ❌ Welcome message sent
-
-**Example 3: Question**
-```
-¿Cuánto cuesta el kilo de tomates?
-```
-- Is question: Yes
-- Result: ❌ Query created (if existing order) or help message
-
-**Example 4: Vague message**
-```
-Quiero papas
-```
-- Message length: 13 chars
-- Items: 1
-- Result: ❌ Help message sent (too vague)
-
-## Help Message
-
-When validation fails, customers receive a helpful message:
-
-```
-❌ *No pudimos identificar productos*
-
-Hola [Nombre]! No pude identificar productos en tu mensaje.
-
-📝 *Formato sugerido:*
-• 3 kilos de tomates
-• 2 kilos de palta
-• 1 kg de papas
-• 5 pepinos
-• 1 cilantro
-
-También puedes escribir:
-• tomates 3 kilos
-• 3k de tomates
-• tres kilos de tomates
-• 3kilos de papas
-• papas 3k
-• 1/4 de ají
-• 1/2 kilo de papas
-• 2 saco de papa, un cajón de tomate
-• 2 kilos de tomates 1 kilo de papa
-• 3kilos tomates 2kilos paltas 3 pepinos
-
-¡Gracias por tu comprensión! 😊
-```
-
-## Benefits
-
-1. **Cleaner Orders**: Only actual products are added to orders
-2. **Better User Experience**: Customers get immediate feedback if their message format is unclear
-3. **Reduced Manual Work**: Less need to manually clean up orders
-4. **Educational**: Help messages teach customers the correct format
-5. **Flexible**: Still accepts various formats when the intent is clear
-
-## Technical Details
-
-### Conversational Ratio Calculation
-```typescript
-function calculateConversationalRatio(originalMessage: string, extractedProducts: string): number {
-  const originalLength = originalMessage.trim().length;
-  const extractedLength = extractedProducts.trim().length;
-  
-  if (originalLength === 0) return 0;
-  
-  const conversationalLength = originalLength - extractedLength;
-  return conversationalLength / originalLength;
-}
-```
-
-### Validation Thresholds
-- **Conversational ratio threshold**: 60%
-- **Minimum items for high conversation**: 3 items
-- **Minimum message length for single item**: 15 characters
-
-These thresholds can be adjusted based on real-world usage patterns.
-
-## Future Improvements
-
-Potential enhancements:
-1. Machine learning to improve validation accuracy
-2. Customer-specific learning (remember their typical order format)
-3. Confidence scores for parsed items
-4. Automatic correction suggestions
-5. Multi-language support
-
-## Testing
-
-To test the new validation:
-
-1. **Valid order**: Send "3 kilos de tomates, 2 kilos de papas, 5 pepinos"
-   - Expected: Order created with 3 items
-
-2. **Invalid order**: Send "Hola buenas tardes quiero hacer un pedido de dos kilos de papas"
-   - Expected: Help message received
-
-3. **Question**: Send "¿Cuánto cuesta?"
-   - Expected: Query created (if existing order) or help message
-
-4. **Greeting only**: Send "Hola"
-   - Expected: Welcome message received
