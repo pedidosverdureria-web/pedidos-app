@@ -807,20 +807,20 @@ function isQuestion(message: string): boolean {
 
 /**
  * Determines if the message should create an order or send a help message
- * Returns true if the message is valid for order creation
+ * Returns an object with validation result and reason
  */
-function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[]): boolean {
+function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[]): { valid: boolean; reason: string } {
   // If no items were parsed, don't create order
   if (parsedItems.length === 0) {
     console.log('No items parsed - should not create order');
-    return false;
+    return { valid: false, reason: 'no_items' };
   }
 
   // If all items are unparseable, don't create order
   const allUnparseable = parsedItems.every(item => item.quantity === '#');
   if (allUnparseable) {
     console.log('All items unparseable - should not create order');
-    return false;
+    return { valid: false, reason: 'unparseable' };
   }
 
   // Calculate conversational ratio
@@ -833,18 +833,18 @@ function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[]): boo
   // it's likely not a proper order
   if (conversationalRatio > 0.6 && parsedItems.length <= 2) {
     console.log('Too much conversational text for few items - should not create order');
-    return false;
+    return { valid: false, reason: 'too_much_conversation' };
   }
 
   // If the message is very short (less than 15 characters after extraction) and only has 1 item,
   // it might be too vague
   if (productListOnly.length < 15 && parsedItems.length === 1) {
     console.log('Message too short with only 1 item - should not create order');
-    return false;
+    return { valid: false, reason: 'too_vague' };
   }
 
   console.log('Message is valid for order creation');
-  return true;
+  return { valid: true, reason: 'valid' };
 }
 
 // ============================================================================
@@ -920,6 +920,24 @@ function createHelpMessage(customerName: string): string {
     `• 2 kilos de tomates 1 kilo de papa\n` +
     `• 3kilos tomates 2kilos paltas 3 pepinos\n\n` +
     `¡Gracias por tu comprensión! 😊`;
+}
+
+/**
+ * Create message for too much conversational text
+ */
+function createTooMuchConversationMessage(customerName: string): string {
+  return `💬 *¡Hola ${customerName}!* 😊\n\n` +
+    `📝 Veo que quieres hacer un pedido, pero tu mensaje tiene mucho texto de conversación. 🗣️\n\n` +
+    `✨ *Para procesar tu pedido más rápido*, por favor envía solo la lista de productos:\n\n` +
+    `📋 *Ejemplo:*\n` +
+    `• Cebolla 36 unidades\n` +
+    `• Cilantro 7 atados\n` +
+    `• Morrón rojo 9 unidades\n` +
+    `• Limón 3 maya\n` +
+    `• Tomate 45 unidades\n` +
+    `• Frutilla 4 kilos\n\n` +
+    `💡 *Tip:* No es necesario saludar o agregar texto adicional, ¡solo envía tu lista de productos! 🎯\n\n` +
+    `🙏 ¡Gracias por tu comprensión y preferencia! 💚`;
 }
 
 /**
@@ -1247,12 +1265,13 @@ serve(async (req) => {
       const shouldBeQuery = !isAuthorized && (isQuestion(messageText) || parsedItems.length === 0);
       
       // Check if the message is valid for order creation
-      const validForOrder = shouldCreateOrder(messageText, parsedItems);
+      const orderValidation = shouldCreateOrder(messageText, parsedItems);
       
       console.log('Should be query:', shouldBeQuery);
-      console.log('Valid for order:', validForOrder);
+      console.log('Valid for order:', orderValidation.valid);
+      console.log('Validation reason:', orderValidation.reason);
 
-      if (shouldBeQuery || !validForOrder) {
+      if (shouldBeQuery || !orderValidation.valid) {
         console.log('Creating query or sending help message...');
         
         const { data: existingOrders } = await supabase
@@ -1308,16 +1327,24 @@ serve(async (req) => {
           
           const customerName = await extractCustomerName(supabase, contact, from);
           if (config.auto_reply_enabled) {
+            // Send different message based on validation reason
+            let helpMessage: string;
+            if (orderValidation.reason === 'too_much_conversation') {
+              helpMessage = createTooMuchConversationMessage(customerName);
+            } else {
+              helpMessage = createHelpMessage(customerName);
+            }
+            
             await sendWhatsAppMessage(
               config.phone_number_id,
               config.access_token,
               from,
-              createHelpMessage(customerName)
+              helpMessage
             );
           }
         }
         
-        return new Response(JSON.stringify({ success: true, query: true }), {
+        return new Response(JSON.stringify({ success: true, query: true, reason: orderValidation.reason }), {
           headers: { 'Content-Type': 'application/json' },
         });
       }
@@ -1422,9 +1449,8 @@ serve(async (req) => {
 
   return new Response('Method not allowed', { status: 405 });
 });
-</write file>
 
-Now let me deploy this updated webhook to Supabase:Perfect! The webhook has been deployed. Now let me create a documentation file explaining the improvements:
+
 
 <write file="WHATSAPP_INTELLIGENT_ORDER_VALIDATION.md">
 # WhatsApp Intelligent Order Validation
