@@ -263,6 +263,57 @@ function isOrderRequestPhrase(line: string): boolean {
 }
 
 /**
+ * Check if a line is purely conversational (no product information)
+ * This is a comprehensive check that combines multiple signals
+ */
+function isPurelyConversational(line: string, produceItems: any[]): boolean {
+  const trimmed = line.trim().toLowerCase();
+  
+  // Check if line contains known produce items
+  const hasKnownProduce = containsProduceKeywords(trimmed, produceItems);
+  if (hasKnownProduce) {
+    // If it contains produce, it's not purely conversational
+    return false;
+  }
+  
+  // Check if line has product-like patterns (quantity + unit)
+  const hasQuantityPattern = 
+    /\d+/.test(trimmed) && // Contains numbers
+    /\b(kilo|kg|kgs|gramo|gr|grs|unidad|unidades|und|unds|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|lts|metro)\b/i.test(trimmed); // Contains units
+  
+  if (hasQuantityPattern) {
+    // If it has quantity + unit pattern, it's likely a product
+    return false;
+  }
+  
+  // Check for conversational keywords
+  const conversationalKeywords = [
+    'hola', 'buenos', 'buenas', 'buen', 'buena', 'saludos', 'gracias',
+    'quiero', 'quisiera', 'quisiéramos', 'necesito', 'necesitamos',
+    'hacer', 'pedido', 'para', 'favor', 'atento', 'atenta',
+    'día', 'dia', 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado', 'domingo',
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    'quedo', 'quedamos', 'estamos', 'espero', 'esperamos'
+  ];
+  
+  // Count how many conversational keywords are in the line
+  let conversationalKeywordCount = 0;
+  for (const keyword of conversationalKeywords) {
+    if (trimmed.includes(keyword)) {
+      conversationalKeywordCount++;
+    }
+  }
+  
+  // If the line has 2 or more conversational keywords and no product patterns, it's purely conversational
+  if (conversationalKeywordCount >= 2) {
+    console.log(`Line is purely conversational (${conversationalKeywordCount} keywords): "${line}"`);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Extracts only the product list from a message, removing greetings, closings, and filler text
  * Enhanced with produce dictionary for better product identification
  */
@@ -300,6 +351,12 @@ async function extractProductList(message: string): Promise<string> {
     
     // Skip empty lines
     if (!trimmedLine) continue;
+
+    // ENHANCED: Check if line is purely conversational (comprehensive check)
+    if (isPurelyConversational(trimmedLine, produceItems)) {
+      console.log(`Skipping purely conversational line: "${trimmedLine}"`);
+      continue;
+    }
 
     // Skip lines that are conversational phrases
     if (isConversationalPhrase(trimmedLine)) {
@@ -359,7 +416,7 @@ async function extractProductList(message: string): Promise<string> {
     // This helps identify actual product lines vs. conversational text
     const hasProductPattern = 
       /\d+/.test(trimmedLine) || // Contains numbers
-      /\b(kilo|kg|kgs|gramo|gr|grs|unidad|unidades|und|unds|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|metro)\b/i.test(trimmedLine) || // Contains units
+      /\b(kilo|kg|kgs|gramo|gr|grs|unidad|unidades|und|unds|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|lts|metro)\b/i.test(trimmedLine) || // Contains units
       /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
       /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine) || // Contains number words
       hasKnownProduce; // ENHANCED: Contains known produce items

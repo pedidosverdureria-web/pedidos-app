@@ -201,6 +201,60 @@ function containsProduceKeywords(line: string, produceItems: any[]): boolean {
 }
 
 /**
+ * Check if a line is purely conversational (no product information)
+ * This is a comprehensive check that combines multiple signals
+ */
+function isPurelyConversational(line: string, produceItems: any[]): boolean {
+  const trimmed = line.trim().toLowerCase();
+  
+  // Check if line contains known produce items
+  const hasKnownProduce = containsProduceKeywords(trimmed, produceItems);
+  if (hasKnownProduce) {
+    // If it contains produce, it's not purely conversational
+    return false;
+  }
+  
+  // Check if line has product-like patterns (quantity + unit)
+  const unitNames = Object.values(UNIT_VARIATIONS).flat().join('|');
+  const unitPattern = unitNames ? new RegExp(`\\b(${unitNames})\\b`, 'i') : null;
+  
+  const hasQuantityPattern = 
+    /\d+/.test(trimmed) && // Contains numbers
+    unitPattern && unitPattern.test(trimmed); // Contains units
+  
+  if (hasQuantityPattern) {
+    // If it has quantity + unit pattern, it's likely a product
+    return false;
+  }
+  
+  // Check for conversational keywords
+  const conversationalKeywords = [
+    'hola', 'buenos', 'buenas', 'buen', 'buena', 'saludos', 'gracias',
+    'quiero', 'quisiera', 'quisiéramos', 'necesito', 'necesitamos',
+    'hacer', 'pedido', 'para', 'favor', 'atento', 'atenta',
+    'día', 'dia', 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado', 'domingo',
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+    'quedo', 'quedamos', 'estamos', 'espero', 'esperamos'
+  ];
+  
+  // Count how many conversational keywords are in the line
+  let conversationalKeywordCount = 0;
+  for (const keyword of conversationalKeywords) {
+    if (trimmed.includes(keyword)) {
+      conversationalKeywordCount++;
+    }
+  }
+  
+  // If the line has 2 or more conversational keywords and no product patterns, it's purely conversational
+  if (conversationalKeywordCount >= 2) {
+    console.log(`Line is purely conversational (${conversationalKeywordCount} keywords): "${line}"`);
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Extracts only the product list from a message, removing greetings, closings, and filler text
  * Enhanced with produce dictionary for better product identification
  */
@@ -236,6 +290,12 @@ async function extractProductList(message: string, supabase: any): Promise<strin
     
     // Skip empty lines
     if (!trimmedLine) continue;
+
+    // ENHANCED: Check if line is purely conversational (comprehensive check)
+    if (isPurelyConversational(trimmedLine, produceItems)) {
+      console.log(`Skipping purely conversational line: "${trimmedLine}"`);
+      continue;
+    }
 
     // Skip lines that are only greetings
     let isGreeting = false;
@@ -725,7 +785,7 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 13: Product + Quantity + Unit (reversed order)
-  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s+(\w+)$/i);
+  match = cleaned.match(/^([a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+?)\s+(\d+(?:[.,]\d+)?(?:\/\d+)?)\s*(\w+)$/i);
   if (match) {
     const product = match[1].trim();
     const quantityStr = match[2].replace(',', '.');
@@ -817,7 +877,7 @@ function calculateConversationalRatio(originalMessage: string, extractedProducts
 /**
  * Extract product list synchronously (for validation)
  */
-function extractProductListSync(message: string): string {
+function extractProductListSync(message: string, produceItems: any[]): string {
   let cleaned = message.trim();
 
   // Remove greeting patterns from the beginning
@@ -844,6 +904,11 @@ function extractProductListSync(message: string): string {
     
     // Skip empty lines
     if (!trimmedLine) continue;
+
+    // ENHANCED: Check if line is purely conversational (comprehensive check)
+    if (isPurelyConversational(trimmedLine, produceItems)) {
+      continue;
+    }
 
     // Skip lines that are only greetings
     let isGreeting = false;
@@ -982,7 +1047,7 @@ function isQuestion(message: string): boolean {
  * Determines if the message should create an order or send a help message
  * Returns an object with validation result and reason
  */
-function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[]): { valid: boolean; reason: string } {
+async function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[], supabase: any): Promise<{ valid: boolean; reason: string }> {
   // If no items were parsed, don't create order
   if (parsedItems.length === 0) {
     console.log('No items parsed - should not create order');
@@ -997,7 +1062,8 @@ function shouldCreateOrder(message: string, parsedItems: ParsedOrderItem[]): { v
   }
 
   // Calculate conversational ratio using sync version
-  const productListOnly = extractProductListSync(message);
+  const produceItems = await loadProduceDictionary(supabase);
+  const productListOnly = extractProductListSync(message, produceItems);
   const conversationalRatio = calculateConversationalRatio(message, productListOnly);
   
   console.log(`Conversational ratio: ${(conversationalRatio * 100).toFixed(1)}%`);
@@ -1458,8 +1524,7 @@ serve(async (req) => {
       const shouldBeQuery = !isAuthorized && (isQuestion(messageText) || parsedItems.length === 0);
       
       // Check if the message is valid for order creation
-      const productListForValidation = extractProductListSync(messageText);
-      const orderValidation = shouldCreateOrder(messageText, parsedItems);
+      const orderValidation = await shouldCreateOrder(messageText, parsedItems, supabase);
       
       console.log('Should be query:', shouldBeQuery);
       console.log('Valid for order:', orderValidation.valid);
