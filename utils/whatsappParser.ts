@@ -162,6 +162,7 @@ function extractProductList(message: string): string {
   // Remove lines that are purely greetings or questions (no product info)
   const lines = cleaned.split('\n');
   const productLines: string[] = [];
+  let foundProductLines = false;
 
   for (const line of lines) {
     const trimmedLine = line.trim();
@@ -210,8 +211,24 @@ function extractProductList(message: string): string {
       /\b(medio|media|cuarto|tercio)\b/i.test(trimmedLine) || // Contains fractions
       /\b(un|uno|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\b/i.test(trimmedLine); // Contains number words
 
+    // If we've already found product lines, be more lenient with subsequent lines
+    // This allows items like "Tomillo lindo" and "Romero lindo" to be included
+    // even if they don't have explicit quantities
     if (hasProductPattern) {
       productLines.push(trimmedLine);
+      foundProductLines = true;
+    } else if (foundProductLines && trimmedLine.length > 2 && trimmedLine.length < 50) {
+      // If we've already found product lines and this line is short enough to be a product name,
+      // include it (this catches items without quantities at the end of lists)
+      // Exclude very short lines (< 3 chars) and very long lines (> 50 chars) to avoid noise
+      const looksLikeProduct = 
+        /^[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]+$/.test(trimmedLine) && // Only letters and spaces
+        !/(quiero|quisiera|necesito|gustaría|hacer|pedido|para|favor|gracias|saludos)/i.test(trimmedLine); // Not conversational
+      
+      if (looksLikeProduct) {
+        console.log(`Including line without quantity after product list: "${trimmedLine}"`);
+        productLines.push(trimmedLine);
+      }
     }
   }
 
@@ -702,7 +719,7 @@ function parseSegment(segment: string): ParsedOrderItem {
   }
 
   // Strategy 16: Just Product (default to 1 unit)
-  // Examples: "tomates", "cilantro", "lechuga"
+  // Examples: "tomates", "cilantro", "lechuga", "Tomillo lindo", "Romero lindo"
   if (cleaned.length > 0 && !cleaned.match(/^\d/) && !isKnownUnit(cleaned.split(/\s+/)[0])) {
     return { quantity: 1, unit: 'unidad', product: cleaned };
   }
