@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Pedidos",
-    "slug": "Pedidos",
+    "name": "pedidos-app",
+    "slug": "pedidos-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png",
@@ -20,7 +20,7 @@
         "foregroundImage": "./assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png",
         "backgroundColor": "#FFFFFF"
       },
-      "package": "com.pedidos.wsp"
+      "package": "com.pedidosapp.mobile"
     },
     "web": {
       "favicon": "./assets/images/64897504-f76f-4cb3-a1f3-a82b594f1121.png",

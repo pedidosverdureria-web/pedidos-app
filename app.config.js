@@ -32,6 +32,7 @@ module.exports = {
         backgroundColor: "#FFFFFF"
       },
       package: "com.pedidosapp.mobile",
+      googleServicesFile: "./google-services.json",
       permissions: [
         "WAKE_LOCK",
         "RECEIVE_BOOT_COMPLETED",

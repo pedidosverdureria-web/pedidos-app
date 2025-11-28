@@ -209,24 +209,12 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
         if (isFirebaseError) {
           console.error('[PushNotifications] Firebase configuration error detected');
           
-          // Show a user-friendly alert
-          Alert.alert(
-            'Configuración Pendiente',
-            'Para recibir notificaciones push remotas en Android, necesitas configurar Firebase Cloud Messaging (FCM).\n\n' +
-            '📱 MIENTRAS TANTO:\n' +
-            '• Las notificaciones locales SÍ funcionarán\n' +
-            '• Recibirás notificaciones cuando la app esté abierta\n' +
-            '• Los pedidos se mostrarán normalmente\n\n' +
-            '🔧 PARA CONFIGURAR FCM:\n' +
-            'Consulta el archivo FIREBASE_FCM_SETUP_GUIDE.md en el proyecto para instrucciones detalladas.',
-            [
-              { text: 'Entendido', style: 'default' }
-            ]
+          // Throw a FirebaseConfigError so the UI can handle it properly
+          throw new FirebaseConfigError(
+            'Firebase Cloud Messaging (FCM) no está configurado. ' +
+            'Para usar notificaciones push en Android, necesitas configurar Firebase. ' +
+            'Consulta FIREBASE_FCM_SETUP_GUIDE.md para instrucciones detalladas.'
           );
-          
-          // Don't throw, just return null and continue with local notifications
-          console.log('[PushNotifications] Continuing with local notifications only');
-          return null;
         }
       }
       
@@ -315,7 +303,12 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
     console.error('[PushNotifications] Error in registration process:', e);
     console.error('[PushNotifications] Error stack:', e.stack);
     
-    // Show error to user
+    // Re-throw FirebaseConfigError so the UI can handle it
+    if (e instanceof FirebaseConfigError) {
+      throw e;
+    }
+    
+    // Show error to user for other errors
     Alert.alert(
       'Error',
       'No se pudieron configurar las notificaciones push.\n\n' +
@@ -323,7 +316,7 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
       'Las notificaciones locales seguirán funcionando.'
     );
     
-    return null;
+    throw e;
   }
 
   return token;
