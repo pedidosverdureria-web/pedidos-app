@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -56,11 +56,7 @@ export default function AnalyticsScreen() {
     growthRate: 0,
   });
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [timeRange]);
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     try {
       setLoading(true);
       const supabase = getSupabase();
@@ -99,7 +95,11 @@ export default function AnalyticsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange]);
+
+  useEffect(() => {
+    loadAnalytics();
+  }, [loadAnalytics]);
 
   // Helper function to check if order should be counted for revenue
   const isCompletedOrder = (status: string) => {

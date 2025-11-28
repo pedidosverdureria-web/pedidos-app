@@ -13,7 +13,7 @@ import {
 import { router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/integrations/supabase/client';
+import { getSupabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
 
 interface ProduceItem {
@@ -68,6 +68,7 @@ export default function ProduceDictionaryScreen() {
       setLoading(true);
       console.log('[ProduceDictionary] Loading produce items from database...');
       
+      const supabase = getSupabase();
       const { data, error } = await supabase
         .from('produce_dictionary')
         .select('*')
@@ -106,6 +107,7 @@ export default function ProduceDictionaryScreen() {
         .map(v => v.trim())
         .filter(v => v.length > 0);
 
+      const supabase = getSupabase();
       const { error } = await supabase
         .from('produce_dictionary')
         .insert({
@@ -147,6 +149,7 @@ export default function ProduceDictionaryScreen() {
           onPress: async () => {
             try {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+              const supabase = getSupabase();
               const { error } = await supabase
                 .from('produce_dictionary')
                 .delete()

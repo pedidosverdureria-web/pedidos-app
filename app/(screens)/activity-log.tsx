@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,11 +33,7 @@ export default function ActivityLogScreen() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [filter, setFilter] = useState<'all' | 'order' | 'customer' | 'product'>('all');
 
-  useEffect(() => {
-    loadLogs();
-  }, [filter]);
-
-  const loadLogs = async () => {
+  const loadLogs = useCallback(async () => {
     try {
       setLoading(true);
       const supabase = getSupabase();
@@ -61,7 +57,11 @@ export default function ActivityLogScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
 
   const getActionIcon = (actionType: string) => {
     switch (actionType) {
