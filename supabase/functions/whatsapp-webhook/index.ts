@@ -1361,16 +1361,48 @@ async function loadAuthorizedPhones(supabase: any): Promise<Set<string>> {
 /**
  * Get customer name from database by phone number
  * This function prioritizes the database name over WhatsApp contact name
+ * FIXED: Now tries both with and without the '+' prefix to handle format inconsistencies
  */
 async function getCustomerNameFromDatabase(supabase: any, phone: string): Promise<string | null> {
   try {
     console.log(`Looking up customer name in database for phone: ${phone}`);
     
-    const { data, error } = await supabase
+    // Try with the phone number as-is first
+    let { data, error } = await supabase
       .from('customers')
       .select('name')
       .eq('phone', phone)
-      .single();
+      .maybeSingle();
+
+    // If not found and phone starts with '+', try without the '+'
+    if (!data && phone.startsWith('+')) {
+      const phoneWithoutPlus = phone.substring(1);
+      console.log(`Trying without '+' prefix: ${phoneWithoutPlus}`);
+      
+      const result = await supabase
+        .from('customers')
+        .select('name')
+        .eq('phone', phoneWithoutPlus)
+        .maybeSingle();
+      
+      data = result.data;
+      error = result.error;
+    }
+    
+    // If not found and phone doesn't start with '+', try with '+'
+    if (!data && !phone.startsWith('+')) {
+      const phoneWithPlus = '+' + phone;
+      console.log(`Trying with '+' prefix: ${phoneWithPlus}`);
+      
+      const result = await supabase
+        .from('customers')
+        .select('name')
+        .eq('phone', phoneWithPlus)
+        .maybeSingle();
+      
+      data = result.data;
+      error = result.error;
+    }
 
     if (error) {
       console.log('Customer not found in database or error occurred:', error.message);
@@ -1382,7 +1414,7 @@ async function getCustomerNameFromDatabase(supabase: any, phone: string): Promis
       return data.name;
     }
 
-    console.log('Customer found but no name in database');
+    console.log('Customer not found in database');
     return null;
   } catch (error) {
     console.error('Error getting customer name from database:', error);

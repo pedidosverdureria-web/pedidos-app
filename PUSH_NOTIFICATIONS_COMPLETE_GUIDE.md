@@ -66,7 +66,7 @@ Hemos implementado una solución que permite que la aplicación funcione **CON o
 3. **Webhook llama a `notifyAllDevices()`** → `utils/pushNotifications.ts`
 4. **Se envía notificación local** → `sendLocalNotification()`
 5. **El dispositivo recibe la notificación** → Suena, vibra, despierta
-6. **Usuario toca la notificación** → Navega al pedido
+6. **Usuario to teca la notificación** → Navega al pedido
 
 ### Flujo Futuro (Con Firebase)
 
