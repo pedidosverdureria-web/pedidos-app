@@ -1,7 +1,7 @@
 
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { getSupabase } from '@/lib/supabase';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -86,209 +86,244 @@ export async function registerForPushNotificationsAsync(userRole?: string): Prom
 
   let token: string | null = null;
 
+  // First, set up notification channels (Android only)
   if (Platform.OS === 'android') {
-    // Create default notification channel with high priority
-    // CRITICAL: MAX importance ensures notifications work with screen off
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'Predeterminado',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-      sound: 'default',
-      enableVibrate: true,
-      enableLights: true,
-      showBadge: true,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true, // Bypass Do Not Disturb mode
-    });
+    try {
+      // Create default notification channel with high priority
+      // CRITICAL: MAX importance ensures notifications work with screen off
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Predeterminado',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+        sound: 'default',
+        enableVibrate: true,
+        enableLights: true,
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true, // Bypass Do Not Disturb mode
+      });
 
-    // Create order notifications channel with maximum priority for background notifications
-    // CRITICAL: This channel is specifically designed for screen-off delivery
-    await Notifications.setNotificationChannelAsync('orders', {
-      name: 'Pedidos',
-      description: 'Notificaciones de nuevos pedidos',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 500, 250, 500], // Longer vibration pattern for orders
-      lightColor: '#3B82F6',
-      sound: 'default',
-      enableVibrate: true,
-      enableLights: true,
-      showBadge: true,
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true, // Bypass Do Not Disturb mode
-    });
+      // Create order notifications channel with maximum priority for background notifications
+      // CRITICAL: This channel is specifically designed for screen-off delivery
+      await Notifications.setNotificationChannelAsync('orders', {
+        name: 'Pedidos',
+        description: 'Notificaciones de nuevos pedidos',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 500, 250, 500], // Longer vibration pattern for orders
+        lightColor: '#3B82F6',
+        sound: 'default',
+        enableVibrate: true,
+        enableLights: true,
+        showBadge: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true, // Bypass Do Not Disturb mode
+      });
 
-    console.log('[PushNotifications] Android notification channels created with MAX priority');
-    console.log('[PushNotifications] Channels configured to work with screen off and DND mode');
+      console.log('[PushNotifications] Android notification channels created with MAX priority');
+      console.log('[PushNotifications] Channels configured to work with screen off and DND mode');
+    } catch (error) {
+      console.error('[PushNotifications] Error creating notification channels:', error);
+    }
   }
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+  // Check if we're on a physical device
+  if (!Device.isDevice) {
+    console.log('[PushNotifications] Must use physical device for Push Notifications');
+    Alert.alert(
+      'Dispositivo Requerido',
+      'Las notificaciones push solo funcionan en dispositivos físicos, no en emuladores.\n\n' +
+      'Sin embargo, las notificaciones locales funcionarán cuando recibas pedidos.'
+    );
+    return null;
+  }
+
+  // Request notification permissions
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  
+  if (existingStatus !== 'granted') {
+    console.log('[PushNotifications] Requesting notification permissions...');
+    const { status } = await Notifications.requestPermissionsAsync({
+      ios: {
+        allowAlert: true,
+        allowBadge: true,
+        allowSound: true,
+        allowAnnouncements: true,
+        allowCriticalAlerts: true, // Request critical alerts for iOS
+      },
+    });
+    finalStatus = status;
+  }
+  
+  if (finalStatus !== 'granted') {
+    console.log('[PushNotifications] Failed to get push token - permission not granted');
+    Alert.alert(
+      'Permisos Requeridos',
+      'Para recibir notificaciones de nuevos pedidos, necesitas otorgar permisos de notificaciones.\n\n' +
+      'Ve a Configuración > Aplicaciones > Pedidos > Notificaciones y actívalas.'
+    );
+    return null;
+  }
+  
+  console.log('[PushNotifications] Notification permissions granted');
+  
+  try {
+    // Get the project ID from expo-constants
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId;
     
-    if (existingStatus !== 'granted') {
-      console.log('[PushNotifications] Requesting notification permissions...');
-      const { status } = await Notifications.requestPermissionsAsync({
-        ios: {
-          allowAlert: true,
-          allowBadge: true,
-          allowSound: true,
-          allowAnnouncements: true,
-          allowCriticalAlerts: true, // Request critical alerts for iOS
-        },
-      });
-      finalStatus = status;
+    if (!projectId) {
+      console.error('[PushNotifications] No Expo project ID found in app.config.js');
+      throw new Error('Expo project ID not configured. Please add it to app.config.js under extra.eas.projectId');
     }
-    
-    if (finalStatus !== 'granted') {
-      console.log('[PushNotifications] Failed to get push token - permission not granted');
-      return null;
-    }
-    
-    console.log('[PushNotifications] Notification permissions granted');
-    
+
+    console.log('[PushNotifications] Using project ID:', projectId);
+
+    // Try to get the push token
+    // This will fail if Firebase is not configured on Android
+    let pushToken;
     try {
-      // Get the project ID from expo-constants
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      pushToken = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+      token = pushToken.data;
+      console.log('[PushNotifications] Push token obtained:', token);
+    } catch (tokenError: any) {
+      console.error('[PushNotifications] Error getting push token:', tokenError);
+      console.error('[PushNotifications] Error details:', {
+        message: tokenError?.message,
+        code: tokenError?.code,
+        stack: tokenError?.stack,
+      });
       
-      if (!projectId) {
-        console.error('[PushNotifications] No Expo project ID found in app.config.js');
-        throw new Error('Expo project ID not configured. Please add it to app.config.js under extra.eas.projectId');
-      }
-
-      console.log('[PushNotifications] Using project ID:', projectId);
-
-      // Try to get the push token
-      // This will fail if Firebase is not configured on Android
-      let pushToken;
-      try {
-        pushToken = await Notifications.getExpoPushTokenAsync({
-          projectId,
-        });
-        token = pushToken.data;
-        console.log('[PushNotifications] Push token obtained:', token);
-      } catch (tokenError: any) {
-        console.error('[PushNotifications] Error getting push token:', tokenError);
-        console.error('[PushNotifications] Error details:', {
-          message: tokenError?.message,
-          code: tokenError?.code,
-          stack: tokenError?.stack,
-        });
+      // Check if it's a Firebase-related error
+      if (Platform.OS === 'android') {
+        const errorMessage = tokenError?.message || '';
+        const isFirebaseError = 
+          errorMessage.includes('FirebaseApp') || 
+          errorMessage.includes('FCM') ||
+          errorMessage.includes('google-services') ||
+          errorMessage.includes('firebase') ||
+          errorMessage.toLowerCase().includes('firebase');
         
-        // Check if it's a Firebase-related error
-        if (Platform.OS === 'android') {
-          const errorMessage = tokenError?.message || '';
-          const isFirebaseError = 
-            errorMessage.includes('FirebaseApp') || 
-            errorMessage.includes('FCM') ||
-            errorMessage.includes('google-services') ||
-            errorMessage.includes('firebase') ||
-            errorMessage.toLowerCase().includes('firebase');
+        if (isFirebaseError) {
+          console.error('[PushNotifications] Firebase configuration error detected');
           
-          if (isFirebaseError) {
-            console.error('[PushNotifications] Firebase configuration error detected');
-            throw new FirebaseConfigError(
-              'Firebase Cloud Messaging (FCM) no está configurado.\n\n' +
-              '⚠️ IMPORTANTE: Para usar notificaciones push en Android, necesitas:\n\n' +
-              '1️⃣ Crear un proyecto en Firebase Console\n' +
-              '   → https://console.firebase.google.com\n\n' +
-              '2️⃣ Agregar una aplicación Android\n' +
-              '   → Package name: com.pedidosapp.mobile\n\n' +
-              '3️⃣ Descargar google-services.json\n' +
-              '   → Colocarlo en la raíz del proyecto\n\n' +
-              '4️⃣ Configurar credenciales FCM en EAS\n' +
-              '   → Usar comando: eas credentials\n\n' +
-              '5️⃣ Hacer un nuevo build de la app\n' +
-              '   → Comando: eas build -p android\n\n' +
-              '📚 Consulta FIREBASE_FCM_SETUP_GUIDE.md para instrucciones detalladas.\n\n' +
-              '💡 ALTERNATIVA: Puedes usar solo notificaciones locales sin configurar Firebase. ' +
-              'Las notificaciones locales funcionan cuando la app está abierta o en segundo plano.'
-            );
-          }
+          // Show a user-friendly alert
+          Alert.alert(
+            'Configuración Pendiente',
+            'Para recibir notificaciones push remotas en Android, necesitas configurar Firebase Cloud Messaging (FCM).\n\n' +
+            '📱 MIENTRAS TANTO:\n' +
+            '• Las notificaciones locales SÍ funcionarán\n' +
+            '• Recibirás notificaciones cuando la app esté abierta\n' +
+            '• Los pedidos se mostrarán normalmente\n\n' +
+            '🔧 PARA CONFIGURAR FCM:\n' +
+            'Consulta el archivo FIREBASE_FCM_SETUP_GUIDE.md en el proyecto para instrucciones detalladas.',
+            [
+              { text: 'Entendido', style: 'default' }
+            ]
+          );
+          
+          // Don't throw, just return null and continue with local notifications
+          console.log('[PushNotifications] Continuing with local notifications only');
+          return null;
         }
-        
-        // Re-throw other errors
-        throw tokenError;
+      }
+      
+      // Re-throw other errors
+      throw tokenError;
+    }
+
+    // Get device ID
+    const deviceId = await getDeviceId();
+    const deviceName = Device.deviceName || 'Unknown Device';
+
+    // Save token to database using device_push_tokens table
+    const supabase = getSupabase();
+    if (supabase) {
+      console.log('[PushNotifications] Saving push token to database...');
+      console.log('[PushNotifications] Device ID:', deviceId);
+      console.log('[PushNotifications] Device Name:', deviceName);
+      console.log('[PushNotifications] User Role:', userRole || 'null');
+      console.log('[PushNotifications] Push Token:', token);
+      
+      // First, try to check if a record exists
+      const { data: existingData, error: selectError } = await supabase
+        .from('device_push_tokens')
+        .select('*')
+        .eq('device_id', deviceId)
+        .single();
+
+      if (selectError && selectError.code !== 'PGRST116') {
+        // PGRST116 is "not found" error, which is fine
+        console.error('[PushNotifications] Error checking existing token:', selectError);
       }
 
-      // Get device ID
-      const deviceId = await getDeviceId();
-      const deviceName = Device.deviceName || 'Unknown Device';
+      console.log('[PushNotifications] Existing record:', existingData ? 'found' : 'not found');
 
-      // Save token to database using device_push_tokens table
-      const supabase = getSupabase();
-      if (supabase) {
-        console.log('[PushNotifications] Saving push token to database...');
-        console.log('[PushNotifications] Device ID:', deviceId);
-        console.log('[PushNotifications] Device Name:', deviceName);
-        console.log('[PushNotifications] User Role:', userRole || 'null');
-        console.log('[PushNotifications] Push Token:', token);
+      // Now upsert the token
+      const { data, error } = await supabase
+        .from('device_push_tokens')
+        .upsert({
+          device_id: deviceId,
+          push_token: token,
+          user_role: userRole || null,
+          device_name: deviceName,
+          last_active_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'device_id',
+          ignoreDuplicates: false,
+        })
+        .select();
+
+      if (error) {
+        console.error('[PushNotifications] Error saving push token:', error);
+        console.error('[PushNotifications] Error code:', error.code);
+        console.error('[PushNotifications] Error message:', error.message);
+        console.error('[PushNotifications] Error details:', JSON.stringify(error, null, 2));
+        throw error;
+      } else {
+        console.log('[PushNotifications] Push token saved successfully to database');
+        console.log('[PushNotifications] Saved data:', JSON.stringify(data, null, 2));
         
-        // First, try to check if a record exists
-        const { data: existingData, error: selectError } = await supabase
+        // Verify the save by querying the database
+        const { data: verifyData, error: verifyError } = await supabase
           .from('device_push_tokens')
           .select('*')
           .eq('device_id', deviceId)
           .single();
 
-        if (selectError && selectError.code !== 'PGRST116') {
-          // PGRST116 is "not found" error, which is fine
-          console.error('[PushNotifications] Error checking existing token:', selectError);
-        }
-
-        console.log('[PushNotifications] Existing record:', existingData ? 'found' : 'not found');
-
-        // Now upsert the token
-        const { data, error } = await supabase
-          .from('device_push_tokens')
-          .upsert({
-            device_id: deviceId,
-            push_token: token,
-            user_role: userRole || null,
-            device_name: deviceName,
-            last_active_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }, {
-            onConflict: 'device_id',
-            ignoreDuplicates: false,
-          })
-          .select();
-
-        if (error) {
-          console.error('[PushNotifications] Error saving push token:', error);
-          console.error('[PushNotifications] Error code:', error.code);
-          console.error('[PushNotifications] Error message:', error.message);
-          console.error('[PushNotifications] Error details:', JSON.stringify(error, null, 2));
-          throw error;
+        if (verifyError) {
+          console.error('[PushNotifications] Error verifying saved token:', verifyError);
         } else {
-          console.log('[PushNotifications] Push token saved successfully to database');
-          console.log('[PushNotifications] Saved data:', JSON.stringify(data, null, 2));
-          
-          // Verify the save by querying the database
-          const { data: verifyData, error: verifyError } = await supabase
-            .from('device_push_tokens')
-            .select('*')
-            .eq('device_id', deviceId)
-            .single();
-
-          if (verifyError) {
-            console.error('[PushNotifications] Error verifying saved token:', verifyError);
-          } else {
-            console.log('[PushNotifications] Verified saved token:', JSON.stringify(verifyData, null, 2));
-          }
+          console.log('[PushNotifications] Verified saved token:', JSON.stringify(verifyData, null, 2));
         }
-      } else {
-        console.error('[PushNotifications] Supabase client not available');
-        throw new Error('Supabase client not available');
+        
+        // Show success message
+        Alert.alert(
+          '✅ Notificaciones Activadas',
+          'Las notificaciones push se han configurado correctamente.\n\n' +
+          'Recibirás notificaciones cuando lleguen nuevos pedidos por WhatsApp.'
+        );
       }
-    } catch (e: any) {
-      console.error('[PushNotifications] Error in registration process:', e);
-      console.error('[PushNotifications] Error stack:', e.stack);
-      throw e;
+    } else {
+      console.error('[PushNotifications] Supabase client not available');
+      throw new Error('Supabase client not available');
     }
-  } else {
-    console.log('[PushNotifications] Must use physical device for Push Notifications');
-    throw new Error('Las notificaciones push solo funcionan en dispositivos físicos, no en emuladores');
+  } catch (e: any) {
+    console.error('[PushNotifications] Error in registration process:', e);
+    console.error('[PushNotifications] Error stack:', e.stack);
+    
+    // Show error to user
+    Alert.alert(
+      'Error',
+      'No se pudieron configurar las notificaciones push.\n\n' +
+      'Error: ' + (e.message || 'Desconocido') + '\n\n' +
+      'Las notificaciones locales seguirán funcionando.'
+    );
+    
+    return null;
   }
 
   return token;
@@ -345,6 +380,8 @@ export async function createInAppNotification(
  * Send a local push notification with sound and vibration
  * This will work even when the screen is off or app is in background
  * CRITICAL: Uses maximum priority and wake lock to ensure delivery
+ * 
+ * This works WITHOUT Firebase - it's a local notification
  */
 export async function sendLocalNotification(
   title: string,
@@ -423,16 +460,16 @@ export async function notifyAllDevices(
 
     if (error) {
       console.error('[PushNotifications] Error fetching devices:', error);
-      return;
+    } else {
+      console.log(`[PushNotifications] Found ${devices?.length || 0} registered devices with push tokens`);
     }
-
-    console.log(`[PushNotifications] Notifying ${devices?.length || 0} registered devices`);
 
     // Create in-app notification (not tied to specific user)
     await createInAppNotification(null, title, message, type, relatedOrderId);
 
     // Send local notification (only on native platforms)
     // CRITICAL: This ensures notification works with screen off
+    // This works WITHOUT Firebase - it's a local notification
     if (Platform.OS !== 'web') {
       await sendLocalNotification(title, message, { orderId: relatedOrderId });
       console.log('[PushNotifications] Local notification sent to device');

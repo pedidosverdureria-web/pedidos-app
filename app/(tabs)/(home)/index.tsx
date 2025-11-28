@@ -16,11 +16,10 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { 
-  registerForPushNotificationsAsync, 
-  setupNotificationResponseHandler,
-  setupNotificationReceivedHandler,
   checkNotificationPermissions,
   requestNotificationPermissions,
+  setupNotificationResponseHandler,
+  setupNotificationReceivedHandler,
   updateDeviceActivity 
 } from '@/utils/pushNotifications';
 import * as Notifications from 'expo-notifications';
@@ -243,24 +242,16 @@ export default function HomeScreen() {
 
     const setupNotifications = async () => {
       try {
-        console.log('[HomeScreen] Setting up push notifications...');
+        console.log('[HomeScreen] Setting up notification handlers...');
         
         // Check if we have permission
         const hasPermission = await checkNotificationPermissions();
         
         if (!hasPermission) {
-          console.log('[HomeScreen] No notification permission, requesting...');
-          const granted = await requestNotificationPermissions();
-          
-          if (!granted) {
-            console.log('[HomeScreen] Notification permission denied');
-            return;
-          }
+          console.log('[HomeScreen] No notification permission yet');
+          // Don't request automatically - let user do it from settings
+          // Just set up the handlers for when they do grant permission
         }
-        
-        // Register for push notifications with user role
-        const token = await registerForPushNotificationsAsync(user.role);
-        console.log('[HomeScreen] Push token registered:', token);
         
         // Setup notification response handler (when user taps notification)
         if (Platform.OS !== 'web') {
@@ -292,7 +283,7 @@ export default function HomeScreen() {
           });
         }
         
-        console.log('[HomeScreen] Push notifications setup complete');
+        console.log('[HomeScreen] Notification handlers setup complete');
       } catch (error) {
         console.error('[HomeScreen] Error setting up notifications:', error);
       }
