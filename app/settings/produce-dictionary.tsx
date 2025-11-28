@@ -13,7 +13,7 @@ import {
 import { router } from 'expo-router';
 import { IconSymbol } from '@/components/IconSymbol';
 import { useTheme } from '@/contexts/ThemeContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import * as Haptics from 'expo-haptics';
 
 interface ProduceItem {
@@ -27,10 +27,17 @@ interface ProduceItem {
 }
 
 const CATEGORY_LABELS = {
-  fruta: '🍎 Frutas',
-  verdura: '🥕 Verduras',
-  hortaliza: '🌿 Hortalizas',
-  otro: '📦 Otros',
+  fruta: 'Frutas',
+  verdura: 'Verduras',
+  hortaliza: 'Hortalizas',
+  otro: 'Otros',
+};
+
+const CATEGORY_EMOJIS = {
+  fruta: '🍎',
+  verdura: '🥕',
+  hortaliza: '🌿',
+  otro: '📦',
 };
 
 const CATEGORY_COLORS = {
@@ -59,7 +66,7 @@ export default function ProduceDictionaryScreen() {
   const loadProduceItems = async () => {
     try {
       setLoading(true);
-      console.log('Loading produce items from database...');
+      console.log('[ProduceDictionary] Loading produce items from database...');
       
       const { data, error } = await supabase
         .from('produce_dictionary')
@@ -68,15 +75,17 @@ export default function ProduceDictionaryScreen() {
         .order('name', { ascending: true });
 
       if (error) {
-        console.error('Error loading produce items:', error);
+        console.error('[ProduceDictionary] Error loading produce items:', error);
+        Alert.alert('Error', `No se pudieron cargar los productos: ${error.message}`);
         throw error;
       }
 
-      console.log(`Loaded ${data?.length || 0} produce items`);
+      console.log(`[ProduceDictionary] Loaded ${data?.length || 0} produce items`);
+      console.log('[ProduceDictionary] Sample data:', data?.slice(0, 3));
       setProduceItems(data || []);
-    } catch (error) {
-      console.error('Error loading produce items:', error);
-      Alert.alert('Error', 'No se pudieron cargar los productos');
+    } catch (error: any) {
+      console.error('[ProduceDictionary] Exception loading produce items:', error);
+      Alert.alert('Error', 'No se pudieron cargar los productos. Revisa la consola para más detalles.');
     } finally {
       setLoading(false);
     }
@@ -225,15 +234,21 @@ export default function ProduceDictionaryScreen() {
       backgroundColor: currentTheme.colors.background,
       borderWidth: 1,
       borderColor: currentTheme.colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
     },
     categoryFilterActive: {
       backgroundColor: currentTheme.colors.primary,
       borderColor: currentTheme.colors.primary,
     },
+    categoryFilterEmoji: {
+      fontSize: 14,
+    },
     categoryFilterText: {
       fontSize: 13,
       color: currentTheme.colors.text,
-      fontWeight: '500',
+      fontWeight: '600',
     },
     categoryFilterTextActive: {
       color: '#FFFFFF',
@@ -372,10 +387,16 @@ export default function ProduceDictionaryScreen() {
       backgroundColor: currentTheme.colors.background,
       borderWidth: 1,
       borderColor: currentTheme.colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
     },
     categoryOptionActive: {
       backgroundColor: currentTheme.colors.primary,
       borderColor: currentTheme.colors.primary,
+    },
+    categoryOptionEmoji: {
+      fontSize: 16,
     },
     categoryOptionText: {
       fontSize: 14,
@@ -490,20 +511,54 @@ export default function ProduceDictionaryScreen() {
             Todos
           </Text>
         </TouchableOpacity>
-        {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-          <TouchableOpacity
-            key={key}
-            style={[styles.categoryFilter, selectedCategory === key && styles.categoryFilterActive]}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setSelectedCategory(key);
-            }}
-          >
-            <Text style={[styles.categoryFilterText, selectedCategory === key && styles.categoryFilterTextActive]}>
-              {label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        <TouchableOpacity
+          style={[styles.categoryFilter, selectedCategory === 'fruta' && styles.categoryFilterActive]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedCategory('fruta');
+          }}
+        >
+          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.fruta}</Text>
+          <Text style={[styles.categoryFilterText, selectedCategory === 'fruta' && styles.categoryFilterTextActive]}>
+            {CATEGORY_LABELS.fruta}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.categoryFilter, selectedCategory === 'verdura' && styles.categoryFilterActive]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedCategory('verdura');
+          }}
+        >
+          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.verdura}</Text>
+          <Text style={[styles.categoryFilterText, selectedCategory === 'verdura' && styles.categoryFilterTextActive]}>
+            {CATEGORY_LABELS.verdura}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.categoryFilter, selectedCategory === 'hortaliza' && styles.categoryFilterActive]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedCategory('hortaliza');
+          }}
+        >
+          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.hortaliza}</Text>
+          <Text style={[styles.categoryFilterText, selectedCategory === 'hortaliza' && styles.categoryFilterTextActive]}>
+            {CATEGORY_LABELS.hortaliza}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.categoryFilter, selectedCategory === 'otro' && styles.categoryFilterActive]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedCategory('otro');
+          }}
+        >
+          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.otro}</Text>
+          <Text style={[styles.categoryFilterText, selectedCategory === 'otro' && styles.categoryFilterTextActive]}>
+            {CATEGORY_LABELS.otro}
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {showAddForm && (
@@ -525,28 +580,86 @@ export default function ProduceDictionaryScreen() {
           <View style={styles.formGroup}>
             <Text style={styles.label}>Categoría</Text>
             <View style={styles.categorySelector}>
-              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                <TouchableOpacity
-                  key={key}
+              <TouchableOpacity
+                style={[
+                  styles.categoryOption,
+                  newItemCategory === 'fruta' && styles.categoryOptionActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setNewItemCategory('fruta');
+                }}
+              >
+                <Text style={styles.categoryOptionEmoji}>{CATEGORY_EMOJIS.fruta}</Text>
+                <Text
                   style={[
-                    styles.categoryOption,
-                    newItemCategory === key && styles.categoryOptionActive,
+                    styles.categoryOptionText,
+                    newItemCategory === 'fruta' && styles.categoryOptionTextActive,
                   ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setNewItemCategory(key as any);
-                  }}
                 >
-                  <Text
-                    style={[
-                      styles.categoryOptionText,
-                      newItemCategory === key && styles.categoryOptionTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                  {CATEGORY_LABELS.fruta}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryOption,
+                  newItemCategory === 'verdura' && styles.categoryOptionActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setNewItemCategory('verdura');
+                }}
+              >
+                <Text style={styles.categoryOptionEmoji}>{CATEGORY_EMOJIS.verdura}</Text>
+                <Text
+                  style={[
+                    styles.categoryOptionText,
+                    newItemCategory === 'verdura' && styles.categoryOptionTextActive,
+                  ]}
+                >
+                  {CATEGORY_LABELS.verdura}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryOption,
+                  newItemCategory === 'hortaliza' && styles.categoryOptionActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setNewItemCategory('hortaliza');
+                }}
+              >
+                <Text style={styles.categoryOptionEmoji}>{CATEGORY_EMOJIS.hortaliza}</Text>
+                <Text
+                  style={[
+                    styles.categoryOptionText,
+                    newItemCategory === 'hortaliza' && styles.categoryOptionTextActive,
+                  ]}
+                >
+                  {CATEGORY_LABELS.hortaliza}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.categoryOption,
+                  newItemCategory === 'otro' && styles.categoryOptionActive,
+                ]}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setNewItemCategory('otro');
+                }}
+              >
+                <Text style={styles.categoryOptionEmoji}>{CATEGORY_EMOJIS.otro}</Text>
+                <Text
+                  style={[
+                    styles.categoryOptionText,
+                    newItemCategory === 'otro' && styles.categoryOptionTextActive,
+                  ]}
+                >
+                  {CATEGORY_LABELS.otro}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -618,7 +731,7 @@ export default function ProduceDictionaryScreen() {
                   }}
                 />
                 <Text style={styles.sectionTitle}>
-                  {CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]}
+                  {CATEGORY_EMOJIS[category as keyof typeof CATEGORY_EMOJIS]} {CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]}
                 </Text>
                 <Text style={styles.sectionCount}>({items.length})</Text>
               </View>
