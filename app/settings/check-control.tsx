@@ -61,7 +61,7 @@ export default function CheckControlScreen() {
 
   useEffect(() => {
     loadChecks();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadChecks = async () => {
     try {
@@ -86,7 +86,7 @@ export default function CheckControlScreen() {
     setRefreshing(true);
     await loadChecks();
     setRefreshing(false);
-  }, []);
+  }, [loadChecks]);
 
   const showDialog = (
     type: 'success' | 'error' | 'warning' | 'info',

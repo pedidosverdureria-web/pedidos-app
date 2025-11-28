@@ -337,7 +337,7 @@ export const usePrinter = () => {
       // DO NOT disconnect here - keep the connection alive
       // DO NOT stop keep-alive here - let it continue
     };
-  }, []); // Empty dependency array - only run once
+  }, [requestPermissions, loadAndReconnectSavedPrinter]); // Include dependencies
 
   const savePrinter = async (device: Device) => {
     try {

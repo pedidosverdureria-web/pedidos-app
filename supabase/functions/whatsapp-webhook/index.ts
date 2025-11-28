@@ -227,6 +227,43 @@ function isPurelyConversational(line: string, produceItems: any[]): boolean {
     return false;
   }
   
+  // ENHANCED: Check for date/time patterns that should be excluded
+  const dateTimePatterns = [
+    /para\s+el\s+d[ií]a/i,
+    /para\s+ma[ñn]ana/i,
+    /para\s+hoy/i,
+    /para\s+el\s+(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)/i,
+    /el\s+d[ií]a\s+\d+/i,
+    /\d+\s+de\s+(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)/i,
+    /(lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo)\s+\d+/i,
+  ];
+  
+  for (const pattern of dateTimePatterns) {
+    if (pattern.test(trimmed)) {
+      console.log(`Line contains date/time pattern: "${line}"`);
+      return true;
+    }
+  }
+  
+  // ENHANCED: Check for order request phrases
+  const orderRequestPatterns = [
+    /^quisi[eé]ramos?\s+hacer\s+(un?\s+)?pedido/i,
+    /^quiero\s+hacer\s+(un?\s+)?pedido/i,
+    /^quisiera\s+hacer\s+(un?\s+)?pedido/i,
+    /^necesito\s+hacer\s+(un?\s+)?pedido/i,
+    /^necesitamos\s+hacer\s+(un?\s+)?pedido/i,
+    /^me\s+gustar[ií]a\s+hacer\s+(un?\s+)?pedido/i,
+    /^nos\s+gustar[ií]a\s+hacer\s+(un?\s+)?pedido/i,
+    /^hacer\s+(un?\s+)?pedido/i,
+  ];
+  
+  for (const pattern of orderRequestPatterns) {
+    if (pattern.test(trimmed)) {
+      console.log(`Line is order request phrase: "${line}"`);
+      return true;
+    }
+  }
+  
   // Check for conversational keywords
   const conversationalKeywords = [
     'hola', 'buenos', 'buenas', 'buen', 'buena', 'saludos', 'gracias',
@@ -245,8 +282,9 @@ function isPurelyConversational(line: string, produceItems: any[]): boolean {
     }
   }
   
-  // If the line has 2 or more conversational keywords and no product patterns, it's purely conversational
-  if (conversationalKeywordCount >= 2) {
+  // If the line has 3 or more conversational keywords and no product patterns, it's purely conversational
+  // CHANGED: Increased threshold from 2 to 3 to be more strict
+  if (conversationalKeywordCount >= 3) {
     console.log(`Line is purely conversational (${conversationalKeywordCount} keywords): "${line}"`);
     return true;
   }

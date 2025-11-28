@@ -52,7 +52,7 @@ export default function CheckDetailScreen() {
 
   useEffect(() => {
     loadCheck();
-  }, [checkId]);
+  }, [checkId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadCheck = async () => {
     try {

@@ -61,7 +61,7 @@ export default function ActivityLogScreen() {
 
   useEffect(() => {
     loadLogs();
-  }, [loadLogs]);
+  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getActionIcon = (actionType: string) => {
     switch (actionType) {

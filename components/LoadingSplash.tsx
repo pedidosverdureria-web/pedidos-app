@@ -25,7 +25,7 @@ export function LoadingSplash({ processes, onComplete }: LoadingSplashProps) {
       duration: 300,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [fadeAnim]);
 
   useEffect(() => {
     // Check if all processes are completed

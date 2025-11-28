@@ -99,7 +99,7 @@ export default function AnalyticsScreen() {
 
   useEffect(() => {
     loadAnalytics();
-  }, [loadAnalytics]);
+  }, [timeRange]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper function to check if order should be counted for revenue
   const isCompletedOrder = (status: string) => {

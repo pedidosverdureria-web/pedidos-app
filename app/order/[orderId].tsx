@@ -118,7 +118,7 @@ export default function OrderDetailScreen() {
       console.log('[OrderDetail] Loading customers for select mode...');
       customerHook.loadCustomers();
     }
-  }, [customerHook.editingCustomer, customerHook.customerInputMode, customerHook.availableCustomers.length]);
+  }, [customerHook.editingCustomer, customerHook.customerInputMode, customerHook.availableCustomers.length, customerHook]);
 
   // FIXED: Set customer info from order only when order changes
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function OrderDetailScreen() {
       customerHook.setCustomerPhone(order.customer_phone || '');
       customerHook.setCustomerAddress(order.customer_address || '');
     }
-  }, [order?.id, order?.customer_name, order?.customer_phone, order?.customer_address]);
+  }, [order?.id, order?.customer_name, order?.customer_phone, order?.customer_address, customerHook, order]);
 
   useEffect(() => {
     if (whatsappInput.trim()) {
