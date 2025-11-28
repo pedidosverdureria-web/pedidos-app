@@ -203,31 +203,13 @@ function containsProduceKeywords(line: string, produceItems: any[]): boolean {
 /**
  * Check if a line is purely conversational (no product information)
  * This is a comprehensive check that combines multiple signals
+ * ENHANCED: Now checks date/time and order request patterns FIRST before checking for products
  */
 function isPurelyConversational(line: string, produceItems: any[]): boolean {
   const trimmed = line.trim().toLowerCase();
   
-  // Check if line contains known produce items
-  const hasKnownProduce = containsProduceKeywords(trimmed, produceItems);
-  if (hasKnownProduce) {
-    // If it contains produce, it's not purely conversational
-    return false;
-  }
-  
-  // Check if line has product-like patterns (quantity + unit)
-  const unitNames = Object.values(UNIT_VARIATIONS).flat().join('|');
-  const unitPattern = unitNames ? new RegExp(`\\b(${unitNames})\\b`, 'i') : null;
-  
-  const hasQuantityPattern = 
-    /\d+/.test(trimmed) && // Contains numbers
-    unitPattern && unitPattern.test(trimmed); // Contains units
-  
-  if (hasQuantityPattern) {
-    // If it has quantity + unit pattern, it's likely a product
-    return false;
-  }
-  
-  // ENHANCED: Check for date/time patterns that should be excluded
+  // PRIORITY 1: Check for date/time patterns FIRST
+  // If line contains date/time info, it's conversational regardless of other content
   const dateTimePatterns = [
     /para\s+el\s+d[ií]a/i,
     /para\s+ma[ñn]ana/i,
@@ -240,12 +222,13 @@ function isPurelyConversational(line: string, produceItems: any[]): boolean {
   
   for (const pattern of dateTimePatterns) {
     if (pattern.test(trimmed)) {
-      console.log(`Line contains date/time pattern: "${line}"`);
+      console.log(`Line is purely conversational (date/time): "${line}"`);
       return true;
     }
   }
   
-  // ENHANCED: Check for order request phrases
+  // PRIORITY 2: Check for order request phrases FIRST
+  // If line is an order request phrase, it's conversational regardless of other content
   const orderRequestPatterns = [
     /^quisi[eé]ramos?\s+hacer\s+(un?\s+)?pedido/i,
     /^quiero\s+hacer\s+(un?\s+)?pedido/i,
@@ -259,19 +242,57 @@ function isPurelyConversational(line: string, produceItems: any[]): boolean {
   
   for (const pattern of orderRequestPatterns) {
     if (pattern.test(trimmed)) {
-      console.log(`Line is order request phrase: "${line}"`);
+      console.log(`Line is purely conversational (order request): "${line}"`);
       return true;
     }
   }
   
-  // Check for conversational keywords
+  // PRIORITY 3: Check for common conversational phrases
+  const conversationalPhrases = [
+    /^por\s+favor/i,
+    /gracias/i,
+    /^quedo\s+atento/i,
+    /^qued[oó]\s+atent[oa]/i,
+  ];
+  
+  for (const pattern of conversationalPhrases) {
+    if (pattern.test(trimmed)) {
+      console.log(`Line is purely conversational (phrase): "${line}"`);
+      return true;
+    }
+  }
+  
+  // PRIORITY 4: Check if line contains known produce items
+  // If it contains produce, it's likely NOT purely conversational
+  const hasKnownProduce = containsProduceKeywords(trimmed, produceItems);
+  if (hasKnownProduce) {
+    // If it contains produce, it's not purely conversational
+    console.log(`Line contains known produce, NOT conversational: "${line}"`);
+    return false;
+  }
+  
+  // PRIORITY 5: Check if line has product-like patterns (quantity + unit)
+  const unitNames = Object.values(UNIT_VARIATIONS).flat().join('|');
+  const unitPattern = unitNames ? new RegExp(`\\b(${unitNames})\\b`, 'i') : null;
+  
+  const hasQuantityPattern = 
+    /\d+/.test(trimmed) && // Contains numbers
+    unitPattern && unitPattern.test(trimmed); // Contains units
+  
+  if (hasQuantityPattern) {
+    // If it has quantity + unit pattern, it's likely a product
+    console.log(`Line has quantity+unit pattern, NOT conversational: "${line}"`);
+    return false;
+  }
+  
+  // PRIORITY 6: Count conversational keywords
   const conversationalKeywords = [
     'hola', 'buenos', 'buenas', 'buen', 'buena', 'saludos', 'gracias',
-    'quiero', 'quisiera', 'quisiéramos', 'necesito', 'necesitamos',
+    'quiero', 'quisiera', 'quisiéramos', 'quisieramos', 'necesito', 'necesitamos',
     'hacer', 'pedido', 'para', 'favor', 'atento', 'atenta',
     'día', 'dia', 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado', 'domingo',
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-    'quedo', 'quedamos', 'estamos', 'espero', 'esperamos'
+    'quedo', 'quedamos', 'estamos', 'espero', 'esperamos', 'por', 'favor'
   ];
   
   // Count how many conversational keywords are in the line
@@ -282,9 +303,9 @@ function isPurelyConversational(line: string, produceItems: any[]): boolean {
     }
   }
   
-  // If the line has 3 or more conversational keywords and no product patterns, it's purely conversational
-  // CHANGED: Increased threshold from 2 to 3 to be more strict
-  if (conversationalKeywordCount >= 3) {
+  // ENHANCED: If the line has 2 or more conversational keywords and no product patterns, it's purely conversational
+  // CHANGED: Reduced threshold from 3 to 2 to catch more conversational lines
+  if (conversationalKeywordCount >= 2) {
     console.log(`Line is purely conversational (${conversationalKeywordCount} keywords): "${line}"`);
     return true;
   }

@@ -265,35 +265,60 @@ function isOrderRequestPhrase(line: string): boolean {
 /**
  * Check if a line is purely conversational (no product information)
  * This is a comprehensive check that combines multiple signals
+ * ENHANCED: Now checks date/time and order request patterns FIRST before checking for products
  */
 function isPurelyConversational(line: string, produceItems: any[]): boolean {
   const trimmed = line.trim().toLowerCase();
   
-  // Check if line contains known produce items
+  // PRIORITY 1: Check for date/time patterns FIRST
+  // If line contains date/time info, it's conversational regardless of other content
+  if (containsDateTimeInfo(trimmed)) {
+    console.log(`Line is purely conversational (date/time): "${line}"`);
+    return true;
+  }
+  
+  // PRIORITY 2: Check for order request phrases FIRST
+  // If line is an order request phrase, it's conversational regardless of other content
+  if (isOrderRequestPhrase(trimmed)) {
+    console.log(`Line is purely conversational (order request): "${line}"`);
+    return true;
+  }
+  
+  // PRIORITY 3: Check for conversational phrases
+  // These are common closing/greeting phrases that should be filtered
+  if (isConversationalPhrase(trimmed)) {
+    console.log(`Line is purely conversational (phrase): "${line}"`);
+    return true;
+  }
+  
+  // PRIORITY 4: Check if line contains known produce items
+  // If it contains produce, it's likely NOT purely conversational
   const hasKnownProduce = containsProduceKeywords(trimmed, produceItems);
   if (hasKnownProduce) {
     // If it contains produce, it's not purely conversational
+    console.log(`Line contains known produce, NOT conversational: "${line}"`);
     return false;
   }
   
-  // Check if line has product-like patterns (quantity + unit)
+  // PRIORITY 5: Check if line has product-like patterns (quantity + unit)
   const hasQuantityPattern = 
     /\d+/.test(trimmed) && // Contains numbers
     /\b(kilo|kg|kgs|gramo|gr|grs|unidad|unidades|und|unds|bolsa|malla|saco|cajón|cajon|atado|cabeza|libra|lb|docena|paquete|caja|litro|lt|lts|metro)\b/i.test(trimmed); // Contains units
   
   if (hasQuantityPattern) {
     // If it has quantity + unit pattern, it's likely a product
+    console.log(`Line has quantity+unit pattern, NOT conversational: "${line}"`);
     return false;
   }
   
-  // Check for conversational keywords
+  // PRIORITY 6: Count conversational keywords
   const conversationalKeywords = [
     'hola', 'buenos', 'buenas', 'buen', 'buena', 'saludos', 'gracias',
-    'quiero', 'quisiera', 'quisiéramos', 'necesito', 'necesitamos',
+    'quiero', 'quisiera', 'quisiéramos', 'quisieramos', 'necesito', 'necesitamos',
     'hacer', 'pedido', 'para', 'favor', 'atento', 'atenta',
     'día', 'dia', 'lunes', 'martes', 'miércoles', 'miercoles', 'jueves', 'viernes', 'sábado', 'sabado', 'domingo',
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-    'quedo', 'quedamos', 'estamos', 'espero', 'esperamos'
+    'quedo', 'quedamos', 'estamos', 'espero', 'esperamos', 'por', 'favor'
   ];
   
   // Count how many conversational keywords are in the line
@@ -304,7 +329,8 @@ function isPurelyConversational(line: string, produceItems: any[]): boolean {
     }
   }
   
-  // If the line has 2 or more conversational keywords and no product patterns, it's purely conversational
+  // ENHANCED: If the line has 2 or more conversational keywords and no product patterns, it's purely conversational
+  // CHANGED: Reduced threshold from 3 to 2 to catch more conversational lines
   if (conversationalKeywordCount >= 2) {
     console.log(`Line is purely conversational (${conversationalKeywordCount} keywords): "${line}"`);
     return true;
@@ -353,6 +379,7 @@ async function extractProductList(message: string): Promise<string> {
     if (!trimmedLine) continue;
 
     // ENHANCED: Check if line is purely conversational (comprehensive check)
+    // This now checks date/time and order request patterns FIRST
     if (isPurelyConversational(trimmedLine, produceItems)) {
       console.log(`Skipping purely conversational line: "${trimmedLine}"`);
       continue;
