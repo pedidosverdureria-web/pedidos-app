@@ -222,34 +222,39 @@ export default function ProduceDictionaryScreen() {
       borderColor: currentTheme.colors.border,
     },
     categoryFilters: {
-      flexDirection: 'row',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      gap: 6,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
       backgroundColor: currentTheme.colors.card,
       borderBottomWidth: 1,
       borderBottomColor: currentTheme.colors.border,
     },
+    categoryFiltersGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
     categoryFilter: {
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 12,
       backgroundColor: currentTheme.colors.background,
       borderWidth: 1,
       borderColor: currentTheme.colors.border,
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
+      minWidth: '30%',
+      justifyContent: 'center',
     },
     categoryFilterActive: {
       backgroundColor: currentTheme.colors.primary,
       borderColor: currentTheme.colors.primary,
     },
     categoryFilterEmoji: {
-      fontSize: 14,
+      fontSize: 12,
     },
     categoryFilterText: {
-      fontSize: 13,
+      fontSize: 12,
       color: currentTheme.colors.text,
       fontWeight: '600',
     },
@@ -502,67 +507,69 @@ export default function ProduceDictionaryScreen() {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryFilters}>
-        <TouchableOpacity
-          style={[styles.categoryFilter, !selectedCategory && styles.categoryFilterActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedCategory(null);
-          }}
-        >
-          <Text style={[styles.categoryFilterText, !selectedCategory && styles.categoryFilterTextActive]}>
-            Todos
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.categoryFilter, selectedCategory === 'fruta' && styles.categoryFilterActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedCategory('fruta');
-          }}
-        >
-          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.fruta}</Text>
-          <Text style={[styles.categoryFilterText, selectedCategory === 'fruta' && styles.categoryFilterTextActive]}>
-            {CATEGORY_LABELS.fruta}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.categoryFilter, selectedCategory === 'verdura' && styles.categoryFilterActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedCategory('verdura');
-          }}
-        >
-          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.verdura}</Text>
-          <Text style={[styles.categoryFilterText, selectedCategory === 'verdura' && styles.categoryFilterTextActive]}>
-            {CATEGORY_LABELS.verdura}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.categoryFilter, selectedCategory === 'hortaliza' && styles.categoryFilterActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedCategory('hortaliza');
-          }}
-        >
-          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.hortaliza}</Text>
-          <Text style={[styles.categoryFilterText, selectedCategory === 'hortaliza' && styles.categoryFilterTextActive]}>
-            {CATEGORY_LABELS.hortaliza}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.categoryFilter, selectedCategory === 'otro' && styles.categoryFilterActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSelectedCategory('otro');
-          }}
-        >
-          <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.otro}</Text>
-          <Text style={[styles.categoryFilterText, selectedCategory === 'otro' && styles.categoryFilterTextActive]}>
-            {CATEGORY_LABELS.otro}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <View style={styles.categoryFilters}>
+        <View style={styles.categoryFiltersGrid}>
+          <TouchableOpacity
+            style={[styles.categoryFilter, !selectedCategory && styles.categoryFilterActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectedCategory(null);
+            }}
+          >
+            <Text style={[styles.categoryFilterText, !selectedCategory && styles.categoryFilterTextActive]}>
+              Todos
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.categoryFilter, selectedCategory === 'fruta' && styles.categoryFilterActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectedCategory('fruta');
+            }}
+          >
+            <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.fruta}</Text>
+            <Text style={[styles.categoryFilterText, selectedCategory === 'fruta' && styles.categoryFilterTextActive]}>
+              {CATEGORY_LABELS.fruta}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.categoryFilter, selectedCategory === 'verdura' && styles.categoryFilterActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectedCategory('verdura');
+            }}
+          >
+            <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.verdura}</Text>
+            <Text style={[styles.categoryFilterText, selectedCategory === 'verdura' && styles.categoryFilterTextActive]}>
+              {CATEGORY_LABELS.verdura}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.categoryFilter, selectedCategory === 'hortaliza' && styles.categoryFilterActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectedCategory('hortaliza');
+            }}
+          >
+            <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.hortaliza}</Text>
+            <Text style={[styles.categoryFilterText, selectedCategory === 'hortaliza' && styles.categoryFilterTextActive]}>
+              {CATEGORY_LABELS.hortaliza}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.categoryFilter, selectedCategory === 'otro' && styles.categoryFilterActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSelectedCategory('otro');
+            }}
+          >
+            <Text style={styles.categoryFilterEmoji}>{CATEGORY_EMOJIS.otro}</Text>
+            <Text style={[styles.categoryFilterText, selectedCategory === 'otro' && styles.categoryFilterTextActive]}>
+              {CATEGORY_LABELS.otro}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {showAddForm && (
         <View style={styles.addFormContainer}>
@@ -727,8 +734,8 @@ export default function ProduceDictionaryScreen() {
               <View style={styles.sectionHeader}>
                 <View
                   style={{
-                    width: 8,
-                    height: 8,
+                    width: 4,
+                    height: 24,
                     borderRadius: 4,
                     backgroundColor: CATEGORY_COLORS[category as keyof typeof CATEGORY_COLORS],
                   }}
